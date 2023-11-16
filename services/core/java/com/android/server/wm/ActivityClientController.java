@@ -705,6 +705,18 @@ class ActivityClientController extends IActivityClientController.Stub {
         return null;
     }
 
+    @Override
+    public int checkLaunchedFromPackagePermission(IBinder token, String permission) {
+        if (!WindowManagerHooks.canAccessLaunchedFromPackagePermission()) {
+            throw new SecurityException();
+        }
+
+        synchronized (mGlobalLock) {
+            final ActivityRecord r = ActivityRecord.forTokenLocked(token);
+            return WindowManagerHooks.checkLaunchedFromPackagePermission(r, permission);
+        }
+    }
+
     /** Whether the call to one of the getLaunchedFrom APIs is performed by an internal caller. */
     private boolean isInternalCallerGetLaunchedFrom(int uid) {
         if (UserHandle.getAppId(uid) == SYSTEM_UID) {

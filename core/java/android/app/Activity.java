@@ -6932,6 +6932,24 @@ public class Activity extends ContextThemeWrapper
     }
 
     /**
+     * Determine whether the app launching the current activity has been granted a particular permission.
+     * Only system browsers can utilize this call.
+     *
+     * Apps that can access the app launching the current activity can check
+     * if a permission is granted using {@link PackageManager#checkPermission(String, String)}
+     *
+     * @param permission The name of the permission being checked.
+     *
+     * @return {@link PackageManager#PERMISSION_GRANTED} if the calling
+     * pid/uid is allowed that permission, or {@link PackageManager#PERMISSION_DENIED} if it is not.
+     * @hide
+     */
+    @UnsupportedAppUsage
+    public int checkLaunchedFromPackagePermission(String permission) {
+        return ActivityClient.getInstance().checkLaunchedFromPackagePermission(getActivityToken(), permission);
+    }
+
+    /**
      * Control whether this activity's main window is visible.  This is intended
      * only for the special case of an activity that is not going to show a
      * UI itself, but can't just finish prior to onResume() because it needs
