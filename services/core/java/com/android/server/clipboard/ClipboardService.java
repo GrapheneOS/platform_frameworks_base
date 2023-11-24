@@ -682,7 +682,12 @@ public class ClipboardService extends SystemService {
                 if (clipboard == null) {
                     return null;
                 }
-                showAccessNotificationLocked(pkg, intendingUid, intendingUserId, clipboard);
+                boolean isReadBlocked = isReadBlockedForPkg(intendingUid, pkg, userId, clipboard);
+                showAccessNotificationLocked(pkg, intendingUid, intendingUserId, clipboard,
+                        isReadBlocked);
+                if (isReadBlocked) {
+                    return clipboard.primaryClip != null ? ClipboardAccessHelper.dummyClip : null;
+                }
                 notifyTextClassifierLocked(clipboard, pkg, intendingUid);
                 if (clipboard.primaryClip != null) {
                     scheduleAutoClear(userId, intendingUid, intendingDeviceId);
@@ -710,8 +715,13 @@ public class ClipboardService extends SystemService {
             }
             synchronized (mLock) {
                 Clipboard clipboard = getClipboardLocked(intendingUserId, intendingDeviceId);
-                return (clipboard != null && clipboard.primaryClip != null)
-                        ? clipboard.primaryClip.getDescription() : null;
+                ClipDescription clipDesc = null;
+                if (clipboard != null && clipboard.primaryClip != null) {
+                    clipDesc = isReadBlockedForPkg(intendingUid, callingPackage, userId, clipboard)
+                            ? ClipboardAccessHelper.dummyClip.getDescription()
+                            : clipboard.primaryClip.getDescription();
+                }
+                return clipDesc;
             }
         }
 
@@ -809,7 +819,8 @@ public class ClipboardService extends SystemService {
             }
             synchronized (mLock) {
                 Clipboard clipboard = getClipboardLocked(intendingUserId, intendingDeviceId);
-                if (clipboard != null && clipboard.primaryClip != null) {
+                if (clipboard != null && clipboard.primaryClip != null
+                        && !isReadBlockedForPkg(intendingUid, callingPackage, userId, clipboard)) {
                     CharSequence text = clipboard.primaryClip.getItemAt(0).getText();
                     return text != null && text.length() > 0;
                 }
@@ -838,7 +849,8 @@ public class ClipboardService extends SystemService {
             }
             synchronized (mLock) {
                 Clipboard clipboard = getClipboardLocked(intendingUserId, intendingDeviceId);
-                if (clipboard != null && clipboard.primaryClip != null) {
+                if (clipboard != null && clipboard.primaryClip != null
+                        && !isReadBlockedForPkg(intendingUid, callingPackage, userId, clipboard)) {
                     return clipboard.mPrimaryClipPackage;
                 }
                 return null;
@@ -1046,6 +1058,14 @@ public class ClipboardService extends SystemService {
                 try {
                     ListenerInfo li = (ListenerInfo)
                             clipboard.primaryClipListeners.getBroadcastCookie(i);
+
+                    if (isReadBlockedForPkg(
+                            li.mUid,
+                            li.mPackageName,
+                            UserHandle.getUserId(li.mUid),
+                            clipboard)) {
+                        continue;
+                    }
 
                     if (clipboardAccessAllowed(
                             AppOpsManager.OP_READ_CLIPBOARD,
@@ -1438,7 +1458,7 @@ public class ClipboardService extends SystemService {
      */
     @GuardedBy("mLock")
     private void showAccessNotificationLocked(String callingPackage, int uid, @UserIdInt int userId,
-            Clipboard clipboard) {
+            Clipboard clipboard, boolean isReadBlocked) {
         if (clipboard.primaryClip == null) {
             return;
         }
@@ -1472,6 +1492,18 @@ public class ClipboardService extends SystemService {
                 clipboard.deviceId) == uid) {
             return;
         }
+
+        // Shows a system notification instead, when clipboard access is blocked.
+        if (isReadBlocked) {
+            String message =
+                    getContext().getString(R.string.notif_clipboard_read_deny_title, callingPackage);
+            Slog.d(TAG, message);
+            Binder.withCleanCallingIdentity(
+                    () -> ClipboardAccessHelper.maybeNotifyAccessDenied(getContext(),
+                            callingPackage, userId));
+            return;
+        }
+
         // Don't notify if already notified for this uid and clip.
         if (clipboard.mNotifiedUids.get(uid)) {
             return;
@@ -1614,5 +1646,10 @@ public class ClipboardService extends SystemService {
     private TextClassificationManager createTextClassificationManagerAsUser(@UserIdInt int userId) {
         Context context = getContext().createContextAsUser(UserHandle.of(userId), /* flags= */ 0);
         return context.getSystemService(TextClassificationManager.class);
+    }
+
+    private boolean isReadBlockedForPkg(int uid, String pkg, int userId, Clipboard clipboard) {
+        return !UserHandle.isSameApp(uid, clipboard.primaryClipUid)
+                && ClipboardAccessHelper.isReadBlockedForPackage(getContext(), pkg, userId);
     }
 }
