@@ -659,6 +659,8 @@ public class GosPackageStatePmHooks {
                     | FLAG_FORCE_MEMTAG_NON_DEFAULT
                     | FLAG_FORCE_MEMTAG
                     | FLAG_ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE
+                    | FLAG_DENY_CLIPBOARD_READ_NON_DEFAULT
+                    | FLAG_DENY_CLIPBOARD_READ
             ;
 
             final int settingsReadFlags = settingsReadWriteFlags
@@ -681,7 +683,8 @@ public class GosPackageStatePmHooks {
                     | FLAG_BLOCK_NATIVE_DEBUGGING_SUPPRESS_NOTIF
                     | FLAG_RESTRICT_MEMORY_DYN_CODE_EXEC_SUPPRESS_NOTIF
                     | FLAG_RESTRICT_STORAGE_DYN_CODE_EXEC_SUPPRESS_NOTIF
-                    | FLAG_FORCE_MEMTAG_SUPPRESS_NOTIF;
+                    | FLAG_FORCE_MEMTAG_SUPPRESS_NOTIF
+                    | FLAG_DENY_CLIPBOARD_READ_SUPPRESS_NOTIF;
 
             final int systemUidWriteFields =
                     FIELD_CONTACT_SCOPES // see onClearApplicationUserData() hook
