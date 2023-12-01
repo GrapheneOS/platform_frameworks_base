@@ -294,6 +294,14 @@ public class ActivityClient {
         }
     }
 
+    public int checkLaunchedFromPackagePermission(IBinder token, String permission) {
+        try {
+            return getActivityClientController().checkLaunchedFromPackagePermission(token, permission);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
     public void setRequestedOrientation(IBinder token, int requestedOrientation) {
         try {
             getActivityClientController().setRequestedOrientation(token, requestedOrientation);

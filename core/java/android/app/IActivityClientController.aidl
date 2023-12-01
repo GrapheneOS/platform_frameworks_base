@@ -191,4 +191,10 @@ interface IActivityClientController {
      */
     boolean isRequestedToLaunchInTaskFragment(in IBinder activityToken,
             in IBinder taskFragmentToken);
+
+    /**
+     * @return {@link PackageManager#PERMISSION_GRANTED} if the app launching the activity has the permission.
+     * This method is only accessible to system browser app.
+     */
+    int checkLaunchedFromPackagePermission(in IBinder token, String permission);
 }
