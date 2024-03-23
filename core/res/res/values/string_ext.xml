@@ -46,4 +46,7 @@
     <string name="notif_hmalloc_crash_title">hardened_malloc detected an error in %1$s</string>
     <java-symbol type="string" name="notif_hmalloc_crash_title" />
 
+    <string name="notif_clipboard_read_deny_title">%1$s tried to read clipboard</string>
+    <java-symbol type="string" name="notif_clipboard_read_deny_title" />
+
 </resources>
