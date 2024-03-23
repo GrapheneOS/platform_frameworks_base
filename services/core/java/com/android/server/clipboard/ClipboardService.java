@@ -1495,9 +1495,7 @@ public class ClipboardService extends SystemService {
 
         // Shows a system notification instead, when clipboard access is blocked.
         if (isReadBlocked) {
-            String message =
-                    getContext().getString(R.string.notif_clipboard_read_deny_title, callingPackage);
-            Slog.d(TAG, message);
+            Slog.d(TAG, "clipboard read blocked for: " + callingPackage);
             Binder.withCleanCallingIdentity(
                     () -> ClipboardAccessHelper.maybeNotifyAccessDenied(getContext(),
                             callingPackage, userId));
@@ -1649,7 +1647,7 @@ public class ClipboardService extends SystemService {
     }
 
     private boolean isReadBlockedForPkg(int uid, String pkg, int userId, Clipboard clipboard) {
-        return !UserHandle.isSameApp(uid, clipboard.primaryClipUid)
+        return uid != clipboard.primaryClipUid
                 && ClipboardAccessHelper.isReadBlockedForPackage(getContext(), pkg, userId);
     }
 }
