@@ -339,6 +339,7 @@ public final class GmsHooks {
     public static Cursor maybeModifyQueryResult(Uri uri,
             @Nullable String[] projection, @Nullable Bundle queryArgs, @Nullable Cursor origCursor) {
         String uriString = uri.toString();
+        Log.d(TAG, "maybeModifyQueryResult for " + uriString);
 
         Consumer<ArrayMap<String, String>> mutator = null;
 
