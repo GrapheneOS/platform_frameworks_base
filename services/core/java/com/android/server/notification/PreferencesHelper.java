@@ -1112,6 +1112,11 @@ public class PreferencesHelper implements RankingConfig {
                     needsPolicyFileChange = true;
                 }
 
+                if (r.fixedImportance && !channel.isBlockable() && existing.getImportance() != channel.getImportance()) {
+                    existing.setImportance(channel.getImportance());
+                    needsPolicyFileChange = true;
+                }
+
                 // system apps and dnd access apps can bypass dnd if the user hasn't changed any
                 // fields on the channel yet
                 if (existing.getUserLockedFields() == 0 && hasDndAccess) {
