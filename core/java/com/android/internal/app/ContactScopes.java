@@ -159,7 +159,7 @@ public class ContactScopes {
             case AppOpsManager.OP_WRITE_CONTACTS:
                 return DerivedPackageFlag.HAS_WRITE_CONTACTS_DECLARATION;
             case AppOpsManager.OP_GET_ACCOUNTS:
-                return DerivedPackageFlag.HAS_WRITE_CONTACTS_DECLARATION;
+                return DerivedPackageFlag.HAS_GET_ACCOUNTS_DECLARATION;
             default:
                 return 0;
         }
