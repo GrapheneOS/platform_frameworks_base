@@ -18136,6 +18136,17 @@ public final class Settings {
          * or not a valid integer.
          */
         public static int getInt(ContentResolver cr, String name, int def) {
+            if (GmsCompat.isEnabled()) {
+                if ("google_play_store_system_component_update".equals(name)) {
+                    // Stop Play Store from attempting to auto-install some system component
+                    // packages, such as "Android System SafetyCore" (com.google.android.safetycore)
+                    // and "Android System Key Verifier" (com.google.android.contactkeys)
+                    //
+                    // This setting also disables auto-updates of GmsCore and Play Store.
+                    return 0;
+                }
+            }
+
             String v = getString(cr, name);
             return parseIntSettingWithDefault(v, def);
         }
