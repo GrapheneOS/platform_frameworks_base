@@ -5245,6 +5245,7 @@ public class ActivityManagerService extends IActivityManager.Stub
         showMteOverrideNotificationIfActive();
         // If device is not a mass production (MP) variant, send a warning notification.
         showPrototypeNotificationIfPrototype();
+        EolDeviceNotification.maybeShow(mContext);
 
         t.traceEnd();
     }
