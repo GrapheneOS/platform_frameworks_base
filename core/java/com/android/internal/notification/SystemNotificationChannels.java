@@ -272,14 +272,23 @@ public class SystemNotificationChannels {
 
     public static final String MISSING_PERMISSION = "MISSING_PERMISSION";
 
+    public static final String DEVICE_IS_EOL = "DEVICE_IS_EOL";
+
     private static void extraChannels(Context ctx, List<NotificationChannel> dest) {
         channel(ctx, MISSING_PERMISSION,
                     R.string.notification_channel_missing_permission,
                     NotificationManager.IMPORTANCE_HIGH, true, dest);
+        channel(ctx, DEVICE_IS_EOL,
+                "This device is no longer supported",
+                NotificationManager.IMPORTANCE_HIGH, true, dest);
     }
 
     private static NotificationChannel channel(Context ctx, String id, int nameRes, int importance, boolean silent, List<NotificationChannel> dest) {
-        var c = new NotificationChannel(id, ctx.getText(nameRes), importance);
+        return channel(ctx, id, ctx.getText(nameRes), importance, silent, dest);
+    }
+
+    private static NotificationChannel channel(Context ctx, String id, CharSequence name, int importance, boolean silent, List<NotificationChannel> dest) {
+        var c = new NotificationChannel(id, name, importance);
         if (silent) {
             c.setSound(null, null);
             c.enableVibration(false);
