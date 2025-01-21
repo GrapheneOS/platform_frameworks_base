@@ -48,7 +48,7 @@ public class ScreenUndimDetector {
 
     /** DeviceConfig flag: is keep screen on feature enabled. */
     static final String KEY_KEEP_SCREEN_ON_ENABLED = "keep_screen_on_enabled";
-    private static final boolean DEFAULT_KEEP_SCREEN_ON_ENABLED = true;
+    private static final boolean DEFAULT_KEEP_SCREEN_ON_ENABLED = false;
     private static final int OUTCOME_POWER_BUTTON =
             FrameworkStatsLog.TIMEOUT_AUTO_EXTENDED_REPORTED__OUTCOME__POWER_BUTTON;
     private static final int OUTCOME_TIMEOUT =
