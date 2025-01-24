@@ -1741,95 +1741,6 @@ std::pair<const char*, const char*> build_constants[] = {
         std::pair("HOST", "ro.build.host"),
 };
 
-// All public String Build.VERSION constants, and the system properties they're pulled from
-std::pair<const char*, const char*> build_version_constants[] = {
-        std::pair("INCREMENTAL", "ro.build.version.incremental"),
-        std::pair("RELEASE", "ro.build.version.release"),
-        std::pair("RELEASE_OR_CODENAME", "ro.build.version.release_or_codename"),
-        std::pair("RELEASE_OR_PREVIEW_DISPLAY", "ro.build.version.release_or_preview_display"),
-        std::pair("BASE_OS", "ro.build.version.base_os"),
-        std::pair("SECURITY_PATCH", "ro.build.version.security_patch"),
-        std::pair("SDK", "ro.build.version.sdk"),
-        std::pair("PREVIEW_SDK_FINGERPRINT", "ro.build.version.preview_sdk_fingerprint"),
-        std::pair("CODENAME", "ro.build.version.codename"),
-};
-
-static void ReloadBuildJavaConstant(JNIEnv* env, jclass build_class, const char* field_name,
-                                    const char* field_signature, const char* sysprop_name) {
-  const prop_info* prop_info = __system_property_find(sysprop_name);
-  std::string new_value;
-  __system_property_read_callback(
-          prop_info,
-          [](void* cookie, const char* name, const char* value, unsigned serial) {
-              auto new_value = reinterpret_cast<std::string*>(cookie);
-              *new_value = value;
-          },
-          &new_value);
-  jfieldID fieldId = env->GetStaticFieldID(build_class, field_name, field_signature);
-  if (strcmp(field_signature, "I") == 0) {
-    env->SetStaticIntField(build_class, fieldId, jint(strtol(new_value.c_str(), nullptr, 0)));
-  } else if (strcmp(field_signature, "Ljava/lang/String;") == 0) {
-    jstring string_val = env->NewStringUTF(new_value.c_str());
-    env->SetStaticObjectField(build_class, fieldId, string_val);
-  } else if (strcmp(field_signature, "[Ljava/lang/String;") == 0) {
-    auto stream = std::stringstream(new_value);
-    std::vector<std::string> items;
-    std::string segment;
-    while (std::getline(stream, segment, ',')) {
-      items.push_back(segment);
-    }
-    jclass string_class = env->FindClass("java/lang/String");
-    jobjectArray string_arr = env->NewObjectArray(items.size(), string_class, nullptr);
-    for (size_t i = 0; i < items.size(); i++) {
-      jstring string_arr_val = env->NewStringUTF(items.at(i).c_str());
-      env->SetObjectArrayElement(string_arr, i, string_arr_val);
-    }
-    env->SetStaticObjectField(build_class, fieldId, string_arr);
-  } else if (strcmp(field_signature, "J") == 0) {
-    env->SetStaticLongField(build_class, fieldId, jlong(strtoll(new_value.c_str(), nullptr, 0)));
-  }
-}
-
-static void ReloadBuildJavaConstants(JNIEnv* env) {
-  jclass build_cls = env->FindClass("android/os/Build");
-  size_t arr_size = sizeof(build_constants) / sizeof(build_constants[0]);
-  for (size_t i = 0; i < arr_size; i++) {
-    const char* field_name = build_constants[i].first;
-    const char* sysprop_name = build_constants[i].second;
-    ReloadBuildJavaConstant(env, build_cls, field_name, "Ljava/lang/String;", sysprop_name);
-  }
-  jclass build_version_cls = env->FindClass("android/os/Build$VERSION");
-  arr_size = sizeof(build_version_constants) / sizeof(build_version_constants[0]);
-  for (size_t i = 0; i < arr_size; i++) {
-    const char* field_name = build_version_constants[i].first;
-    const char* sysprop_name = build_version_constants[i].second;
-    ReloadBuildJavaConstant(env, build_version_cls, field_name, "Ljava/lang/String;", sysprop_name);
-  }
-
-  // Reload the public String[] constants
-  ReloadBuildJavaConstant(env, build_cls, "SUPPORTED_ABIS", "[Ljava/lang/String;",
-                          "ro.product.cpu.abilist");
-  ReloadBuildJavaConstant(env, build_cls, "SUPPORTED_32_BIT_ABIS", "[Ljava/lang/String;",
-                          "ro.product.cpu.abilist32");
-  ReloadBuildJavaConstant(env, build_cls, "SUPPORTED_64_BIT_ABIS", "[Ljava/lang/String;",
-                          "ro.product.cpu.abilist64");
-  ReloadBuildJavaConstant(env, build_version_cls, "ALL_CODENAMES", "[Ljava/lang/String;",
-                          "ro.build.version.all_codenames");
-
-  // Reload the public int/long constants
-  ReloadBuildJavaConstant(env, build_cls, "TIME", "J", "ro.build.date.utc");
-  ReloadBuildJavaConstant(env, build_version_cls, "SDK_INT", "I", "ro.build.version.sdk");
-  ReloadBuildJavaConstant(env, build_version_cls, "PREVIEW_SDK_INT", "I",
-                          "ro.build.version.preview_sdk");
-
-  // Re-derive the fingerprint
-  jmethodID derive_fingerprint =
-          env->GetStaticMethodID(build_cls, "deriveFingerprint", "()Ljava/lang/String;");
-  auto new_fingerprint = (jstring)(env->CallStaticObjectMethod(build_cls, derive_fingerprint));
-  jfieldID fieldId = env->GetStaticFieldID(build_cls, "FINGERPRINT", "Ljava/lang/String;");
-  env->SetStaticObjectField(build_cls, fieldId, new_fingerprint);
-}
-
 static void BindMountSyspropOverride(fail_fn_t fail_fn, JNIEnv* env) {
   std::string source = "/dev/__properties__/appcompat_override";
   std::string target = "/dev/__properties__";
@@ -1842,8 +1753,12 @@ static void BindMountSyspropOverride(fail_fn_t fail_fn, JNIEnv* env) {
   BindMount(source, target, fail_fn);
   // Reload the system properties file, to ensure new values are read into memory
   __system_properties_zygote_reload();
+  // ReloadBuildJavaConstants() is not needed currently, only ro.boot.verifiedbootstate is overridden,
+  // which doesn't affect android.os.Build constants
+  // TODO: when ReloadBuildJavaConstants is needed, make it skip reloading of unaffected constants
+  //
   // android.os.Build constants are pulled from system properties, so they must be reloaded, too
-  ReloadBuildJavaConstants(env);
+  // ReloadBuildJavaConstants(env);
 }
 
 static void BindMountStorageToLowerFs(const userid_t user_id, const uid_t uid,
