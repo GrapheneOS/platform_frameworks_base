@@ -2553,15 +2553,17 @@ public final class ProcessList {
                 allowlistedAppDataInfoMap = null;
             }
 
-            boolean bindOverrideSysprops = false;
-            String[] syspropOverridePkgNames = DeviceConfig.getString(
-                    DeviceConfig.NAMESPACE_APP_COMPAT,
-                            "appcompat_sysprop_override_pkgs", "").split(",");
-            String[] pkgs = app.getPackageList();
-            for (int i = 0; i < pkgs.length; i++) {
-                if (ArrayUtils.contains(syspropOverridePkgNames, pkgs[i])) {
-                    bindOverrideSysprops = true;
-                    break;
+            boolean bindOverrideSysprops = !app.info.isSystemApp();
+            if (!bindOverrideSysprops) {
+                String[] syspropOverridePkgNames = DeviceConfig.getString(
+                        DeviceConfig.NAMESPACE_APP_COMPAT,
+                                "appcompat_sysprop_override_pkgs", "").split(",");
+                String[] pkgs = app.getPackageList();
+                for (int i = 0; i < pkgs.length; i++) {
+                    if (ArrayUtils.contains(syspropOverridePkgNames, pkgs[i])) {
+                        bindOverrideSysprops = true;
+                        break;
+                    }
                 }
             }
 
