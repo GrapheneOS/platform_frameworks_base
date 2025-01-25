@@ -280,7 +280,7 @@ public class SystemNotificationChannels {
                     NotificationManager.IMPORTANCE_HIGH, true, dest);
         channel(ctx, DEVICE_IS_EOL,
                 "This device is no longer supported",
-                NotificationManager.IMPORTANCE_HIGH, true, dest);
+                NotificationManager.IMPORTANCE_HIGH, true, dest).setBlockable(true);
     }
 
     private static NotificationChannel channel(Context ctx, String id, int nameRes, int importance, boolean silent, List<NotificationChannel> dest) {
