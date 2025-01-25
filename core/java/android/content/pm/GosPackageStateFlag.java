@@ -33,6 +33,9 @@ public interface GosPackageStateFlag {
     /** @hide */ int FORCE_MEMTAG_SUPPRESS_NOTIF = 23;
     /** @hide */ int ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE = 24;
     // flag 25 was used previously, do not reuse it
+    /** @hide */ int PLAY_INTEGRITY_API_USED_AT_LEAST_ONCE = 26;
+    /** @hide */ int SUPPRESS_PLAY_INTEGRITY_API_NOTIF = 27;
+    /** @hide */ int BLOCK_PLAY_INTEGRITY_API = 28;
 
     /** @hide */
     @IntDef(value = {
@@ -58,6 +61,9 @@ public interface GosPackageStateFlag {
             FORCE_MEMTAG,
             FORCE_MEMTAG_SUPPRESS_NOTIF,
             ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE,
+            PLAY_INTEGRITY_API_USED_AT_LEAST_ONCE,
+            SUPPRESS_PLAY_INTEGRITY_API_NOTIF,
+            BLOCK_PLAY_INTEGRITY_API,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface Enum {}

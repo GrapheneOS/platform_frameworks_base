@@ -225,6 +225,10 @@ class GosPackageStatePermission {
     GosPackageState filterWrite(GosPackageState current, GosPackageState update) {
         long flagStorage1 = (current.flagStorage1 & ~writeFlagStorage1) | (update.flagStorage1 & writeFlagStorage1);
 
+        // flags that can't be unset
+        long oneWayFlags1 = (1L << GosPackageStateFlag.PLAY_INTEGRITY_API_USED_AT_LEAST_ONCE);
+        flagStorage1 |= current.flagStorage1 & oneWayFlags1;
+
         var res = new GosPackageState(
                 flagStorage1
                 , canWriteField(FIELD_PACKAGE_FLAGS) ? update.packageFlagStorage : current.packageFlagStorage
