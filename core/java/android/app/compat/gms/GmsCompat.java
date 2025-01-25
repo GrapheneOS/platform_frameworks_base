@@ -21,6 +21,7 @@ import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.internal.gmscompat.GmsCompatLib;
 import com.android.internal.gmscompat.GmsHooks;
 import com.android.internal.gmscompat.GmsInfo;
 import com.android.internal.util.ArrayUtils;
@@ -131,6 +132,10 @@ public final class GmsCompat {
 
         isEligibleForClientCompat = !isGmsCore() &&
                 appInfoExt.hasFlag(AppInfoExtFlag.HAS_GMSCORE_CLIENT_LIBRARY);
+
+        if (isEligibleForClientCompat && GmsCompatLib.get() == null) {
+            GmsCompatLib.init(appCtx, Application.getProcessName());
+        }
     }
 
     public static boolean isEnabledFor(@NonNull ApplicationInfo app) {
