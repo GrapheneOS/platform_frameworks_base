@@ -97,6 +97,8 @@ public final class GmsHooks {
             inPersistentGmsCoreProcess = processName.equals(PERSISTENT_GmsCore_PROCESS);
         }
 
+        GmsCompatLib.init(ctx, processName);
+
         if (GmsCompat.isPlayStore()) {
             PlayStoreHooks.init();
         }
