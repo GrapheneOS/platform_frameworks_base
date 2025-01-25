@@ -12,6 +12,7 @@ public class SettingsIntents {
     public static final String APP_HARDENED_MALLOC = "android.settings.OPEN_APP_HARDENED_MALLOC_SETTINGS";
     public static final String APP_MEMORY_DYN_CODE_LOADING = "android.settings.OPEN_APP_MEMORY_DYN_CODE_LOADING_SETTINGS";
     public static final String APP_STORAGE_DYN_CODE_LOADING = "android.settings.OPEN_APP_STORAGE_DYN_CODE_LOADING_SETTINGS";
+    public static final String APP_MANAGE_PLAY_INTEGRITY_API = "android.settings.OPEN_APP_MANAGE_PLAY_INTEGRITY_API_SETTINGS";
 
     public static Intent getAppIntent(Context ctx, String action, String pkgName) {
         var i = new Intent(action);

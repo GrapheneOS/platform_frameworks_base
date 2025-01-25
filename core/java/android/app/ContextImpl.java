@@ -108,6 +108,8 @@ import android.window.WindowTokenClientController;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.gmscompat.GmcDebug;
 import com.android.internal.gmscompat.GmsCompatApp;
+import com.android.internal.gmscompat.GmsCompatLib;
+import com.android.internal.gmscompat.IGmsCompatLib;
 import com.android.internal.gmscompat.sysservice.GmcPackageManager;
 import com.android.internal.gmscompat.GmsHooks;
 import com.android.internal.gmscompat.sysservice.GmcUserManager;
@@ -2271,6 +2273,15 @@ class ContextImpl extends Context {
         if (handler != null && executor != null) {
             throw new IllegalArgumentException("Handler and Executor both supplied");
         }
+
+        IGmsCompatLib gmcLib = GmsCompatLib.get();
+        if (gmcLib != null) {
+            ServiceConnection connOverride = gmcLib.maybeReplaceServiceConnection(service, flags, user, conn);
+            if (connOverride != null) {
+                conn = connOverride;
+            }
+        }
+
         if (mPackageInfo != null) {
             if (executor != null) {
                 sd = mPackageInfo.getServiceDispatcher(conn, getOuterContext(), executor, flags);
