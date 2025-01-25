@@ -16,6 +16,7 @@ import android.util.EmptyArray;
 import android.util.Slog;
 import android.util.SparseArray;
 
+import com.android.internal.gmscompat.GmsCompatApp;
 import com.android.server.LocalServices;
 
 import java.util.Objects;
@@ -24,11 +25,13 @@ import static android.content.pm.GosPackageStateFlag.ALLOW_ACCESS_TO_OBB_DIRECTO
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_SUPPRESS_NOTIF;
+import static android.content.pm.GosPackageStateFlag.BLOCK_PLAY_INTEGRITY_API;
 import static android.content.pm.GosPackageStateFlag.CONTACT_SCOPES_ENABLED;
 import static android.content.pm.GosPackageStateFlag.ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE;
 import static android.content.pm.GosPackageStateFlag.FORCE_MEMTAG;
 import static android.content.pm.GosPackageStateFlag.FORCE_MEMTAG_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.FORCE_MEMTAG_SUPPRESS_NOTIF;
+import static android.content.pm.GosPackageStateFlag.PLAY_INTEGRITY_API_USED_AT_LEAST_ONCE;
 import static android.content.pm.GosPackageStateFlag.RESTRICT_MEMORY_DYN_CODE_LOADING;
 import static android.content.pm.GosPackageStateFlag.RESTRICT_MEMORY_DYN_CODE_LOADING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.RESTRICT_MEMORY_DYN_CODE_LOADING_SUPPRESS_NOTIF;
@@ -38,6 +41,7 @@ import static android.content.pm.GosPackageStateFlag.RESTRICT_STORAGE_DYN_CODE_L
 import static android.content.pm.GosPackageStateFlag.RESTRICT_WEBVIEW_DYN_CODE_LOADING;
 import static android.content.pm.GosPackageStateFlag.RESTRICT_WEBVIEW_DYN_CODE_LOADING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.STORAGE_SCOPES_ENABLED;
+import static android.content.pm.GosPackageStateFlag.SUPPRESS_PLAY_INTEGRITY_API_NOTIF;
 import static android.content.pm.GosPackageStateFlag.USE_EXTENDED_VA_SPACE;
 import static android.content.pm.GosPackageStateFlag.USE_EXTENDED_VA_SPACE_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.USE_HARDENED_MALLOC;
@@ -63,9 +67,17 @@ class GosPackageStatePermissions {
     static void init(PackageManagerService pm) {
         myPid = Process.myPid();
 
+        @GosPackageStateFlag.Enum int[] playIntegrityFlags = {
+                PLAY_INTEGRITY_API_USED_AT_LEAST_ONCE,
+                BLOCK_PLAY_INTEGRITY_API,
+                SUPPRESS_PLAY_INTEGRITY_API_NOTIF,
+        };
+
         selfAccessPermission = builder()
                 .readFlags(STORAGE_SCOPES_ENABLED, ALLOW_ACCESS_TO_OBB_DIRECTORY,
                         CONTACT_SCOPES_ENABLED)
+                .readFlags(playIntegrityFlags)
+                .readWriteFlag(PLAY_INTEGRITY_API_USED_AT_LEAST_ONCE)
                 .create();
 
         grantedPermissions = new SparseArray<>();
@@ -99,6 +111,10 @@ class GosPackageStatePermissions {
                 .readWriteFields(FIELD_STORAGE_SCOPES, FIELD_CONTACT_SCOPES,
                         FIELD_PACKAGE_FLAGS)
                 .apply(ksp.permissionController, computer);
+        builder()
+                .readFlags(playIntegrityFlags)
+                .readWriteFlag(SUPPRESS_PLAY_INTEGRITY_API_NOTIF)
+                .apply(GmsCompatApp.PKG_NAME, computer);
 
         @GosPackageStateFlag.Enum int[] settingsReadWriteFlags = {
                 ALLOW_ACCESS_TO_OBB_DIRECTORY,
@@ -124,6 +140,7 @@ class GosPackageStatePermissions {
         };
         builder()
                 .readWriteFlags(settingsReadWriteFlags)
+                .readWriteFlags(playIntegrityFlags)
                 .readFlags(STORAGE_SCOPES_ENABLED, CONTACT_SCOPES_ENABLED)
                 .readFields(FIELD_PACKAGE_FLAGS)
                 // note that this applies to all packages that run in the android.uid.system sharedUserId,
