@@ -11,4 +11,6 @@ interface IClientOfGmsCore2Gca {
     IFileProxyService getDynamiteFileProxyService();
 
     oneway void showMissingAppNotification(String pkgName);
+
+    oneway void showPlayIntegrityNotification(String pkgName, boolean isBlocked);
 }
