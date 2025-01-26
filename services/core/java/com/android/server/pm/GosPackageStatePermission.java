@@ -36,7 +36,7 @@ class GosPackageStatePermission {
     private final int readFields;
     private final int writeFields;
 
-    private final int crossUserOrProfilePermissions;
+    private final int crossUserPermissions;
 
     static final int ALLOW_CROSS_USER_PROFILE_READS = 0;
     static final int ALLOW_CROSS_USER_PROFILE_WRITES = 1;
@@ -47,15 +47,16 @@ class GosPackageStatePermission {
             ALLOW_CROSS_USER_PROFILE_READS, ALLOW_CROSS_USER_PROFILE_WRITES,
             ALLOW_CROSS_ANY_USER_READS, ALLOW_CROSS_ANY_USER_WRITES,
     })
-    @interface CrossUserOrProfilePerm {}
+    @interface CrossUserPermission {}
 
-    private GosPackageStatePermission(long readFlagStorage1, long writeFlagStorage1, int readFields, int writeFields,
-                                      int crossUserOrProfilePermissions) {
+    private GosPackageStatePermission(long readFlagStorage1, long writeFlagStorage1,
+                                      int readFields, int writeFields,
+                                      int crossUserPermissions) {
         this.readFlagStorage1 = readFlagStorage1;
         this.writeFlagStorage1 = writeFlagStorage1;
         this.readFields = readFields;
         this.writeFields = writeFields;
-        this.crossUserOrProfilePermissions = crossUserOrProfilePermissions;
+        this.crossUserPermissions = crossUserPermissions;
     }
 
     static GosPackageStatePermission createFull() {
@@ -70,8 +71,8 @@ class GosPackageStatePermission {
         return (writeFields & (1 << field)) != 0;
     }
 
-    boolean hasCrossUserPermission(@CrossUserOrProfilePerm int perm) {
-        return (crossUserOrProfilePermissions & (1 << perm)) != 0;
+    boolean hasCrossUserPermission(@CrossUserPermission int perm) {
+        return (crossUserPermissions & (1 << perm)) != 0;
     }
 
     static class Builder {
@@ -81,7 +82,7 @@ class GosPackageStatePermission {
         private int readFields;
         private int writeFields;
 
-        private int crossUserOrProfilePerms;
+        private int crossUserPerms;
 
         Builder readFlag(@GosPackageStateFlag.Enum int flag) {
             readFlagStorage1 |= (1L << flag);
@@ -135,21 +136,21 @@ class GosPackageStatePermission {
             return this;
         }
 
-        Builder crossUserPermission(@CrossUserOrProfilePerm int perm) {
-            crossUserOrProfilePerms |= (1 << perm);
+        Builder crossUserPermission(@CrossUserPermission int perm) {
+            crossUserPerms |= (1 << perm);
             return this;
         }
 
-        Builder crossUserOrProfilePermissions(@CrossUserOrProfilePerm int... perms) {
+        Builder crossUserPermissions(@CrossUserPermission int... perms) {
             for (int perm : perms) {
-                crossUserOrProfilePerms |= (1 << perm);
+                crossUserPerms |= (1 << perm);
             }
             return this;
         }
 
         GosPackageStatePermission create() {
             return new GosPackageStatePermission(readFlagStorage1, writeFlagStorage1, readFields, writeFields,
-                    crossUserOrProfilePerms);
+                    crossUserPerms);
         }
 
         void apply(String pkgName, Computer computer) {

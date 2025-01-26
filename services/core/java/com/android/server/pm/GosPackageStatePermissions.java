@@ -191,7 +191,7 @@ class GosPackageStatePermissions {
                         .readWriteFlags(flagsArr(i, "readWriteFlags"))
                         .readFields(intArr(i, "readFields"))
                         .readWriteFields(intArr(i, "readWriteFields"))
-                        .crossUserOrProfilePermissions(intArr(i, "crossUserOrProfilePermissions"))
+                        .crossUserPermissions(intArr(i, "crossUserPermissions"))
                         .apply(i.getStringExtra("pkgName"), pm.snapshotComputer());
 
                 PropertyInvalidatedCache.invalidateCache(PermissionManager.CACHE_KEY_PACKAGE_INFO);
