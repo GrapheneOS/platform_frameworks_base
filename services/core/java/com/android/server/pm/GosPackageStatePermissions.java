@@ -47,6 +47,7 @@ import static android.content.pm.GosPackageStateFlag.USE_EXTENDED_VA_SPACE_NON_D
 import static android.content.pm.GosPackageStateFlag.USE_HARDENED_MALLOC;
 import static android.content.pm.GosPackageStateFlag.USE_HARDENED_MALLOC_NON_DEFAULT;
 import static com.android.server.pm.GosPackageStatePermission.ALLOW_CROSS_USER_PROFILE_READS;
+import static com.android.server.pm.GosPackageStatePermission.ALLOW_CROSS_USER_PROFILE_WRITES;
 import static com.android.server.pm.GosPackageStatePermission.FIELD_CONTACT_SCOPES;
 import static com.android.server.pm.GosPackageStatePermission.FIELD_PACKAGE_FLAGS;
 import static com.android.server.pm.GosPackageStatePermission.FIELD_STORAGE_SCOPES;
@@ -143,6 +144,8 @@ class GosPackageStatePermissions {
                 .readWriteFlags(playIntegrityFlags)
                 .readFlags(STORAGE_SCOPES_ENABLED, CONTACT_SCOPES_ENABLED)
                 .readFields(FIELD_PACKAGE_FLAGS)
+                .crossUserPermission(ALLOW_CROSS_USER_PROFILE_READS)
+                .crossUserPermission(ALLOW_CROSS_USER_PROFILE_WRITES)
                 // note that this applies to all packages that run in the android.uid.system sharedUserId,
                 // not just the Settings app.
                 .apply(ksp.settings, computer);
