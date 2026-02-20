@@ -14128,6 +14128,18 @@ public final class Settings {
         public static final String DISABLE_SECURE_WINDOWS = "disable_secure_windows";
 
         /**
+         * Whether user-initiated screenshots should capture secure windows.
+         *
+         * <p>When this setting is set to a non-zero value, screenshots capture content in windows
+         * with {@link android.view.WindowManager.LayoutParams#FLAG_SECURE}. Every other
+         * FLAG_SECURE behaviour, such as recents thumbnails and casting, is left unchanged.
+         *
+         * @hide
+         */
+        public static final String FORCE_SCREENSHOT_SECURE_WINDOWS =
+                "force_screenshot_secure_windows";
+
+        /**
          * Controls if the adaptive authentication feature should be disabled, which
          * will attempt to lock the device after a number of consecutive authentication
          * attempts fail.
