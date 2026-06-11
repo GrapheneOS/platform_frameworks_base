@@ -41,6 +41,9 @@ class GmsCoreHooks extends PackageHooks {
             case Manifest.permission.USE_ICC_AUTH_WITH_DEVICE_IDENTIFIER:
                 flag = GmsCorePackageFlag.GRANT_PERMS_FOR_ICC_AUTHENTICATION;
                 break;
+            case Manifest.permission.RECOVER_KEYSTORE_GMSCORE:
+                flag = GmsCorePackageFlag.GRANT_PERMS_FOR_RECOVER_KEYSTORE_GMSCORE;
+                break;
             default:
                 return NO_PERMISSION_OVERRIDE;
         }
@@ -99,7 +102,8 @@ class GmsCoreHooks extends PackageHooks {
             var l = createUsesPerms(
                     Manifest.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                     Manifest.permission.READ_PHONE_NUMBERS,
-                    Manifest.permission.USE_ICC_AUTH_WITH_DEVICE_IDENTIFIER
+                    Manifest.permission.USE_ICC_AUTH_WITH_DEVICE_IDENTIFIER,
+                    Manifest.permission.RECOVER_KEYSTORE_GMSCORE
             );
             res.addAll(l);
             return res;
