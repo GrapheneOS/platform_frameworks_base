@@ -29,11 +29,10 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
             "app.grapheneos.goscompat.securespawn.profileable";
     private static final String TEST_CLASS =
             "app.grapheneos.goscompat.securespawn.SecureSpawnDeviceTest";
-    private static final String EXEC_SPAWN_PROPERTY = "persist.security.exec_spawn";
     private static final String LOG_TAG = "GosCompatSecureSpawn";
     private static final String ROOT_CAUSE_LOG_TAG = "GosCompatSecureSpawnRc";
     private static final String ROOT_CAUSE_LOG_TAG_PROPERTY = "log.tag." + ROOT_CAUSE_LOG_TAG;
-    private static final String MEMORY_ACCOUNTING_METHOD =
+    protected static final String MEMORY_ACCOUNTING_METHOD =
             "runtimeMemoryAccountingCheck";
     private static final String HIDDEN_API_METHOD =
             "hiddenApiEnforcementCheck";
@@ -66,11 +65,6 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         resetPackageState();
         shell("am force-stop " + PACKAGE_NAME);
         shell("am force-stop " + PROFILEABLE_PACKAGE_NAME);
-    }
-
-    @Test
-    public void runtimeMemoryAccountingCheck() throws Exception {
-        runCheckCase(MEMORY_ACCOUNTING_METHOD);
     }
 
     @Test
@@ -159,17 +153,7 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         }
     }
 
-    protected void resetPackageState() throws Exception {
-        editPackageState(
-                new int[0],
-                new int[] {
-                        GosPackageStateFlag.ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE,
-                        GosPackageStateFlag.USE_HARDENED_MALLOC_NON_DEFAULT,
-                        GosPackageStateFlag.USE_HARDENED_MALLOC,
-                        GosPackageStateFlag.USE_EXTENDED_VA_SPACE_NON_DEFAULT,
-                        GosPackageStateFlag.USE_EXTENDED_VA_SPACE,
-                });
-    }
+    protected abstract void resetPackageState() throws Exception;
 
     // TODO: Refactor this when HardeningTests get refactored
     protected void editPackageState(int[] addFlags, int[] clearFlags) throws Exception {
@@ -185,76 +169,6 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         }
         command.append(" set-kill-uid-after-apply true");
         shell(command.toString());
-    }
-
-    protected static ExecSpawningClassState captureExecSpawningState(
-            TestInformation testInfo, boolean enabled) throws Exception {
-        ITestDevice device = testInfo.getDevice();
-        ExecSpawningSetting original = readExecSpawning(device);
-        return new ExecSpawningClassState(original, original.enabled() != enabled, false);
-    }
-
-    protected static ExecSpawningClassState enterExecSpawningMode(
-            TestInformation testInfo, ExecSpawningClassState state, boolean enabled)
-            throws Exception {
-        if (!state.needsChange()) {
-            return state;
-        }
-
-        ITestDevice device = testInfo.getDevice();
-        assumeTrue("adb root is needed to change " + EXEC_SPAWN_PROPERTY,
-                device.enableAdbRoot());
-        assumeTrue(EXEC_SPAWN_PROPERTY + "=" + (enabled ? "1" : "0"),
-                setExecSpawning(device, enabled ? "1" : "0"));
-        state.markChanged();
-        device.reboot();
-        assertEquals(enabled, readExecSpawning(device).enabled());
-        return state;
-    }
-
-    protected static void restoreExecSpawningMode(
-            TestInformation testInfo, ExecSpawningClassState state) throws Exception {
-        if (state == null || !state.changed()) {
-            return;
-        }
-
-        ITestDevice device = testInfo.getDevice();
-        assertTrue("adb root", device.enableAdbRoot());
-        assertTrue(EXEC_SPAWN_PROPERTY + "=" + state.original().rawValue(),
-                setExecSpawning(device, state.original().rawValue()));
-        device.reboot();
-        assertEquals(state.original(), readExecSpawning(device));
-    }
-
-    protected static final class ExecSpawningClassState {
-        private final ExecSpawningSetting mOriginal;
-        private final boolean mNeedsChange;
-        private boolean mChanged;
-
-        ExecSpawningClassState(
-                ExecSpawningSetting original,
-                boolean needsChange,
-                boolean changed) {
-            mOriginal = original;
-            mNeedsChange = needsChange;
-            mChanged = changed;
-        }
-
-        ExecSpawningSetting original() {
-            return mOriginal;
-        }
-
-        boolean needsChange() {
-            return mNeedsChange;
-        }
-
-        boolean changed() {
-            return mChanged;
-        }
-
-        void markChanged() {
-            mChanged = true;
-        }
     }
 
     private void runCheckCase(String methodName) throws Exception {
@@ -293,17 +207,14 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
     }
 
     private void logCheckResult(String packageName, String methodName) throws Exception {
-        ExecSpawningSetting setting = readExecSpawning(getDevice());
         String logcatTags = LOG_TAG + ":I";
         if (ACYCLIC_REFLECTIVE_DUMP_METHOD.equals(methodName)) {
             logcatTags += " " + ROOT_CAUSE_LOG_TAG + ":D";
         }
         String logcat = shell("logcat -d -v threadtime -s " + logcatTags + " '*:S'");
-        String mode = setting.enabled() ? "enabled" : "disabled";
+        String mode = this instanceof SecureSpawnEnabledHostTest ? "enabled" : "disabled";
         String logName = resultLogName(methodName);
-        String report = "secureAppSpawning=" + setting.enabled()
-                + "\nproperty=" + (setting.rawValue().isEmpty() ? "<unset>" : setting.rawValue())
-                + "\npackage=" + packageName
+        String report = "package=" + packageName
                 + "\nmethod=" + methodName
                 + "\n\n"
                 + logcat;
@@ -401,15 +312,6 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         return result.getStdout() == null ? "" : result.getStdout();
     }
 
-    private static ExecSpawningSetting readExecSpawning(ITestDevice device) throws Exception {
-        String value = shell(device, "getprop " + EXEC_SPAWN_PROPERTY).trim();
-        return new ExecSpawningSetting(value, parseExecSpawning(value));
-    }
-
-    private static boolean setExecSpawning(ITestDevice device, String value) throws Exception {
-        return device.setProperty(EXEC_SPAWN_PROPERTY, value);
-    }
-
     private static boolean parseExecSpawning(String value) {
         if (value.isEmpty()) {
             return true;
@@ -422,6 +324,4 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         }
         return true;
     }
-
-    protected record ExecSpawningSetting(String rawValue, boolean enabled) {}
 }

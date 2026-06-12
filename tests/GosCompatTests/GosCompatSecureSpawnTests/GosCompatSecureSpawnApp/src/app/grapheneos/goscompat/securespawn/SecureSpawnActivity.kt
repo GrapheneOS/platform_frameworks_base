@@ -3,6 +3,7 @@ package app.grapheneos.goscompat.securespawn
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Color as AndroidColor
+import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -121,19 +122,17 @@ class SecureSpawnActivity : ComponentActivity() {
                         resultState = resultState,
                         running = running,
                         onRunCheck = { runCheckFromUi() },
-                        onOpenSecuritySettings = { openSecuritySettings() },
+                        onOpenAppInfo = { openAppInfo() },
                     )
                 }
             }
         }
     }
 
-    private fun openSecuritySettings() {
-        try {
-            startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS))
-        } catch (e: ActivityNotFoundException) {
-            Toast.makeText(this, "Security settings unavailable", Toast.LENGTH_SHORT).show()
-        }
+    private fun openAppInfo() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+            Uri.fromParts("package", packageName, null))
+        startActivity(intent)
     }
 
     private fun runCheck(onResult: (CheckResultState) -> Unit) {
@@ -182,7 +181,7 @@ private fun SecureSpawnScreen(
     resultState: CheckResultState,
     running: Boolean,
     onRunCheck: () -> Unit,
-    onOpenSecuritySettings: () -> Unit,
+    onOpenAppInfo: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -198,22 +197,16 @@ private fun SecureSpawnScreen(
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = "For manual comparison, change secure app spawning, reboot, then run the " +
-                "check again.",
+            text = "For manual comparison, change secure app spawning setting, then run the check again.",
             style = MaterialTheme.typography.bodyMedium,
         )
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(
-                onClick = onOpenSecuritySettings,
+                onClick = onOpenAppInfo,
                 modifier = Modifier.testTag(SecureSpawnUiTags.OPEN_SECURITY_SETTINGS_BUTTON),
             ) {
-                Text("Open security settings")
+                Text("Open app settings")
             }
-            Text(
-                text = "Security & privacy > Exploit protection > Secure app spawning",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
 
         SecureAppSpawningCard(settingState)
@@ -323,7 +316,6 @@ private fun SecureAppSpawningCard(settingState: SettingResultState) {
                         status = if (settingState.setting.enabled()) "ENABLED" else "DISABLED",
                         enabled = settingState.setting.enabled(),
                     )
-                    DetailRow("Property", settingState.setting.rawValue().ifEmpty { "<unset>" })
                 }
             }
         }
@@ -332,8 +324,7 @@ private fun SecureAppSpawningCard(settingState: SettingResultState) {
 
 @Composable
 private fun ProcessStateCard(processState: SecureSpawnCheck.ProcessState) {
-    val passed = processState.pid() > 0 && processState.tid() > 0 &&
-            (!processState.hardenedMallocDisabled() || processState.execSpawned())
+    val passed = processState.pid() > 0 && processState.tid() > 0
     ResultCard {
         Section(label = "Process state", status = if (passed) "PASS" else "FAIL", passed = passed) {
             DetailRow("Exec spawned", processState.execSpawned().toString())
@@ -342,9 +333,7 @@ private fun ProcessStateCard(processState: SecureSpawnCheck.ProcessState) {
             DetailRow("TID", processState.tid().toString())
             if (!passed) {
                 Text(
-                    text = "The process state check failed because hardened_malloc was reported " +
-                            "disabled without the process being exec spawned, or because PID/TID " +
-                            "could not be read.",
+                    text = "The process state check failed because PID/TID could not be read.",
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }

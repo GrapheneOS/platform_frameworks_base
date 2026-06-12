@@ -12,17 +12,21 @@ import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
 public final class SecureSpawnDisabledHostTest extends SecureSpawnHostTestBase {
-    private static ExecSpawningClassState sExecSpawningState;
 
-    @BeforeClassWithInfo
-    public static void beforeClass(TestInformation testInfo) throws Exception {
-        sExecSpawningState = captureExecSpawningState(testInfo, false);
-        sExecSpawningState = enterExecSpawningMode(testInfo, sExecSpawningState, false);
-    }
-
-    @AfterClassWithInfo
-    public static void afterClass(TestInformation testInfo) throws Exception {
-        restoreExecSpawningMode(testInfo, sExecSpawningState);
+    @Override
+    protected void resetPackageState() throws Exception {
+        editPackageState(
+                new int[] {
+                        GosPackageStateFlag.USE_EXEC_SPAWNING_NON_DEFAULT,
+                },
+                new int[] {
+                        GosPackageStateFlag.ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE,
+                        GosPackageStateFlag.USE_HARDENED_MALLOC_NON_DEFAULT,
+                        GosPackageStateFlag.USE_HARDENED_MALLOC,
+                        GosPackageStateFlag.USE_EXTENDED_VA_SPACE_NON_DEFAULT,
+                        GosPackageStateFlag.USE_EXTENDED_VA_SPACE,
+                        GosPackageStateFlag.USE_EXEC_SPAWNING,
+                });
     }
 
     @Test
@@ -32,20 +36,20 @@ public final class SecureSpawnDisabledHostTest extends SecureSpawnHostTestBase {
     }
 
     @Test
-    public void disabledHardenedMallocUsesExecInit() throws Exception {
-        resetPackageState();
-        editPackageState(
-                new int[] { GosPackageStateFlag.USE_HARDENED_MALLOC_NON_DEFAULT },
-                new int[] { GosPackageStateFlag.USE_HARDENED_MALLOC });
-        runDeviceTest("hardenedMallocDisabled");
-    }
-
-    @Test
-    public void exploitCompatibilityModeUsesExecInit() throws Exception {
+    public void exploitCompatibilityModeUsesCompatZygoteInit() throws Exception {
         resetPackageState();
         editPackageState(
                 new int[] { GosPackageStateFlag.ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE },
                 new int[0]);
-        runDeviceTest("hardenedMallocDisabled");
+        runDeviceTest("notExecSpawnedCompatZygote");
+    }
+
+    @Test
+    public void exploitCompatibilityModePassesMemoryAccountingCheck() throws Exception {
+        resetPackageState();
+        editPackageState(
+                new int[] { GosPackageStateFlag.ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE },
+                new int[0]);
+        runDeviceTest(MEMORY_ACCOUNTING_METHOD);
     }
 }

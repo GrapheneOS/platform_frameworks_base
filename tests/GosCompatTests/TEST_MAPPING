@@ -12,7 +12,6 @@
     {
       "name": "GosCompatWifiScanTimeoutTests"
     },
-    // Needs adb root to set secure spawning prop, else ASSUMPTION_FAILED for tests with wrong state
     {
       "name": "GosCompatSecureSpawnTests"
     }

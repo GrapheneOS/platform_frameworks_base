@@ -8,8 +8,6 @@ import app.grapheneos.goscompat.securespawn.shared.SecureSpawnSmapsCheck;
 import app.grapheneos.goscompat.securespawn.shared.SecureSpawnTestApiCompatCheck;
 
 public final class SecureSpawnCheck {
-    private static final String EXEC_SPAWN_PROPERTY = "persist.security.exec_spawn";
-
     static {
         System.loadLibrary("goscompat_secure_spawn_jni");
     }
@@ -29,7 +27,7 @@ public final class SecureSpawnCheck {
     }
 
     public static SecureAppSpawningSetting secureAppSpawningSetting() {
-        return new SecureAppSpawningSetting(nativeSystemProperty(EXEC_SPAWN_PROPERTY));
+        return new SecureAppSpawningSetting(System.getenv("IS_EXEC_SPAWNED_APP_PROCESS") != null);
     }
 
     public static ProcessState processState() {
@@ -72,26 +70,7 @@ public final class SecureSpawnCheck {
             SecureSpawnTestApiCompatCheck.TestApiCompat testApiCompatDefault,
             SecureSpawnReflectiveDumpCheck.AcyclicReflectiveDump acyclicReflectiveDump) {}
 
-    public record SecureAppSpawningSetting(String rawValue) {
-        public boolean enabled() {
-            if (rawValue().isEmpty()) {
-                return true;
-            }
-            if (rawValue().equals("true") || rawValue().equals("1")) {
-                return true;
-            }
-            if (rawValue().equals("false") || rawValue().equals("0")) {
-                return false;
-            }
-            return true;
-        }
-
-        @Override
-        public String toString() {
-            return "enabled=" + enabled()
-                    + "\nproperty=" + (rawValue().isEmpty() ? "<unset>" : rawValue());
-        }
-    }
+    public record SecureAppSpawningSetting(boolean enabled) {}
 
     public record ProcessState(
             boolean execSpawned,

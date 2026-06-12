@@ -41,11 +41,11 @@ public final class SecureSpawnDeviceTest {
     }
 
     @Test
-    public void hardenedMallocDisabled() {
+    public void notExecSpawnedCompatZygote() {
         SecureSpawnCheck.ProcessState result = SecureSpawnCheck.processState();
         assertProcessState(result);
-        assertWithMessage(failureMessage("expected execSpawned == true", result))
-                .that(result.execSpawned()).isTrue();
+        assertWithMessage(failureMessage("expected execSpawned == false", result))
+                .that(result.execSpawned()).isFalse();
         assertWithMessage(failureMessage("expected hardenedMallocDisabled == true", result))
                 .that(result.hardenedMallocDisabled()).isTrue();
     }
