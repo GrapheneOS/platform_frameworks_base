@@ -42,6 +42,8 @@ import static android.content.pm.GosPackageStateFlag.RESTRICT_WEBVIEW_DYN_CODE_L
 import static android.content.pm.GosPackageStateFlag.RESTRICT_WEBVIEW_DYN_CODE_LOADING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.STORAGE_SCOPES_ENABLED;
 import static android.content.pm.GosPackageStateFlag.SUPPRESS_PLAY_INTEGRITY_API_NOTIF;
+import static android.content.pm.GosPackageStateFlag.USE_EXEC_SPAWNING;
+import static android.content.pm.GosPackageStateFlag.USE_EXEC_SPAWNING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.USE_EXTENDED_VA_SPACE;
 import static android.content.pm.GosPackageStateFlag.USE_EXTENDED_VA_SPACE_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.USE_HARDENED_MALLOC;
@@ -140,6 +142,8 @@ class GosPackageStatePermissions {
                 FORCE_MEMTAG_NON_DEFAULT,
                 FORCE_MEMTAG,
                 FORCE_MEMTAG_SUPPRESS_NOTIF,
+                USE_EXEC_SPAWNING_NON_DEFAULT,
+                USE_EXEC_SPAWNING,
                 ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE,
         };
         builder()
