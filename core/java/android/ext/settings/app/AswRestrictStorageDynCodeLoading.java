@@ -22,7 +22,7 @@ public class AswRestrictStorageDynCodeLoading extends AppSwitch {
         gosPsFlagNonDefault = GosPackageStateFlag.RESTRICT_STORAGE_DYN_CODE_LOADING_NON_DEFAULT;
         gosPsFlag = GosPackageStateFlag.RESTRICT_STORAGE_DYN_CODE_LOADING;
         gosPsFlagSuppressNotif = GosPackageStateFlag.RESTRICT_STORAGE_DYN_CODE_LOADING_SUPPRESS_NOTIF;
-        compatChangeToDisableHardening = AppCompatProtos.ALLOW_STORAGE_DYN_CODE_EXEC;
+        compatChangeToDisableHardening = AppCompatProtos.ALLOW_STORAGE_DYN_CODE_LOADING;
     }
 
     private static volatile ArraySet<String> allowedSystemPkgs;
