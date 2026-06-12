@@ -31,6 +31,7 @@ import com.android.internal.os.ZygoteExtraArgs;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 
 /**
@@ -61,6 +62,10 @@ public class NativeZygoteProcess implements IZygoteProcess {
 
     /** Prewarm the native zygote daemon before actually using it. */
     public static void prewarmNativeZygote() {
+        if (android.ext.settings.ExtSettings.EXEC_SPAWNING.get()) {
+            // pre-warm only if exec spawning is disabled by default
+            return;
+        }
         nativePrewarmNativeZygote();
     }
 
@@ -81,30 +86,23 @@ public class NativeZygoteProcess implements IZygoteProcess {
         }
     }
 
-    private static native int nativeStartNativeProcess(long selinuxFlags,
+    private static native int nativeStartNativeProcess(byte[][] outCapturedCommand, long selinuxFlags,
+            byte[] preloadCommand,
             FileDescriptor fd, int uid, int gid, long startSeq, String packageName, String niceName,
             int targetSdkVersion, boolean startChildZygote, int runtimeFlags, String seInfo,
             boolean isTopApp)
             throws IOException;
 
-    private static native int nativeStartNativeChildZygote(long selinuxFlags,
+    private static native int nativeStartNativeChildZygote(byte[][] outCapturedCommand, long selinuxFlags,
             FileDescriptor parentFd, int uid, int gid, String niceName, String seInfo,
             int targetSdkVersion, int runtimeFlags, String serverAddress, int uidRangeStart,
             int uidRangeEnd, String allowedLibPath, String librarySearchPaths, boolean isShared,
             String zipPath, String nativeSharedLibPath, String libraryPath, String preloadFunc)
             throws IOException;
 
-    private static long getSelinuxFlags(@Nullable String flatExtraArgs) {
-        if (flatExtraArgs != null) {
-            String value = flatExtraArgs.substring(flatExtraArgs.indexOf('=') + 1);
-            var extraArgs = ZygoteExtraArgs.parse(value);
-            return extraArgs.selinuxFlags;
-        }
-        return 0L;
-    }
-
     @Override
-    public final Process.ProcessStartResult start(@NonNull final String processClass,
+    public final Process.ProcessStartResult start(@NonNull final ZygoteExtraArgs zygoteExtArgs,
+                                                  @NonNull final String processClass,
                                                   final String niceName,
                                                   int uid, int gid, @Nullable int[] gids,
                                                   int runtimeFlags, int mountExternal,
@@ -128,21 +126,57 @@ public class NativeZygoteProcess implements IZygoteProcess {
                                                   boolean bindMountAppStorageDirs,
                                                   boolean bindOverrideSysprops,
                                                   long startSeq,
-                                                  @Nullable String[] zygoteArgs,
-                                                  @Nullable String flatExtraArgs) {
-        // there are currently 3 custom runtime flags:
-        // - DISABLE_HARDENED_MALLOC and ENABLE_COMPAT_VA_39_BIT require exec spawning which is not
-        // currently supported for native zygote
-        // - FORCIBLY_ENABLE_MEMORY_TAGGING is low-impact and isn't needed in practice since native
-        // zygote is mainly used by Chromium browsers which opt-in to memory tagging
-        runtimeFlags &= ~Zygote.CUSTOM_RUNTIME_FLAGS;
+                                                  @Nullable String[] zygoteArgs) {
+        // ZygoteExtraArgs.FORCIBLY_ENABLE_MEMORY_TAGGING is not supported for native zygote codepath
+        // since it's low-impact and isn't needed in practice since native zygote is mainly used by
+        // Chromium browsers which opt-in to memory tagging
 
-        int pid;
+        boolean useExecSpawning = zygoteExtArgs.shouldUseExecSpawning();
+
+        final int pid;
         try {
-            connectToZygote();
-            pid = nativeStartNativeProcess(getSelinuxFlags(flatExtraArgs), mSocket.getFileDescriptor(), uid, gid, startSeq,
+            final FileDescriptor fd;
+            final byte[][] outCapturedCommand;
+            final byte[] preloadCommand;
+            if (useExecSpawning) {
+                fd = null;
+                outCapturedCommand = new byte[1][];
+                ApplicationInfo appInfo = zygoteExtArgs.getPreloadAppInfo();
+                if (appInfo != null) {
+                    zygoteExtArgs.setPreloadAppInfo(null); // null it out to skip its serialization
+                    LoadedApk.LinkerNamespaceParams params = createLinkerNamespaceParams(appInfo);
+                    int ret = nativeStartNativeChildZygote(outCapturedCommand, 0L, null, 0, 0, null,
+                        null, appInfo.targetSdkVersion, 0, null,
+                        0, 0, params.permittedLibsDir, params.libPath,
+                        params.isShared, params.zipPath, params.nativeSharedLibs,
+                        appInfo.zygotePreloadNativeLib, appInfo.zygotePreloadNativeFunc);
+                    if (ret != 0) {
+                        throw new RuntimeException("Native process preload command capture failed");
+                    }
+                    preloadCommand = outCapturedCommand[0];
+                    outCapturedCommand[0] = null;
+                } else {
+                    preloadCommand = null;
+                }
+            } else {
+                connectToZygote();
+                fd = mSocket.getFileDescriptor();
+                outCapturedCommand = null;
+                preloadCommand = null;
+            }
+            int res = nativeStartNativeProcess(outCapturedCommand, zygoteExtArgs.getSelinuxFlags(), preloadCommand, fd, uid, gid, startSeq,
                     packageName, niceName, targetSdkVersion, /*startChildZygote=*/false,
                     runtimeFlags, seInfo, isTopApp);
+            if (!useExecSpawning) {
+                pid = res;
+            } else {
+                if (res != 0) {
+                    throw new RuntimeException("Native process exec spawning command capture failed");
+                }
+                byte[] command = Objects.requireNonNull(outCapturedCommand[0], "outCapturedCommand[0]");
+                zygoteExtArgs.setNativeAppLaunchCommand(command);
+                return Process.ZYGOTE_PROCESS.execSpawnNativeAppProcess(zygoteExtArgs);
+            }
             if (pid == -1) {
                 throw new RuntimeException("Failed to fork a native process");
             }
@@ -155,8 +189,22 @@ public class NativeZygoteProcess implements IZygoteProcess {
         return result;
     }
 
+    // extracted from startChildZygote()
+    private static LoadedApk.LinkerNamespaceParams createLinkerNamespaceParams(ApplicationInfo appInfo) {
+        LoadedApk loadedApk = new LoadedApk(
+                /*activityThread*/ null,
+                appInfo,
+                /*compatInfo*/ null,
+                /*classLoader*/ null,
+                /*securityViolation*/ false,
+                /*includeCode*/ true,
+                /*registerPackage*/ false);
+        return loadedApk.createLinkerNamespaceParams();
+    }
+
     @Override
-    public ChildZygoteProcess startChildZygote(final String processClass,
+    public ChildZygoteProcess startChildZygote(final ZygoteExtraArgs zygoteExtArgs,
+                                               final String processClass,
                                                final String niceName,
                                                int uid, int gid, int[] gids,
                                                int runtimeFlags,
@@ -166,11 +214,7 @@ public class NativeZygoteProcess implements IZygoteProcess {
                                                String instructionSet,
                                                int uidRangeStart,
                                                int uidRangeEnd,
-                                               ApplicationInfo appInfo,
-                                               @Nullable String flatExtraArgs) {
-        // see comment in start() above
-        runtimeFlags &= ~Zygote.CUSTOM_RUNTIME_FLAGS;
-
+                                               ApplicationInfo appInfo) {
         // Create an unguessable address in the global abstract namespace.
         String serverAddress = processClass + "/" + UUID.randomUUID().toString();
         // The address of abstract socket should be prefixed with '@'.  LocalSocket.connect()
@@ -178,20 +222,12 @@ public class NativeZygoteProcess implements IZygoteProcess {
         // path to Native Zygote over the JNI code.
         String serverAddressForNative = "@" + serverAddress;
 
-        LoadedApk loadedApk = new LoadedApk(
-                /*activityThread*/ null,
-                appInfo,
-                /*compatInfo*/ null,
-                /*classLoader*/ null,
-                /*securityViolation*/ false,
-                /*includeCode*/ true,
-                /*registerPackage*/ false);
-        LoadedApk.LinkerNamespaceParams params = loadedApk.createLinkerNamespaceParams();
+        LoadedApk.LinkerNamespaceParams params = createLinkerNamespaceParams(appInfo);
 
         int pid;
         try {
             connectToZygote();
-            pid = nativeStartNativeChildZygote(getSelinuxFlags(flatExtraArgs), mSocket.getFileDescriptor(), uid, gid, niceName,
+            pid = nativeStartNativeChildZygote(null, zygoteExtArgs.getSelinuxFlags(), mSocket.getFileDescriptor(), uid, gid, niceName,
                     seInfo, appInfo.targetSdkVersion, runtimeFlags, serverAddressForNative,
                     uidRangeStart, uidRangeEnd, params.permittedLibsDir, params.libPath,
                     params.isShared, params.zipPath, params.nativeSharedLibs,

@@ -48,7 +48,7 @@ class AppZygoteInit {
         }
     }
 
-    private static class AppZygoteConnection extends ZygoteConnection {
+    static class AppZygoteConnection extends ZygoteConnection {
         AppZygoteConnection(LocalSocket socket, String abiList) throws IOException {
             super(socket, abiList);
         }
@@ -72,11 +72,22 @@ class AppZygoteInit {
 
         @Override
         protected void handlePreloadApp(ApplicationInfo appInfo) {
+            handlePreloadAppStatic(this, appInfo);
+        }
+
+        static void handlePreloadAppStatic(@android.annotation.Nullable AppZygoteConnection conn, ApplicationInfo appInfo) {
             Log.i(TAG, "Beginning application preload for " + appInfo.packageName);
             LoadedApk loadedApk = new LoadedApk(null, appInfo, null, null, false, true, false);
             ClassLoader loader = loadedApk.getClassLoader();
 
-            Zygote.allowAppFilesAcrossFork(appInfo);
+            if (conn == null) {
+                com.android.internal.util.Preconditions
+                        .checkState(ExecSpawning.isExecSpawnedProcess());
+            }
+
+            if (conn != null) {
+                Zygote.allowAppFilesAcrossFork(appInfo);
+            }
 
             if (appInfo.zygotePreloadName != null) {
                 Class<?> cl;
@@ -91,9 +102,9 @@ class AppZygoteInit {
                     } else {
                         Constructor<?> ctor = cl.getConstructor();
                         ZygotePreload preloadObject = (ZygotePreload) ctor.newInstance();
-                        Zygote.markOpenedFilesBeforePreload();
+                        if (conn != null) Zygote.markOpenedFilesBeforePreload();
                         preloadObject.doPreload(appInfo);
-                        Zygote.allowFilesOpenedByPreload();
+                        if (conn != null) Zygote.allowFilesOpenedByPreload();
                     }
                 } catch (ReflectiveOperationException e) {
                     Log.e(TAG, "AppZygote application preload failed for "
@@ -103,11 +114,13 @@ class AppZygoteInit {
                 Log.i(TAG, "No zygotePreloadName attribute specified.");
             }
 
-            try {
-                DataOutputStream socketOut = getSocketOutputStream();
-                socketOut.writeInt(loader != null ? 1 : 0);
-            } catch (IOException e) {
-                throw new IllegalStateException("Error writing to command socket", e);
+            if (conn != null) {
+                try {
+                    DataOutputStream socketOut = conn.getSocketOutputStream();
+                    socketOut.writeInt(loader != null ? 1 : 0);
+                } catch (IOException e) {
+                    throw new IllegalStateException("Error writing to command socket", e);
+                }
             }
 
             Log.i(TAG, "Application preload done");

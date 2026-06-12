@@ -20,6 +20,7 @@ import static android.net.http.Flags.preloadHttpengineInZygote;
 import static android.system.OsConstants.S_IRWXG;
 import static android.system.OsConstants.S_IRWXO;
 
+import static com.android.internal.os.ExecSpawning.COMMAND_FD_ARG;
 import static com.android.internal.util.FrameworkStatsLog.BOOT_TIME_EVENT_ELAPSED_TIME__EVENT__SECONDARY_ZYGOTE_INIT_START;
 import static com.android.internal.util.FrameworkStatsLog.BOOT_TIME_EVENT_ELAPSED_TIME__EVENT__ZYGOTE_INIT_START;
 
@@ -180,6 +181,14 @@ public class ZygoteInit {
         }
         endPreload(fullPreload);
         warmUpJcaProviders(fullPreload);
+
+        if (!fullPreload) {
+            // run the privileged DisplayMetrics class initializer while the process is running in
+            // the zygote SELinux context
+            // noinspection unused
+            int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE;
+        }
+
         Log.d(TAG, "end preload");
 
         sPreloadComplete = true;
@@ -838,24 +847,36 @@ public class ZygoteInit {
      */
     @UnsupportedAppUsage
     public static void main(String[] argv) {
+        try {
+            ExecSpawning.init(argv);
+        } catch (Throwable e) {
+            Log.e(TAG, "ExecSpawning init failed", e);
+            throw e;
+        }
+
         ZygoteServer zygoteServer = null;
+
+
+        boolean isExecSpawning = ExecSpawning.isExecSpawnedProcess();
 
         // Mark zygote start. This ensures that thread creation will throw
         // an error.
         ZygoteHooks.startZygoteNoThreadCreation();
 
-        // Zygote goes into its own process group.
-        try {
-            Os.setpgid(0, 0);
-        } catch (ErrnoException ex) {
-            throw new RuntimeException("Failed to setpgid(0,0)", ex);
+        if (!isExecSpawning) {
+            // Zygote goes into its own process group.
+            try {
+                Os.setpgid(0, 0);
+            } catch (ErrnoException ex) {
+                throw new RuntimeException("Failed to setpgid(0,0)", ex);
+            }
         }
 
         Runnable caller;
         try {
             // Store now for StatsLogging later.
             final long startTime = SystemClock.elapsedRealtime();
-            final boolean isRuntimeRestarted = "1".equals(
+            final boolean isRuntimeRestarted = !isExecSpawning && "1".equals(
                     SystemProperties.get("sys.boot_completed"));
 
             String bootTimeTag = Process.is64Bit() ? "Zygote64Timing" : "Zygote32Timing";
@@ -877,18 +898,22 @@ public class ZygoteInit {
                     abiList = argv[i].substring(ABI_LIST_ARG.length());
                 } else if (argv[i].startsWith(SOCKET_NAME_ARG)) {
                     zygoteSocketName = argv[i].substring(SOCKET_NAME_ARG.length());
+                } else if (argv[i].startsWith(COMMAND_FD_ARG)) {
+                    Preconditions.checkState(isExecSpawning);
+                    // handled by ExecSpawning.init()
+                    continue;
                 } else {
                     throw new RuntimeException("Unknown command line argument: " + argv[i]);
                 }
             }
 
-            final boolean isPrimaryZygote = zygoteSocketName.equals(Zygote.PRIMARY_SOCKET_NAME);
-            if (!isRuntimeRestarted) {
-                if (isPrimaryZygote) {
+            if (!isExecSpawning && !isRuntimeRestarted) {
+                ZygoteType zygoteType = ZygoteType.fromSocketName(zygoteSocketName);
+                if (zygoteType == ZygoteType.Primary) {
                     FrameworkStatsLog.write(FrameworkStatsLog.BOOT_TIME_EVENT_ELAPSED_TIME_REPORTED,
                             BOOT_TIME_EVENT_ELAPSED_TIME__EVENT__ZYGOTE_INIT_START,
                             startTime);
-                } else if (zygoteSocketName.equals(Zygote.SECONDARY_SOCKET_NAME)) {
+                } else if (zygoteType == ZygoteType.Secondary) {
                     FrameworkStatsLog.write(FrameworkStatsLog.BOOT_TIME_EVENT_ELAPSED_TIME_REPORTED,
                             BOOT_TIME_EVENT_ELAPSED_TIME__EVENT__SECONDARY_ZYGOTE_INIT_START,
                             startTime);
@@ -905,7 +930,7 @@ public class ZygoteInit {
                 bootTimingsTraceLog.traceBegin("ZygotePreload");
                 EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_START,
                         SystemClock.uptimeMillis());
-                preload(bootTimingsTraceLog);
+                preload(bootTimingsTraceLog, !isExecSpawning);
                 EventLog.writeEvent(LOG_BOOT_PROGRESS_PRELOAD_END,
                         SystemClock.uptimeMillis());
                 bootTimingsTraceLog.traceEnd(); // ZygotePreload
@@ -918,11 +943,13 @@ public class ZygoteInit {
 
             bootTimingsTraceLog.traceEnd(); // ZygoteInit
 
-            Zygote.initNativeState(isPrimaryZygote);
+            final ZygoteType zygoteType = ZygoteType.fromSocketName(zygoteSocketName);
+
+            Zygote.initNativeState(zygoteType);
 
             ZygoteHooks.stopZygoteNoThreadCreation();
 
-            zygoteServer = new ZygoteServer(isPrimaryZygote);
+            zygoteServer = isExecSpawning ? new ZygoteServer() : new ZygoteServer(zygoteType);
 
             if (startSystemServer) {
                 Runnable r = forkSystemServer(abiList, zygoteSocketName, zygoteServer);
@@ -935,13 +962,13 @@ public class ZygoteInit {
                 }
             }
 
-            Log.i(TAG, "Accepting command socket connections");
+            if (!isExecSpawning) Log.i(TAG, "Accepting command socket connections");
 
             // The select loop returns early in the child process after a fork and
             // loops forever in the zygote.
             caller = zygoteServer.runSelectLoop(abiList);
         } catch (Throwable ex) {
-            Log.e(TAG, "System zygote died with fatal exception", ex);
+            Log.e(TAG, (isExecSpawning ? "Exec spawned process" : "System zygote died") + " with fatal exception", ex);
             throw ex;
         } finally {
             if (zygoteServer != null) {
@@ -967,9 +994,9 @@ public class ZygoteInit {
     }
 
     private static void waitForSecondaryZygote(String socketName) {
-        String otherZygoteName = Zygote.PRIMARY_SOCKET_NAME.equals(socketName)
-                ? Zygote.SECONDARY_SOCKET_NAME : Zygote.PRIMARY_SOCKET_NAME;
-        ZygoteProcess.waitForConnectionToZygote(otherZygoteName);
+        ZygoteType otherZygoteType = ZygoteType.Primary.getSocketName().equals(socketName)
+                ? ZygoteType.Secondary : ZygoteType.Primary;
+        ZygoteProcess.waitForConnectionToZygote(otherZygoteType);
     }
 
     static boolean isPreloadComplete() {

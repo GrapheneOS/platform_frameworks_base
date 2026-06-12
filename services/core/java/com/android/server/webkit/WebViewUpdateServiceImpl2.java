@@ -247,13 +247,6 @@ class WebViewUpdateServiceImpl2 {
         }
     }
 
-    private void startZygoteWhenReady() {
-        // Wait on a background thread for RELRO creation to be done. We ignore the return value
-        // because even if RELRO creation failed we still want to start the zygote.
-        waitForAndGetProvider();
-        mSystemInterface.ensureZygoteStarted();
-    }
-
     public void handleNewUser(int userId) {
         // The system user is always started at boot, and by that point we have already run one
         // round of the package-changing logic (through prepareWebViewInSystemServer()), so early
@@ -417,9 +410,8 @@ class WebViewUpdateServiceImpl2 {
             }
         }
 
-        // Once we've notified the system that the provider has changed and started RELRO creation,
-        // try to restart the zygote so that it will be ready when apps use it.
-        AsyncTask.THREAD_POOL_EXECUTOR.execute(this::startZygoteWhenReady);
+        // Don't start the WebView zygote eagerly since it's not used by exec-spawned WebView
+        // processes, which are enabled by default.
     }
 
     /** Fetch only the currently valid WebView packages. */

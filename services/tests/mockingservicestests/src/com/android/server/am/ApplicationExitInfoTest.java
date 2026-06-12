@@ -1402,7 +1402,7 @@ public class ApplicationExitInfoTest {
         if (definingUid != null) {
             final String dummyPackageName = "com.android.test";
             final String dummyClassName = ".Foo";
-            app.setHostingRecord(HostingRecord.byAppZygote(
+            app.setHostingRecord(HostingRecord.byAppZygote_(
                     HostingRecord.HOSTING_TYPE_BOUND_SERVICE,
                     new ComponentName(
                     dummyPackageName, dummyClassName), "", definingUid, "",

@@ -22,7 +22,9 @@ import static android.system.OsConstants.POLLIN;
 
 import static com.android.internal.os.ZygoteConnectionConstants.CONNECTION_TIMEOUT_MILLIS;
 import static com.android.internal.os.ZygoteConnectionConstants.WRAPPED_PID_TIMEOUT_MILLIS;
+import static com.android.internal.util.Preconditions.checkState;
 
+import android.annotation.Nullable;
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.pm.ApplicationInfo;
 import android.net.Credentials;
@@ -35,6 +37,8 @@ import android.system.Os;
 import android.system.StructPollfd;
 import android.util.Log;
 
+import com.android.internal.os.ZygoteCommandRecorder.CommandType;
+
 import dalvik.system.VMRuntime;
 import dalvik.system.ZygoteHooks;
 
@@ -45,8 +49,10 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -81,6 +87,12 @@ class ZygoteConnection {
     ZygoteConnection(LocalSocket socket, String abiList) throws IOException {
         mSocket = socket;
         this.abiList = abiList;
+
+        if (ExecSpawning.isReplayingZygoteCommands()) {
+            mSocketOutStream = new DataOutputStream(OutputStream.nullOutputStream());
+            peer = null;
+            return;
+        }
 
         mSocketOutStream = new DataOutputStream(socket.getOutputStream());
 
@@ -117,18 +129,27 @@ class ZygoteConnection {
      * If the client closes the socket, an {@code EOF} condition is set, which callers can test
      * for by calling {@code ZygoteConnection.isClosedByPeer}.
      */
-    Runnable processCommand(ZygoteServer zygoteServer, boolean multipleOK) {
+    Runnable processCommand(ZygoteServer zygoteServer, boolean multipleOK, @Nullable ZygoteArguments command) {
         ZygoteArguments parsedArgs;
 
-        try (ZygoteCommandBuffer argBuffer = new ZygoteCommandBuffer(mSocket)) {
+        boolean isReplayingZygoteCommands = ExecSpawning.isReplayingZygoteCommands();
+
+        if (!isReplayingZygoteCommands) {
+            checkState(command == null);
+        }
+
+        try (ZygoteCommandBuffer argBuffer =
+                     command != null ? null :
+                     new ZygoteCommandBuffer(mSocket)) {
             while (true) {
                 try {
-                    parsedArgs = ZygoteArguments.getInstance(argBuffer);
+                    parsedArgs = command != null ? command : ZygoteArguments.getInstance(argBuffer);
                     // Keep argBuffer around, since we need it to fork.
                 } catch (IOException ex) {
                     throw new IllegalStateException("IOException on command socket", ex);
                 }
                 if (parsedArgs == null) {
+                    checkState(!isReplayingZygoteCommands);
                     isEof = true;
                     return null;
                 }
@@ -138,16 +159,19 @@ class ZygoteConnection {
                 FileDescriptor serverPipeFd = null;
 
                 if (parsedArgs.mBootCompleted) {
+                    ZygoteCommandRecorder.maybeAddReplayCommand(CommandType.BootCompleted, parsedArgs);
                     handleBootCompleted();
                     return null;
                 }
 
                 if (parsedArgs.mAbiListQuery) {
+                    checkState(!isReplayingZygoteCommands);
                     handleAbiListQuery();
                     return null;
                 }
 
                 if (parsedArgs.mPidQuery) {
+                    checkState(!isReplayingZygoteCommands);
                     handlePidQuery();
                     return null;
                 }
@@ -161,11 +185,13 @@ class ZygoteConnection {
                 }
 
                 if (parsedArgs.mPreloadDefault) {
+                    checkState(!isReplayingZygoteCommands);
                     handlePreload();
                     return null;
                 }
 
                 if (canPreloadApp() && parsedArgs.mPreloadApp != null) {
+                    checkState(!isReplayingZygoteCommands);
                     byte[] rawParcelData = Base64.getDecoder().decode(parsedArgs.mPreloadApp);
                     Parcel appInfoParcel = Parcel.obtain();
                     appInfoParcel.unmarshall(rawParcelData, 0, rawParcelData.length);
@@ -189,11 +215,13 @@ class ZygoteConnection {
                             + Long.toHexString(parsedArgs.mEffectiveCapabilities));
                 }
 
-                Zygote.applyUidSecurityPolicy(parsedArgs, peer);
-                Zygote.applyInvokeWithSecurityPolicy(parsedArgs, peer);
+                if (!isReplayingZygoteCommands) {
+                    Zygote.applyUidSecurityPolicy(parsedArgs, peer);
+                    Zygote.applyInvokeWithSecurityPolicy(parsedArgs, peer);
 
-                Zygote.applyDebuggerSystemProperty(parsedArgs);
-                Zygote.applyInvokeWithSystemProperty(parsedArgs);
+                    Zygote.applyDebuggerSystemProperty(parsedArgs);
+                    Zygote.applyInvokeWithSystemProperty(parsedArgs);
+                }
 
                 int[][] rlimits = null;
 
@@ -204,6 +232,7 @@ class ZygoteConnection {
                 int[] fdsToIgnore = null;
 
                 if (parsedArgs.mInvokeWith != null) {
+                    checkState(!isReplayingZygoteCommands);
                     try {
                         FileDescriptor[] pipeFds = Os.pipe2(O_CLOEXEC);
                         childPipeFd = pipeFds[1];
@@ -230,36 +259,65 @@ class ZygoteConnection {
 
                 int [] fdsToClose = { -1, -1 };
 
-                FileDescriptor fd = mSocket.getFileDescriptor();
+                if (!isReplayingZygoteCommands) { // ZygoteServer sockets are null in exec spawned zygote
+                    FileDescriptor fd = mSocket.getFileDescriptor();
 
-                if (fd != null) {
-                    fdsToClose[0] = fd.getInt$();
+                    if (fd != null) {
+                        fdsToClose[0] = fd.getInt$();
+                    }
+
+                    FileDescriptor zygoteFd = zygoteServer.getZygoteSocketFileDescriptor();
+
+                    if (zygoteFd != null) {
+                        fdsToClose[1] = zygoteFd.getInt$();
+                    }
                 }
 
-                FileDescriptor zygoteFd = zygoteServer.getZygoteSocketFileDescriptor();
-
-                if (zygoteFd != null) {
-                    fdsToClose[1] = zygoteFd.getInt$();
-                }
-
-                if (parsedArgs.mInvokeWith != null || parsedArgs.mStartChildZygote
+                boolean shouldUseExecSpawning = !isReplayingZygoteCommands
+                        && parsedArgs.mExtraArgs.shouldUseExecSpawning()
+                        && parsedArgs.mInvokeWith == null
+                        && !parsedArgs.mStartChildZygote;
+                if (shouldUseExecSpawning || isReplayingZygoteCommands || parsedArgs.mInvokeWith != null || parsedArgs.mStartChildZygote
                         || !multipleOK || peer.getUid() != Process.SYSTEM_UID) {
-                    Log.w(TAG, "Resorting to Java fork code; multipleOK = " + multipleOK
-                            + (parsedArgs.mInvokeWith != null ? "; invokeWith used" : ""));
-                    // Continue using old code for now. TODO: Handle these cases in the other path.
-                    pid = Zygote.forkAndSpecialize(parsedArgs.mUid, parsedArgs.mGid,
-                            parsedArgs.mGids, parsedArgs.mRuntimeFlags, rlimits,
-                            parsedArgs.mMountExternal, parsedArgs.mSeInfo, parsedArgs.mNiceName,
-                            fdsToClose, fdsToIgnore, parsedArgs.mStartChildZygote,
-                            parsedArgs.mInstructionSet, parsedArgs.mAppDataDir,
-                            parsedArgs.mIsTopApp, parsedArgs.mPkgDataInfoList,
-                            parsedArgs.mAllowlistedDataInfoList, parsedArgs.mBindMountAppDataDirs,
-                            parsedArgs.mBindMountAppStorageDirs,
-                            parsedArgs.mBindMountSyspropOverrides);
+
+                    if (shouldUseExecSpawning) {
+                        final byte[] commands;
+                        byte[] nativeAppLaunchCmd = parsedArgs.mExtraArgs.getNativeAppLaunchCommand();
+                        if (nativeAppLaunchCmd != null) {
+                            commands = nativeAppLaunchCmd;
+                        } else {
+                            commands = ZygoteCommandRecorder.addFinalCommandAndSerialize(parsedArgs);
+                        }
+                        pid = Zygote.nativeForkExec(
+                                ZygoteCommandRecorder.is64bit(),
+                                nativeAppLaunchCmd != null,
+                                commands,
+                                parsedArgs.mExtraArgs.hasFlag(ZygoteExtraArgs.Flag.DISABLE_HARDENED_MALLOC),
+                                parsedArgs.mExtraArgs.hasFlag(ZygoteExtraArgs.Flag.ENABLE_COMPAT_VA_39_BIT));
+                    } else {
+                        if (isReplayingZygoteCommands) {
+                            if (parsedArgs.mExtraArgs.hasFlag(ZygoteExtraArgs.Flag.MANUALLY_RUN_ZYGOTE_PRELOAD)) {
+                                ExecSpawning.addPendingZygotePreload();
+                            }
+                        }
+                        Log.d(TAG, "Resorting to Java fork code; isReplayingZygoteCommands: " + isReplayingZygoteCommands + " multipleOK = " + multipleOK
+                                + (parsedArgs.mInvokeWith != null ? "; invokeWith used" : ""));
+                        // Continue using old code for now. TODO: Handle these cases in the other path.
+                        pid = Zygote.forkAndSpecialize(parsedArgs.mExtraArgs, parsedArgs.mUid, parsedArgs.mGid,
+                                parsedArgs.mGids, parsedArgs.mRuntimeFlags, rlimits,
+                                parsedArgs.mMountExternal, parsedArgs.mSeInfo, parsedArgs.mNiceName,
+                                fdsToClose, fdsToIgnore, parsedArgs.mStartChildZygote,
+                                parsedArgs.mInstructionSet, parsedArgs.mAppDataDir,
+                                parsedArgs.mIsTopApp, parsedArgs.mPkgDataInfoList,
+                                parsedArgs.mAllowlistedDataInfoList, parsedArgs.mBindMountAppDataDirs,
+                                parsedArgs.mBindMountAppStorageDirs,
+                                parsedArgs.mBindMountSyspropOverrides);
+                    }
 
                     try {
                         if (pid == 0) {
                             // in child
+                            checkState(!shouldUseExecSpawning); // should never be reached
                             zygoteServer.setForkChild();
 
                             zygoteServer.closeServerSocket();
@@ -269,6 +327,7 @@ class ZygoteConnection {
                             return handleChildProc(parsedArgs, childPipeFd,
                                     parsedArgs.mStartChildZygote);
                         } else {
+                            checkState(!isReplayingZygoteCommands);
                             // In the parent. A pid < 0 indicates a failure and will be handled in
                             // handleParentProc.
                             IoUtils.closeQuietly(childPipeFd);
@@ -281,6 +340,7 @@ class ZygoteConnection {
                         IoUtils.closeQuietly(serverPipeFd);
                     }
                 } else {
+                    Objects.requireNonNull(argBuffer);
                     ZygoteHooks.preFork();
                     Runnable result = Zygote.forkSimpleApps(argBuffer,
                             zygoteServer.getZygoteSocketFileDescriptor(),
@@ -302,14 +362,17 @@ class ZygoteConnection {
         }
         // Handle anything that may need a ZygoteCommandBuffer after we've released ours.
         if (parsedArgs.mUsapPoolStatusSpecified) {
+            checkState(!isReplayingZygoteCommands);
             return handleUsapPoolStatusChange(zygoteServer, parsedArgs.mUsapPoolEnabled);
         }
         if (parsedArgs.mApiDenylistExemptions != null) {
+            ZygoteCommandRecorder.maybeAddReplayCommand(CommandType.ApiDenylistExemptions, parsedArgs);
             return handleApiDenylistExemptions(zygoteServer,
                     parsedArgs.mApiDenylistExemptions);
         }
         if (parsedArgs.mHiddenApiAccessLogSampleRate != -1
                 || parsedArgs.mHiddenApiAccessStatslogSampleRate != -1) {
+            ZygoteCommandRecorder.maybeAddReplayCommand(CommandType.HiddenApiAccessLogSampleRate, parsedArgs);
             return handleHiddenApiAccessLogSampleRate(zygoteServer,
                     parsedArgs.mHiddenApiAccessLogSampleRate,
                     parsedArgs.mHiddenApiAccessStatslogSampleRate);
@@ -319,6 +382,7 @@ class ZygoteConnection {
 
     private void handleAbiListQuery() {
         try {
+            Log.d(TAG, "handleAbiListQuery");
             final byte[] abiListBytes = abiList.getBytes(StandardCharsets.US_ASCII);
             mSocketOutStream.writeInt(abiListBytes.length);
             mSocketOutStream.write(abiListBytes);
@@ -339,6 +403,7 @@ class ZygoteConnection {
     }
 
     private void handleBootCompleted() {
+        Log.d(TAG, "handleBootCompleted");
         try {
             mSocketOutStream.writeInt(0);
         } catch (IOException ioe) {
@@ -483,11 +548,15 @@ class ZygoteConnection {
      */
     @UnsupportedAppUsage
     void closeSocket() {
-        try {
-            mSocket.close();
-        } catch (IOException ex) {
-            Log.e(TAG, "Exception while closing command "
-                    + "socket in parent", ex);
+        if (ExecSpawning.isReplayingZygoteCommands()) {
+            checkState(mSocket == null);
+        } else {
+            try {
+                mSocket.close();
+            } catch (IOException ex) {
+                Log.e(TAG, "Exception while closing command "
+                        + "socket in parent", ex);
+            }
         }
     }
 

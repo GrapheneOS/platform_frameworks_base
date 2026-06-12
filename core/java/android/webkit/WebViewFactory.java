@@ -289,6 +289,11 @@ public final class WebViewFactory {
             return LIBLOAD_WRONG_PACKAGE_NAME;
         }
 
+        if (com.android.internal.os.ExecSpawning.isExecSpawnedProcess()) {
+            Log.d(LOGTAG, "loadWebViewNativeLibraryFromPackage called in exec spawned process, returning LIBLOAD_ADDRESS_SPACE_NOT_RESERVED early");
+            return WebViewFactory.LIBLOAD_ADDRESS_SPACE_NOT_RESERVED;
+        }
+
         Application initialApplication = AppGlobals.getInitialApplication();
         WebViewProviderResponse response = null;
         try {

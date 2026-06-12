@@ -25,6 +25,7 @@
 #include <libzygote_messages_schemas/messages.h>
 #include <nativehelper/JNIHelp.h>
 #include <nativehelper/JNIPlatformHelp.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
 #include <nativehelper/ScopedUtfChars.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -136,14 +137,30 @@ bool waitUntilNativeZygoteReady() {
 
 namespace android {
 
+static jint captureCommand(JNIEnv* env, uint8_t* buf, ssize_t size, jobjectArray outCapturedCommand) {
+    if (size >= INT32_MAX) {
+        jniThrowIOException(env, E2BIG);
+        return -1;
+    }
+    jbyteArray out = env->NewByteArray((jint) size);
+    if (out == nullptr) {
+        return -1;
+    }
+    env->SetByteArrayRegion(out, 0, (jint) size, (jbyte*) buf);
+    env->SetObjectArrayElement(outCapturedCommand, 0, out);
+    return 0;
+}
+
 static jint android_os_NativeZygoteProcess_startNativeProcess(
-        JNIEnv* env, jclass /* classObj */, jlong selinuxFlags, jobject sockFd, jint uid, jint gid, jlong startSeq,
+        JNIEnv* env, jclass /* classObj */,
+        jobjectArray outCapturedCommand, jlong selinuxFlags, jbyteArray preloadCommand,
+        jobject sockFd, jint uid, jint gid, jlong startSeq,
         jstring packageName, jstring niceName, jint targetSdkVersion, jboolean startChildZygote,
         jint runtimeFlags, jstring seInfo, jboolean isTopApp) {
-    int fd = jniGetFDFromFileDescriptor(env, sockFd);
-    if (fd < 0) {
-        jniThrowRuntimeException(env, "Failed to get a valid file descriptor");
-        return -1;
+    std::vector<uint8_t> preloadCommandVec;
+    if (preloadCommand != nullptr) {
+        ScopedByteArrayRO sba(env, preloadCommand);
+        preloadCommandVec.insert(preloadCommandVec.end(), sba.get(), sba.get() + sba.size());
     }
     auto packageNameStr = extract_jstring(env, packageName);
     auto niceNameStr = extract_jstring(env, niceName);
@@ -155,7 +172,7 @@ static jint android_os_NativeZygoteProcess_startNativeProcess(
 
     flatbuffers::FlatBufferBuilder builder;
     auto spawnAndroidNativeCmd =
-            CreateSpawnAndroidNativeDirect(builder, packageNamePtr, startSeq, targetSdkVersion,
+            CreateSpawnAndroidNativeDirect(builder, &preloadCommandVec, packageNamePtr, startSeq, targetSdkVersion,
                                            static_cast<unsigned>(runtimeFlags), is_top_app);
     bool is_child_zygote = startChildZygote == JNI_TRUE;
     CreateSpawnParcel(builder, env, selinuxFlags, uid, gid, niceNamePtr, is_child_zygote, seInfoPtr,
@@ -164,6 +181,15 @@ static jint android_os_NativeZygoteProcess_startNativeProcess(
     uint8_t* buf = builder.GetBufferPointer();
     ssize_t size = builder.GetSize();
 
+    if (outCapturedCommand != nullptr) {
+        return captureCommand(env, buf, size, outCapturedCommand);
+    }
+
+    int fd = jniGetFDFromFileDescriptor(env, sockFd);
+    if (fd < 0) {
+        jniThrowRuntimeException(env, "Failed to get a valid file descriptor");
+        return -1;
+    }
     ssize_t written = write(fd, buf, size);
     if (written == -1 || written != size) {
         jniThrowIOException(env, errno);
@@ -174,16 +200,11 @@ static jint android_os_NativeZygoteProcess_startNativeProcess(
 }
 
 static jint android_os_NativeZygoteProcess_startNativeChildZygote(
-        JNIEnv* env, jclass /* classObj */, jlong selinuxFlags, jobject sockFd, jint uid, jint gid, jstring niceName,
+        JNIEnv* env, jclass /* classObj */, jobjectArray outCapturedCommand, jlong selinuxFlags, jobject sockFd, jint uid, jint gid, jstring niceName,
         jstring seInfo, jint targetSdkVersion, jint runtimeFlags, jstring serverPath,
         jint uidRangeStart, jint uidRangeEnd, jstring allowedLibPath, jstring librarySearchPaths,
         jboolean isShared, jstring zipPath, jstring nativeSharedLibPath, jstring libraryPath,
         jstring preloadFunc) {
-    int fd = jniGetFDFromFileDescriptor(env, sockFd);
-    if (fd < 0) {
-        jniThrowRuntimeException(env, "Failed to get a valid file descriptor");
-        return -1;
-    }
     auto niceNameChars = extract_jstring(env, niceName);
     auto seInfoChars = extract_jstring(env, seInfo);
     auto libraryPathChars = extract_jstring(env, libraryPath);
@@ -215,12 +236,23 @@ static jint android_os_NativeZygoteProcess_startNativeChildZygote(
                                                      zipPathStr, nativeSharedLibPathStr,
                                                      preloadFuncStr, uidRangeStart, uidRangeEnd);
 
+    if (outCapturedCommand != nullptr) {
+        builder.Finish(spawnAndroidChildZygoteCmd);
+        return captureCommand(env, builder.GetBufferPointer(), builder.GetSize(), outCapturedCommand);
+    }
+
     CreateSpawnParcel(builder, env, selinuxFlags, uid, gid, niceNameStr, /**is_child_zygote=*/true, seInfoStr,
                       serverPathStr, SpawnPayload_SpawnSubspeciesAndroidNative,
                       spawnAndroidChildZygoteCmd.Union());
 
     uint8_t* buf = builder.GetBufferPointer();
     ssize_t size = builder.GetSize();
+
+    int fd = jniGetFDFromFileDescriptor(env, sockFd);
+    if (fd < 0) {
+        jniThrowRuntimeException(env, "Failed to get a valid file descriptor");
+        return -1;
+    }
 
     ssize_t written = write(fd, buf, size);
     if (written == -1 || written != size) {
@@ -261,10 +293,10 @@ static void android_os_NativeZygoteProcess_prewarmNativeZygote(JNIEnv* env, jcla
 static const JNINativeMethod method_table[] = {
         /* name, signature, funcPtr */
         {"nativeStartNativeProcess",
-         "(JLjava/io/FileDescriptor;IIJLjava/lang/String;Ljava/lang/String;IZILjava/lang/String;Z)I",
+         "([[BJ[BLjava/io/FileDescriptor;IIJLjava/lang/String;Ljava/lang/String;IZILjava/lang/String;Z)I",
          (void*)android_os_NativeZygoteProcess_startNativeProcess},
         {"nativeStartNativeChildZygote",
-         "(JLjava/io/FileDescriptor;IILjava/lang/String;Ljava/lang/String;II"
+         "([[BJLjava/io/FileDescriptor;IILjava/lang/String;Ljava/lang/String;II"
          "Ljava/lang/String;IILjava/lang/String;Ljava/lang/String;ZLjava/lang/String;Ljava/lang/"
          "String;Ljava/lang/String;"
          "Ljava/lang/String;)I",

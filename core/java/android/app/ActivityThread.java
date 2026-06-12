@@ -8281,6 +8281,8 @@ public final class ActivityThread extends ClientTransactionHandler
 
         ActivityThreadHooks.onBind2(appContext, extraAppBindArgs);
 
+        com.android.internal.os.ExecSpawning.maybeRunPendingZygotePreload(data.appInfo);
+
         // Allow disk access during application and provider setup. This could
         // block processing ordered broadcasts, but later processing would
         // probably end up doing the same disk access.

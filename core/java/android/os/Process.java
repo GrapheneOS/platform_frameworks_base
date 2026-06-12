@@ -43,6 +43,7 @@ import android.system.StructPollfd;
 import android.util.Pair;
 import android.webkit.WebViewZygote;
 
+import com.android.internal.os.ZygoteExtraArgs;
 import com.android.sdksandbox.flags.Flags;
 
 import dalvik.annotation.optimization.CriticalNative;
@@ -766,7 +767,8 @@ public class Process {
      *
      * @hide
      */
-    public static ProcessStartResult start(@NonNull final String processClass,
+    public static ProcessStartResult start(@NonNull final ZygoteExtraArgs zygoteExtArgs,
+                                           @NonNull final String processClass,
                                            @Nullable final String niceName,
                                            int uid, int gid, @Nullable int[] gids,
                                            int runtimeFlags,
@@ -791,22 +793,23 @@ public class Process {
                                            boolean bindMountAppStorageDirs,
                                            boolean bindMountSystemOverrides,
                                            long startSeq,
-                                           @Nullable String[] zygoteArgs,
-                                           @Nullable String flatExtraArgs) {
+                                           @Nullable String[] zygoteArgs) {
         boolean isNative = android.os.Flags.nativeFrameworkPrototype()
                 && (zygotePolicyFlags & ZYGOTE_POLICY_FLAG_NATIVE_PROCESS) != 0;
         IZygoteProcess process = isNative ? NATIVE_ZYGOTE_PROCESS : ZYGOTE_PROCESS;
-        return process.start(processClass, niceName, uid, gid, gids,
+        return process.start(zygoteExtArgs, processClass, niceName, uid, gid, gids,
                     runtimeFlags, mountExternal, targetSdkVersion, seInfo,
                     abi, instructionSet, appDataDir, invokeWith, packageName,
                     zygotePolicyFlags, isTopApp, disabledCompatChanges,
                     enabledCompatChanges, useDeliQueue,
                     pkgDataInfoMap, whitelistedDataInfoMap, bindMountAppsData,
-                    bindMountAppStorageDirs, bindMountSystemOverrides, startSeq, zygoteArgs, flatExtraArgs);
+                    bindMountAppStorageDirs, bindMountSystemOverrides, startSeq, zygoteArgs);
     }
 
     /** @hide */
-    public static ProcessStartResult startWebView(@NonNull final String processClass,
+    public static ProcessStartResult startWebView(ZygoteProcess zp,
+                                                  @NonNull ZygoteExtraArgs zygoteExtArgs,
+                                                  @NonNull final String processClass,
                                                   @Nullable final String niceName,
                                                   int uid, int gid, @Nullable int[] gids,
                                                   int runtimeFlags,
@@ -822,13 +825,12 @@ public class Process {
                                                   @Nullable long[] enabledCompatChanges,
                                                   boolean useDeliQueue,
                                                   long startSeq,
-                                                  @Nullable String[] zygoteArgs,
-                                                  @Nullable String flatExtraArgs) {
+                                                  @Nullable String[] zygoteArgs) {
         // Webview zygote can't access app private data files, so doesn't need to know its data
         // info.
-        return WebViewZygote.getProcess()
+        return zp
                 .start(
-                        processClass,
+                        zygoteExtArgs, processClass,
                         niceName,
                         uid,
                         gid,
@@ -853,8 +855,7 @@ public class Process {
                         /* bindMountAppStorageDirs */ false, /* bindMountSyspropOverrides */
                         false,
                         startSeq,
-                        zygoteArgs,
-                        flatExtraArgs);
+                        zygoteArgs);
     }
 
     /**

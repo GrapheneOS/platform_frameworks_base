@@ -41,20 +41,20 @@ public final class HostingRecordTest {
 
     @Test
     public void testUsesNativeAppZygote() {
-        HostingRecord nativeServiceRecord = HostingRecord.byAppZygote(
+        HostingRecord nativeServiceRecord = HostingRecord.byAppZygote_(
                 HostingRecord.HOSTING_TYPE_BOUND_SERVICE,
                 COMPONENT_NAME, PACKAGE_NAME, UID, PROCESS_NAME,
                 /*isNativeService=*/ true,
                 /*callerUid=*/ Process.INVALID_UID, /*callerProcessName=*/ null);
-        assertThat(nativeServiceRecord.usesAppZygote()).isTrue();
+        assertThat(nativeServiceRecord.usesAppZygote_()).isTrue();
         assertThat(nativeServiceRecord.usesNativeAppZygote()).isTrue();
 
-        HostingRecord managedAppZygoteRecord = HostingRecord.byAppZygote(
+        HostingRecord managedAppZygoteRecord = HostingRecord.byAppZygote_(
                 HostingRecord.HOSTING_TYPE_BOUND_SERVICE,
                 COMPONENT_NAME, PACKAGE_NAME, UID, PROCESS_NAME,
                 /*isNativeService=*/ false,
                 /*callerUid=*/ Process.INVALID_UID, /*callerProcessName=*/ null);
-        assertThat(managedAppZygoteRecord.usesAppZygote()).isTrue();
+        assertThat(managedAppZygoteRecord.usesAppZygote_()).isTrue();
         assertThat(managedAppZygoteRecord.usesNativeAppZygote()).isFalse();
     }
 
@@ -81,7 +81,7 @@ public final class HostingRecordTest {
 
     @Test
     public void testCallerInfo_byAppZygote() {
-        HostingRecord record = HostingRecord.byAppZygote(
+        HostingRecord record = HostingRecord.byAppZygote_(
                 HostingRecord.HOSTING_TYPE_BOUND_SERVICE,
                 COMPONENT_NAME,
                 DEFINING_PACKAGE_NAME, DEFINING_UID, DEFINING_PROCESS_NAME,
@@ -107,7 +107,7 @@ public final class HostingRecordTest {
 
     @Test
     public void testGetHostingZygote_typeApp() {
-        HostingRecord appZygoteRecord = HostingRecord.byAppZygote(
+        HostingRecord appZygoteRecord = HostingRecord.byAppZygote_(
                 HostingRecord.HOSTING_TYPE_BOUND_SERVICE,
                 COMPONENT_NAME, DEFINING_PACKAGE_NAME, DEFINING_UID, DEFINING_PROCESS_NAME,
                 /* isNativeService */ false, CALLER_UID, CALLER_PROCESS_NAME);

@@ -834,7 +834,7 @@ public class ApplicationStartInfoTest {
         app.setPid(pid);
         app.info.uid = packageUid;
         if (definingUid != null) {
-            app.setHostingRecord(HostingRecord.byAppZygote(
+            app.setHostingRecord(HostingRecord.byAppZygote_(
                     HostingRecord.HOSTING_TYPE_BOUND_SERVICE,
                     COMPONENT, "", definingUid, "", isNativeService,
                     Process.INVALID_UID /* callerUid */, null /* callerProcessName */));

@@ -47,6 +47,8 @@ import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.content.ComponentName;
+import android.content.pm.ApplicationInfo;
+import android.util.Slog;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -281,7 +283,7 @@ public final class HostingRecord {
 
     /**
      * Returns the UID of the package defining the component we want to start. Only valid
-     * when {@link #usesAppZygote()} returns true.
+     * when {@link #usesAppZygote_()} returns true.
      *
      * @return the UID of the hosting application
      */
@@ -291,7 +293,7 @@ public final class HostingRecord {
 
     /**
      * Returns the packageName of the package defining the component we want to start. Only valid
-     * when {@link #usesAppZygote()} returns true.
+     * when {@link #usesAppZygote_()} returns true.
      *
      * @return the packageName of the hosting application
      */
@@ -385,7 +387,7 @@ public final class HostingRecord {
      *                        support services with {@code android:nativeService="true"}.
      * @return The constructed HostingRecord
      */
-    public static HostingRecord byAppZygote(@NonNull String hostingType, ComponentName hostingName,
+    public static HostingRecord byAppZygote_/* underscore was added to keep track of callers */(@NonNull String hostingType, ComponentName hostingName,
             String definingPackageName,
             int definingUid, String definingProcessName, boolean isNativeService,
             int callerUid, @Nullable String callerProcessName) {
@@ -416,8 +418,21 @@ public final class HostingRecord {
     /**
      * @return whether the process should spawn from the application zygote
      */
-    public boolean usesAppZygote() {
+    public boolean usesAppZygote_() { // underscore was added to keep track of callers
         return mHostingZygote == ZYGOTE_TYPE_APP;
+    }
+
+    private ApplicationInfo mAppInfoForPreloading;
+
+    public void setAppInfoForPreloading(ApplicationInfo appInfo) {
+        if (mAppInfoForPreloading != null) {
+            Slog.wtf("HostingRecord", "overwriting mAppInfoForPreloading");
+        }
+        mAppInfoForPreloading = appInfo;
+    }
+
+    public ApplicationInfo getAppInfoForPreloading() {
+        return mAppInfoForPreloading;
     }
 
     /**
@@ -430,7 +445,7 @@ public final class HostingRecord {
     /**
      * @return whether the process should spawn from the webview zygote
      */
-    public boolean usesWebviewZygote() {
+    public boolean usesWebviewZygote_() { // underscore was added to keep track of callers
         return mHostingZygote == ZYGOTE_TYPE_WEBVIEW;
     }
 

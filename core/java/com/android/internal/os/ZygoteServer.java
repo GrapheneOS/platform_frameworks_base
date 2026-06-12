@@ -392,6 +392,10 @@ class ZygoteServer {
      * @param abiList list of ABIs supported by this zygote.
      */
     Runnable runSelectLoop(String abiList) {
+        if (ExecSpawning.isReplayingZygoteCommands()) {
+            return ExecSpawning.replayCommands(this);
+        }
+
         ArrayList<FileDescriptor> socketFDs = new ArrayList<>();
         ArrayList<ZygoteConnection> peers = new ArrayList<>();
 
@@ -518,7 +522,7 @@ class ZygoteServer {
                             boolean multipleForksOK = !isUsapPoolEnabled()
                                     && ZygoteHooks.isIndefiniteThreadSuspensionSafe();
                             final Runnable command =
-                                    connection.processCommand(this, multipleForksOK);
+                                    connection.processCommand(this, multipleForksOK, null);
 
                             // TODO (chriswailes): Is this extra check necessary?
                             if (mIsForkChild) {

@@ -160,6 +160,8 @@ class NativeCommandBuffer {
     if (mLinesLeft <= 0 || mLinesLeft >= static_cast<int32_t>(MAX_COMMAND_BYTES / 2)) {
       return std::make_pair(false, false);
     }
+    static const char* IS_COMPLEX_CMD = "--is-complex-zygote-command";
+    static const size_t ICC_LENGTH = strlen(IS_COMPLEX_CMD);
     static const char* RUNTIME_ARGS = "--runtime-args";
     static const char* INVOKE_WITH = "--invoke-with";
     static const char* CHILD_ZYGOTE = "--start-child-zygote";
@@ -187,6 +189,11 @@ class NativeCommandBuffer {
         return std::make_pair(false, false);
       }
       const auto [arg_start, arg_end] = read_result.value();
+      if (static_cast<size_t>(arg_end - arg_start) == ICC_LENGTH &&
+          strncmp(arg_start, IS_COMPLEX_CMD, ICC_LENGTH) == 0) {
+          // return to the Java code to handle exec spawning
+          return std::make_pair(false, false);
+      }
       if (static_cast<size_t>(arg_end - arg_start) == RA_LENGTH &&
           strncmp(arg_start, RUNTIME_ARGS, RA_LENGTH) == 0) {
         saw_runtime_args = true;

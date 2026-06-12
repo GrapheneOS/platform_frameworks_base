@@ -27,6 +27,7 @@ import android.util.Pair;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.os.Zygote;
+import com.android.internal.os.ZygoteExtraArgs;
 
 import dalvik.system.VMRuntime;
 
@@ -85,11 +86,11 @@ public class AppZygote {
      * Returns the zygote process associated with this app zygote.
      * Creates the process if it's not already running.
      */
-    public ChildZygoteProcess getProcess(@Nullable String flatExtraArgs) {
+    public ChildZygoteProcess getProcess(ZygoteExtraArgs zygoteExtArgs) {
         synchronized (mLock) {
             if (mZygote != null) return mZygote;
 
-            connectToZygoteIfNeededLocked(flatExtraArgs);
+            connectToZygoteIfNeededLocked(zygoteExtArgs);
             return mZygote;
         }
     }
@@ -149,7 +150,9 @@ public class AppZygote {
      * @return An object that describes the result of the attempt to start the process.
      * @throws RuntimeException on fatal start failure
      */
-    public final Process.ProcessStartResult startProcess(@NonNull final String processClass,
+    public final Process.ProcessStartResult startProcess(
+            @NonNull ZygoteExtraArgs zygoteExtArgs,
+            @NonNull final String processClass,
             final String niceName,
             int uid, @Nullable int[] gids,
             int runtimeFlags, int mountExternal,
@@ -168,10 +171,9 @@ public class AppZygote {
             @Nullable Map<String, Pair<String, Long>>
             allowlistedDataInfoList,
             long startSeq,
-            @Nullable String[] zygoteArgs,
-            @Nullable String flatExtraArgs) {
+            @Nullable String[] zygoteArgs) {
         try {
-            return getProcess(flatExtraArgs).getZygoteProcess().start(processClass,
+            return getProcess(zygoteExtArgs).getZygoteProcess().start(zygoteExtArgs, processClass,
                     niceName, uid, uid, gids, runtimeFlags, mountExternal,
                     targetSdkVersion, seInfo, abi, instructionSet,
                     appDataDir, null, packageName,
@@ -179,9 +181,9 @@ public class AppZygote {
                     disabledCompatChanges, enabledCompatChanges, useDeliQueue, pkgDataInfoMap,
                     allowlistedDataInfoList,
                     false, false, false, startSeq,
-                    zygoteArgs, null);
+                    zygoteArgs);
         } catch (RuntimeException e) {
-            final boolean zygote_dead = getProcess(flatExtraArgs).isDead();
+            final boolean zygote_dead = getProcess(zygoteExtArgs).isDead();
             if (!zygote_dead) {
                 throw e; // Zygote process is alive. Do nothing.
             }
@@ -189,7 +191,7 @@ public class AppZygote {
         // Retry here if the previous start fails.
         Log.w(LOG_TAG, "retry starting process " + niceName);
         stopZygote();
-        return getProcess(flatExtraArgs).getZygoteProcess().start(processClass,
+        return getProcess(zygoteExtArgs).getZygoteProcess().start(zygoteExtArgs, processClass,
                 niceName, uid, uid, gids, runtimeFlags, mountExternal,
                 targetSdkVersion, seInfo, abi, instructionSet,
                 appDataDir, null, packageName,
@@ -197,7 +199,7 @@ public class AppZygote {
                 disabledCompatChanges, enabledCompatChanges, useDeliQueue, pkgDataInfoMap,
                 allowlistedDataInfoList,
                 false, false, false, startSeq,
-                zygoteArgs, null);
+                zygoteArgs);
     }
 
     @GuardedBy("mLock")
@@ -213,7 +215,7 @@ public class AppZygote {
     }
 
     @GuardedBy("mLock")
-    private void connectToZygoteIfNeededLocked(@Nullable String flatExtraArgs) {
+    private void connectToZygoteIfNeededLocked(ZygoteExtraArgs zygoteExtArgs) {
         String abi = mAppInfo.primaryCpuAbi != null ? mAppInfo.primaryCpuAbi :
                 Build.SUPPORTED_ABIS[0];
         try {
@@ -226,6 +228,7 @@ public class AppZygote {
                     mIsNativeService ? Process.NATIVE_ZYGOTE_PROCESS : Process.ZYGOTE_PROCESS;
             String seInfo = mIsNativeService ? "native_app_zygote" : "app_zygote";
             mZygote = process.startChildZygote(
+                    zygoteExtArgs,
                     "com.android.internal.os.AppZygoteInit",
                     mProcessName,
                     mZygoteUid,
@@ -238,8 +241,7 @@ public class AppZygote {
                     VMRuntime.getInstructionSet(abi), // instructionSet
                     mZygoteUidGidMin,
                     mZygoteUidGidMax,
-                    mAppInfo,
-                    flatExtraArgs);
+                    mAppInfo);
 
             if (mIsNativeService) {
                 ZygoteProcess.waitForConnectionToNativeZygote(

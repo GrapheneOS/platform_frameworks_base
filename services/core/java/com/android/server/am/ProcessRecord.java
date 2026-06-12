@@ -1417,7 +1417,7 @@ class ProcessRecord extends ProcessRecordInternal implements WindowProcessListen
     void killProcessGroupIfNecessaryLocked(boolean async, String reason) {
         final boolean killProcessGroup;
         if (mHostingRecord != null
-                && (mHostingRecord.usesWebviewZygote() || mHostingRecord.usesAppZygote())) {
+                && (mHostingRecord.usesWebviewZygote_() || mHostingRecord.usesAppZygote_())) {
             synchronized (ProcessRecord.this) {
                 killProcessGroup = mProcessGroupCreated;
                 if (!killProcessGroup) {
