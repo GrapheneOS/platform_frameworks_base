@@ -1,0 +1,76 @@
+cc_library_shared {
+    name: "libgoscompat_secure_spawn_jni",
+    srcs: ["jni/secure_spawn_jni.c"],
+    sdk_version: "current",
+    header_libs: ["jni_headers"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    stl: "none",
+}
+
+goscompat_secure_spawn_java_srcs = [
+    "src/**/*.java",
+]
+
+goscompat_secure_spawn_app_srcs = goscompat_secure_spawn_java_srcs + [
+    "src/**/*.kt",
+]
+
+goscompat_secure_spawn_test_static_libs = [
+    "androidx.test.ext.junit",
+    "androidx.test.runner",
+    "truth",
+]
+
+goscompat_secure_spawn_app_static_libs = goscompat_secure_spawn_test_static_libs + [
+    "androidx.activity_activity",
+    "androidx.activity_activity-compose",
+    "androidx.core_core",
+    "androidx.compose.foundation_foundation",
+    "androidx.compose.foundation_foundation-layout",
+    "androidx.compose.material3_material3",
+    "androidx.compose.runtime_runtime",
+    "androidx.compose.ui_ui",
+    "androidx.compose.ui_ui-graphics",
+    "androidx.compose.ui_ui-text",
+    "androidx.compose.ui_ui-unit",
+]
+
+android_test_helper_app {
+    name: "GosCompatSecureSpawnApp",
+    srcs: goscompat_secure_spawn_app_srcs,
+    manifest: "AndroidManifest.xml",
+    jni_libs: [
+        "libgoscompat_secure_spawn_jni",
+    ],
+    use_embedded_native_libs: true,
+    compile_multilib: "both",
+    libs: [
+        "android.test.runner.stubs",
+    ],
+    static_libs: goscompat_secure_spawn_app_static_libs,
+    kotlincflags: [
+        "-Xjvm-default=all",
+        "-P plugin:androidx.compose.compiler.plugins.kotlin:sourceInformation=true",
+    ],
+    sdk_version: "current",
+}
+
+android_test_helper_app {
+    name: "GosCompatSecureSpawnProfileableApp",
+    srcs: goscompat_secure_spawn_java_srcs,
+    manifest: "AndroidManifest.profileable.xml",
+    jni_libs: [
+        "libgoscompat_secure_spawn_jni",
+    ],
+    use_embedded_native_libs: true,
+    compile_multilib: "both",
+    libs: [
+        "android.test.runner.stubs",
+    ],
+    static_libs: goscompat_secure_spawn_test_static_libs,
+    sdk_version: "current",
+}

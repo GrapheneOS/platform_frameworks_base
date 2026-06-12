@@ -1,0 +1,22 @@
+java_test_host {
+    name: "GosCompatSecureSpawnTests",
+    srcs: [
+        "src/**/*.java",
+        ":GosPackageStateFlags",
+    ],
+    libs: [
+        "tradefed",
+        "compatibility-tradefed",
+        "compatibility-host-util",
+    ],
+    static_libs: [
+        "framework-annotations-lib",
+    ],
+    test_suites: [
+        "general-tests",
+    ],
+    device_common_data: [
+        ":GosCompatSecureSpawnApp",
+        ":GosCompatSecureSpawnProfileableApp",
+    ],
+}

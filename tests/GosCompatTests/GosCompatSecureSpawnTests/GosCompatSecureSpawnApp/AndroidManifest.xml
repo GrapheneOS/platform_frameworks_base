@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="app.grapheneos.goscompat.securespawn">
+
+    <application
+        android:debuggable="false"
+        android:label="GOS Secure Spawn Checks"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+        <uses-library android:name="android.test.runner" />
+
+        <activity
+            android:name=".SecureSpawnActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+
+    <instrumentation
+        android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:targetPackage="app.grapheneos.goscompat.securespawn" />
+</manifest>

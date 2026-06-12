@@ -2,6 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="app.grapheneos.goscompat.checks">
 
+    <queries>
+        <package android:name="app.grapheneos.goscompat.securespawn" />
+    </queries>
+
     <application
         android:debuggable="true"
         android:label="GOS Compat Checks"

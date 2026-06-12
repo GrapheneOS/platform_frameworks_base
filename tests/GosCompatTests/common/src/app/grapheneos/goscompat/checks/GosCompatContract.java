@@ -181,6 +181,14 @@ public final class GosCompatContract {
         }
     }
 
+    public static final class SecureSpawn {
+        public static final String PACKAGE_NAME = "app.grapheneos.goscompat.securespawn";
+        public static final String ACTIVITY_CLASS = PACKAGE_NAME + ".SecureSpawnActivity";
+
+        private SecureSpawn() {
+        }
+    }
+
     private GosCompatContract() {
     }
 }

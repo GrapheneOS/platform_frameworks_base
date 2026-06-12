@@ -1,10 +1,13 @@
 package app.grapheneos.goscompat.checks
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color as AndroidColor
 import android.os.Bundle
 import android.os.DeadObjectException
 import android.view.Window
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -89,12 +92,26 @@ class GosCompatCheckActivity : ComponentActivity() {
                                 reflectiveMapsScanRunning,
                             )
                         },
+                        onRunSecureSpawn = {
+                            startSecureSpawn()
+                        },
                         dmaBufReleaseContent = {
                             DmaBufReleasePanel(this@GosCompatCheckActivity)
                         },
                     )
                 }
             }
+        }
+    }
+
+    private fun startSecureSpawn() {
+        try {
+            startActivity(Intent().setClassName(
+                GosCompatContract.SecureSpawn.PACKAGE_NAME,
+                GosCompatContract.SecureSpawn.ACTIVITY_CLASS,
+            ))
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, "Secure spawn app is not installed", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -152,6 +169,7 @@ private fun GosCompatCheckScreen(
     reflectiveMapsScanRunning: Boolean,
     onRunDirectMapsScan: () -> Unit,
     onRunReflectiveMapsScan: () -> Unit,
+    onRunSecureSpawn: () -> Unit,
     dmaBufReleaseContent: @Composable () -> Unit,
 ) {
     Column(
@@ -167,6 +185,27 @@ private fun GosCompatCheckScreen(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.SemiBold,
         )
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Secure app spawning",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Button(onClick = onRunSecureSpawn) {
+                    Text("Open check")
+                }
+            }
+        }
 
         Card(
             modifier = Modifier.fillMaxWidth(),

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="app.grapheneos.goscompat.securespawn.profileable">
+
+    <application
+        android:debuggable="false"
+        android:label="GOS Secure Spawn Profileable Checks"
+        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+        <profileable android:shell="true" />
+        <uses-library android:name="android.test.runner" />
+    </application>
+
+    <instrumentation
+        android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:targetPackage="app.grapheneos.goscompat.securespawn.profileable" />
+</manifest>
