@@ -1051,8 +1051,6 @@ interface IActivityManager {
     @EnforcePermission("INTERACT_ACROSS_USERS_FULL")
     IBinder refreshIntentCreatorToken(in Intent intent);
 
-    String[] getSystemIdmapPaths();
-
     oneway void showDynCodeLoadingNotification(int type, String pkgName, @nullable String path,
                                             in List<String> reportBody, String denialType);
 

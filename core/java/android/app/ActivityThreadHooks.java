@@ -1,15 +1,13 @@
 package android.app;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.pm.GosPackageState;
 import android.content.pm.SrtPermissions;
+import android.content.res.AssetManager;
 import android.ext.dcl.DynCodeLoading;
 import android.location.HookedLocationManager;
 import android.os.Bundle;
 import android.os.Process;
-import android.os.RemoteException;
-import android.util.Log;
 
 import com.android.internal.app.ContactScopes;
 import com.android.internal.app.StorageScopesAppHooks;
@@ -31,6 +29,8 @@ class ActivityThreadHooks {
             throw new IllegalStateException("onBind called for the second time");
         }
         called = true;
+
+        AssetManager.systemIdmapPaths_ = args.getStringArray(AppBindArgs.KEY_SYSTEM_IDMAP_PATHS);
 
         AppGlobals.setInitialPackageId(appBindData.appInfo.ext().getPackageId());
 

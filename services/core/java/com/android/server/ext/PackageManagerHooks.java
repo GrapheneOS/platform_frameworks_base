@@ -123,6 +123,7 @@ public class PackageManagerHooks {
         var b = new Bundle();
         b.putParcelable(AppBindArgs.KEY_GOS_PACKAGE_STATE, gosPs);
         b.putIntArray(AppBindArgs.KEY_FLAGS_ARRAY, flagsArr);
+        b.putStringArray(AppBindArgs.KEY_SYSTEM_IDMAP_PATHS, android.content.res.AssetManager.systemIdmapPaths_);
 
         return b;
     }

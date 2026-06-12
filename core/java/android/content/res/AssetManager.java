@@ -49,7 +49,6 @@ import android.util.TypedValue;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.content.om.OverlayConfig;
-import com.android.internal.os.ExecInit;
 import com.android.internal.ravenwood.RavenwoodHelperBridge;
 
 import java.io.FileDescriptor;
@@ -302,17 +301,11 @@ public final class AssetManager implements AutoCloseable {
                 // When exec-based spawning in used, in-memory cache of assets is lost, and the spawned
                 // process is unable to recreate it, since it's not allowed to create idmaps.
                 //
-                // As a workaround, ask the ActivityManager to return paths of cached idmaps and use
-                // them directly. ActivityManager runs in system_server, which always uses zygote-based
-                // spawning.
-                if (ExecInit.isExecSpawned) {
-                    try {
-                        systemIdmapPaths = ActivityManager.getService().getSystemIdmapPaths();
-                        Objects.requireNonNull(systemIdmapPaths);
-                    } catch (Throwable t) {
-                        Log.e(TAG, "unable to retrieve systemIdmapPaths", t);
-                        systemIdmapPaths = new String[0];
-                    }
+                // To resolve this issue, idmap paths are passed from system_server via AppBindArgs.
+                // system_server always uses zygote-based spawning.
+                systemIdmapPaths = systemIdmapPaths_;
+                if (systemIdmapPaths != null) {
+                    Log.d(TAG, "reusing systemIdmapPaths");
                 } else {
                     systemIdmapPaths = OverlayConfig.getZygoteInstance().createImmutableFrameworkIdmapsInZygote();
                     systemIdmapPaths_ = systemIdmapPaths;

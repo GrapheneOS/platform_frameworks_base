@@ -3,6 +3,7 @@ package android.app;
 /** @hide */
 public interface AppBindArgs {
     String KEY_GOS_PACKAGE_STATE = "gosPs";
+    String KEY_SYSTEM_IDMAP_PATHS = "idmapPaths";
     String KEY_FLAGS_ARRAY = "flagsArr";
 
     int FLAGS_IDX_SPECIAL_RUNTIME_PERMISSIONS = 0;
