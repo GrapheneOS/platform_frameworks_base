@@ -85,7 +85,9 @@ public class ZygoteExtraArgs implements Parcelable {
     }
 
     public ZygoteSelectionMode getZygoteSelectionMode() {
-        return ZygoteSelectionMode.Regular;
+        return hasFlag(Flag.PREFER_COMPAT_ZYGOTE) ?
+                ZygoteSelectionMode.PreferCompatZygote :
+                ZygoteSelectionMode.Regular;
     }
 
     public boolean hasFlag(@Flag.Enum int flag) {

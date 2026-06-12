@@ -36,8 +36,10 @@
 static const char* kPathAllowlist[] = {
         "/dev/null",
         "/dev/socket/zygote",
+        "/dev/socket/zygote_compat",
         "/dev/socket/zygote_secondary",
         "/dev/socket/usap_pool_primary",
+        "/dev/socket/usap_pool_compat",
         "/dev/socket/usap_pool_secondary",
         "/dev/socket/webview_zygote",
         "/dev/socket/heapprofd",

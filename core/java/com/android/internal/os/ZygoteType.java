@@ -5,6 +5,7 @@ package com.android.internal.os;
  */
 public enum ZygoteType {
     Primary("zygote", "usap_pool_primary"),
+    Compat("zygote_compat", "usap_pool_compat"),
     Secondary("zygote_secondary", "usap_pool_secondary");
 
     private final String socketName;
