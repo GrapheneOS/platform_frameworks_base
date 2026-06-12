@@ -31,6 +31,7 @@ public abstract class AppSwitch {
     public static final int IR_IS_DEBUGGABLE_APP = 5;
     public static final int IR_EXPLOIT_PROTECTION_COMPAT_MODE = 6;
     public static final int IR_REQUIRED_BY_HARDENED_MALLOC = 7;
+    public static final int IR_REQUIRED_BY_ZYGOTE_SPAWNING = 8;
 
     // default value reasons
     public static final int DVR_UNKNOWN = 0;
