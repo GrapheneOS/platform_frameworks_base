@@ -34,13 +34,6 @@ public class AswUseHardenedMalloc extends AppSwitch {
             return false;
         }
 
-        if ((appInfo.flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
-            // turning off hardened_malloc requires exec spawning, which is always disabled for
-            // debuggable apps
-            si.immutabilityReason = IR_IS_DEBUGGABLE_APP;
-            return true;
-        }
-
         if (appInfo.isSystemApp()) {
             si.immutabilityReason = IR_IS_SYSTEM_APP;
             return true;
