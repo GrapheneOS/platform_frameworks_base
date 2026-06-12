@@ -144,7 +144,7 @@ interface IZygoteProcess {
      * Instructs the zygote to pre-load the application code for the given Application.
      * Only the app zygote supports this function.
      */
-    boolean preloadApp(ApplicationInfo appInfo, String abi)
+    boolean preloadApp(ApplicationInfo appInfo, String abi, ZygoteSelectionMode zsm)
                 throws ZygoteStartFailedEx, IOException;
 
     /**

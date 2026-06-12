@@ -22,6 +22,7 @@ import android.os.ChildZygoteProcess;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.ZygoteProcess;
+import android.os.ZygoteSelectionMode;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -125,7 +126,7 @@ public class WebViewZygote {
                     sPackage.applicationInfo);
             ZygoteProcess.waitForConnectionToZygote(
                     sZygote.getZygoteProcessAsManaged().getPrimarySocketAddress());
-            sZygote.getZygoteProcessAsManaged().preloadApp(sPackage.applicationInfo, abi);
+            sZygote.getZygoteProcessAsManaged().preloadApp(sPackage.applicationInfo, abi, ZygoteSelectionMode.Regular);
         } catch (Exception e) {
             Log.e(LOGTAG, "Error connecting to webview zygote", e);
             stopZygoteLocked();

@@ -248,7 +248,7 @@ public class NativeZygoteProcess implements IZygoteProcess {
     }
 
     @Override
-    public boolean preloadApp(ApplicationInfo appInfo, String abi) {
+    public boolean preloadApp(ApplicationInfo appInfo, String abi, ZygoteSelectionMode zsm) {
         return false;
     }
 

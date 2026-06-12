@@ -307,27 +307,7 @@ public final class Zygote {
     /**
      * @hide for internal use only.
      */
-    public static final String PRIMARY_SOCKET_NAME = "zygote";
-
-    /**
-     * @hide for internal use only.
-     */
-    public static final String SECONDARY_SOCKET_NAME = "zygote_secondary";
-
-    /**
-     * @hide for internal use only.
-     */
     public static final String NATIVE_SOCKET_NAME = "zygote_next";
-
-    /**
-     * @hide for internal use only
-     */
-    public static final String USAP_POOL_PRIMARY_SOCKET_NAME = "usap_pool_primary";
-
-    /**
-     * @hide for internal use only
-     */
-    public static final String USAP_POOL_SECONDARY_SOCKET_NAME = "usap_pool_secondary";
 
     private Zygote() {}
 

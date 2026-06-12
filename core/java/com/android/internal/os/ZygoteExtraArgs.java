@@ -10,7 +10,7 @@ import android.ext.settings.app.AswUseExtendedVaSpace;
 import android.ext.settings.app.AswUseHardenedMalloc;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.ZygoteProcess;
+import android.os.ZygoteSelectionMode;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -82,6 +82,10 @@ public class ZygoteExtraArgs implements Parcelable {
         res.selinuxFlags = SELinuxFlags.getForWebViewProcess(ctx, userId, callerAppInfo, callerPs);
         res.setFlag(Flag.USE_ZYGOTE_SPAWNING, !AswUseExecSpawning.I.get(ctx, userId, callerAppInfo, callerPs));
         return res;
+    }
+
+    public ZygoteSelectionMode getZygoteSelectionMode() {
+        return ZygoteSelectionMode.Regular;
     }
 
     public boolean hasFlag(@Flag.Enum int flag) {

@@ -62,7 +62,7 @@ public class ChildZygoteProcess {
      */
     public static ChildZygoteProcess createManagedChildZygoteProcess(
             LocalSocketAddress socketAddress, int pid, int uid) {
-        return new ChildZygoteProcess(new ZygoteProcess(socketAddress, null), pid, uid);
+        return new ChildZygoteProcess(ZygoteProcess.createChildZygoteProcess(socketAddress), pid, uid);
     }
 
     /**

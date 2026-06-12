@@ -251,7 +251,10 @@ public class AppZygote {
                         mZygote.getZygoteProcess().getPrimarySocketAddress());
                 // preload application code in the zygote
                 Log.i(LOG_TAG, "Starting application preload.");
-                mZygote.getZygoteProcess().preloadApp(mAppInfo, abi);
+                mZygote.getZygoteProcess().preloadApp(mAppInfo, abi,
+                        // this is a child zygote, ZygoteSelectionMode from ZygoteExtraArgs should
+                        // not be applied to it
+                        ZygoteSelectionMode.Regular);
                 Log.i(LOG_TAG, "Application preload done.");
             }
         } catch (Exception e) {
