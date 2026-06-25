@@ -539,9 +539,7 @@ class ZygoteConnection {
 
                 if (useExecInit) {
                     ExecInit.execApplication(parsedArgs.mNiceName, parsedArgs.mTargetSdkVersion,
-                            VMRuntime.getCurrentInstructionSet(), runtimeFlags,
-                            parsedArgs.mDisabledCompatChanges, parsedArgs.mEnabledCompatChanges,
-                            parsedArgs.mRemainingArgs);
+                            VMRuntime.getCurrentInstructionSet(), runtimeFlags, parsedArgs.mRemainingArgs);
 
                     // Should not get here.
                     throw new IllegalStateException("ExecInit.execApplication unexpectedly returned");
