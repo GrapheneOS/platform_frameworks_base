@@ -177,9 +177,6 @@ class NativeCommandBuffer {
     static const size_t NN_LENGTH = strlen(NICE_NAME);
     static const size_t ITA_LENGTH = strlen(IS_TOP_APP);
 
-    static const char* RUNTIME_FLAGS = "--runtime-flags=";
-    static const size_t RF_LENGTH = strlen(RUNTIME_FLAGS);
-
     bool saw_setuid = false, saw_setgid = false;
     bool saw_runtime_args = false;
     bool is_top_app = false;
@@ -193,17 +190,6 @@ class NativeCommandBuffer {
       if (static_cast<size_t>(arg_end - arg_start) == RA_LENGTH &&
           strncmp(arg_start, RUNTIME_ARGS, RA_LENGTH) == 0) {
         saw_runtime_args = true;
-        continue;
-      }
-      if (static_cast<size_t>(arg_end - arg_start) >= RF_LENGTH
-          && strncmp(arg_start, RUNTIME_FLAGS, RF_LENGTH) == 0) {
-        int flags = digitsVal(arg_start + RF_LENGTH, arg_end);
-        const int DISABLE_HARDENED_MALLOC = 1 << 29;
-        const int ENABLE_COMPAT_VA_39_BIT = 1 << 30;
-        if (flags & (DISABLE_HARDENED_MALLOC | ENABLE_COMPAT_VA_39_BIT)) {
-          // fallback to the slow path that calls ExecInit
-          return std::make_pair(false, false);
-        }
         continue;
       }
       if (static_cast<size_t>(arg_end - arg_start) >= NN_LENGTH &&

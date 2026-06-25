@@ -25,7 +25,6 @@ import static com.android.internal.os.ZygoteConnectionConstants.WRAPPED_PID_TIME
 
 import android.compat.annotation.UnsupportedAppUsage;
 import android.content.pm.ApplicationInfo;
-import android.ext.settings.ExtSettings;
 import android.net.Credentials;
 import android.net.LocalSocket;
 import android.os.Parcel;
@@ -243,9 +242,8 @@ class ZygoteConnection {
                     fdsToClose[1] = zygoteFd.getInt$();
                 }
 
-                if (parsedArgs.mInvokeWith != null || ExtSettings.EXEC_SPAWNING.get() || parsedArgs.mStartChildZygote
-                        || !multipleOK || peer.getUid() != Process.SYSTEM_UID
-                        || (parsedArgs.mRuntimeFlags & Zygote.RUNTIME_FLAGS_DEPENDENT_ON_EXEC_SPAWNING) != 0) {
+                if (parsedArgs.mInvokeWith != null || parsedArgs.mStartChildZygote
+                        || !multipleOK || peer.getUid() != Process.SYSTEM_UID) {
                     Log.w(TAG, "Resorting to Java fork code; multipleOK = " + multipleOK
                             + (parsedArgs.mInvokeWith != null ? "; invokeWith used" : ""));
                     // Continue using old code for now. TODO: Handle these cases in the other path.
@@ -257,7 +255,7 @@ class ZygoteConnection {
                             parsedArgs.mIsTopApp, parsedArgs.mPkgDataInfoList,
                             parsedArgs.mAllowlistedDataInfoList, parsedArgs.mBindMountAppDataDirs,
                             parsedArgs.mBindMountAppStorageDirs,
-                            parsedArgs.mBindMountSyspropOverrides, parsedArgs.mExtraArgs);
+                            parsedArgs.mBindMountSyspropOverrides);
 
                     try {
                         if (pid == 0) {
@@ -530,20 +528,6 @@ class ZygoteConnection {
             throw new IllegalStateException("WrapperInit.execApplication unexpectedly returned");
         } else {
             if (!isZygote) {
-                final int runtimeFlags = parsedArgs.mRuntimeFlags;
-                boolean useExecInit =
-                        ((runtimeFlags & Zygote.RUNTIME_FLAGS_DEPENDENT_ON_EXEC_SPAWNING) != 0
-                            || ExtSettings.EXEC_SPAWNING.get())
-                        &&
-                        (runtimeFlags & ApplicationInfo.FLAG_DEBUGGABLE) == 0;
-
-                if (useExecInit) {
-                    ExecInit.execApplication(parsedArgs.mNiceName, parsedArgs.mTargetSdkVersion,
-                            VMRuntime.getCurrentInstructionSet(), runtimeFlags, parsedArgs.mRemainingArgs);
-
-                    // Should not get here.
-                    throw new IllegalStateException("ExecInit.execApplication unexpectedly returned");
-                }
                 return ZygoteInit.zygoteInit(parsedArgs.mTargetSdkVersion,
                         parsedArgs.mDisabledCompatChanges,
                         parsedArgs.mEnabledCompatChanges,
