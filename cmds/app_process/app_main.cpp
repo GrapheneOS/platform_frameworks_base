@@ -85,10 +85,8 @@ public:
         AndroidRuntime* ar = AndroidRuntime::getRuntime();
         ar->callMain(mClassName, mClass, mArgs);
 
-        if (mClassName != "com.android.internal.os.ExecInit") {
-            IPCThreadState::self()->stopProcess();
-            hardware::IPCThreadState::self()->stopProcess();
-        }
+        IPCThreadState::self()->stopProcess();
+        hardware::IPCThreadState::self()->stopProcess();
     }
 
     virtual void onZygoteInit()
