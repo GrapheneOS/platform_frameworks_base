@@ -1573,6 +1573,4 @@ public final class Zygote {
      * @hide
      */
     public static native void nativeHandleRuntimeFlags(int runtimeFlags);
-
-    public static native int execveatWrapper(int dirFd, String filename, String[] argv, int flags);
 }
