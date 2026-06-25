@@ -838,16 +838,6 @@ public class ZygoteInit {
      */
     @UnsupportedAppUsage
     public static void main(String[] argv) {
-        if ("1".equals(Os.getenv(ExecInit.IS_EXEC_SPAWNED_APP_PROCESS))) {
-            Log.d(TAG, "IS_EXEC_SPAWNED_APP_PROCESS is 1");
-            RuntimeInit.main(argv);
-            // Some apps perform a weak security check by looking at the main thread stack trace.
-            // Executing the ExecInit.execInit() runnable from here makes the exec spawning call
-            // stack match the zygote spawning call stack
-            ExecInit.getPendingExecInit().run();
-            return;
-        }
-
         ZygoteServer zygoteServer = null;
 
         // Mark zygote start. This ensures that thread creation will throw

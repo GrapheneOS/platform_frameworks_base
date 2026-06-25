@@ -337,12 +337,7 @@ int main(int argc, char* const argv[])
     if (zygote) {
         runtime.start("com.android.internal.os.ZygoteInit", args, zygote);
     } else if (!className.empty()) {
-        const char* isExecSpawning = getenv("IS_EXEC_SPAWNED_APP_PROCESS");
-        if (isExecSpawning != nullptr && strcmp(isExecSpawning, "1") == 0) {
-            runtime.start("com.android.internal.os.ZygoteInit", args, false);
-        } else {
-            runtime.start("com.android.internal.os.RuntimeInit", args, zygote);
-        }
+        runtime.start("com.android.internal.os.RuntimeInit", args, zygote);
     } else {
         fprintf(stderr, "Error: no class name or --zygote supplied.\n");
         app_usage();

@@ -20,8 +20,6 @@ public class ExecInit {
     private ExecInit() {
     }
 
-    public static final String IS_EXEC_SPAWNED_APP_PROCESS = "IS_EXEC_SPAWNED_APP_PROCESS";
-
     /**
      * The main function called when starting a runtime application.
      *
@@ -49,18 +47,7 @@ public class ExecInit {
 
         Zygote.nativeHandleRuntimeFlags(runtimeFlags);
 
-        pendingExecInit = r;
-    }
-
-    private static Runnable pendingExecInit;
-
-    static Runnable getPendingExecInit() {
-        Runnable res = pendingExecInit;
-        if (res == null) {
-            throw new IllegalStateException("pendingExecInit is null");
-        }
-        pendingExecInit = null;
-        return res;
+        r.run();
     }
 
     /**
@@ -97,8 +84,6 @@ public class ExecInit {
                 // checked by bionic during early init
                 Os.setenv("DISABLE_HARDENED_MALLOC", "1", true);
             }
-
-            Os.setenv(IS_EXEC_SPAWNED_APP_PROCESS, "1", true);
 
             if ((runtimeFlags & Zygote.ENABLE_COMPAT_VA_39_BIT) != 0) {
                 final int FLAG_COMPAT_VA_39_BIT = 1 << 30;
