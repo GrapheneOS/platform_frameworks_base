@@ -33,7 +33,7 @@ public class MultiTests {
     public static native int execmod(int fd);
 
     // no @MultiTest, special-cased in test runner
-    public static native int ptrace(int pid);
+    public static native int ptrace();
 
     @MultiTest(type = MemoryDcl)
     public static native int exec_appdomain_tmpfs();

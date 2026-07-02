@@ -3,18 +3,22 @@ package grapheneos.hardeningtest;
 import android.content.pm.GosPackageStateFlag;
 
 import com.android.tradefed.device.DeviceNotAvailableException;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.testtype.junit4.DeviceParameterizedRunner;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.function.Consumer;
+
+import junitparams.Parameters;
 
 import static org.junit.Assert.assertEquals;
 
-@RunWith(DeviceJUnit4ClassRunner.class)
+@RunWith(DeviceParameterizedRunner.class)
 public class SELinuxTest extends BaseHostJUnit4Test {
 
     private static final String TEST_PACKAGE_BASE_NAME = "app.grapheneos.hardeningtest";
@@ -24,7 +28,9 @@ public class SELinuxTest extends BaseHostJUnit4Test {
     private static final String TEST_PACKAGE_SDK_LATEST_PREINSTALLED = TEST_PACKAGE_BASE_NAME + ".preinstalled";
 
     private void runDeviceTest(String pkgName, String name) {
-        for (String suffix : new String[] {"", "Isolated"}) {
+        for (String suffix : new String[] {
+                "", "Isolated",
+                "IsolatedNative"}) {
             var opts = new DeviceTestRunOptions(pkgName);
             opts.setTestClassName("app.grapheneos.hardeningtest.HardeningTest");
             opts.setTestMethodName(name + suffix);
@@ -59,8 +65,22 @@ public class SELinuxTest extends BaseHostJUnit4Test {
         editGosPackageState(pkgName, addFlags, clearFlags);
     }
 
-    private void forEachPackage(Consumer<String> action) {
-        for (String pkg : new String[] {TEST_PACKAGE_SDK_27, TEST_PACKAGE_SDK_LATEST, TEST_PACKAGE_SDK_LATEST_PREINSTALLED}) {
+    public enum SpawningMode {
+        ExecSpawning,
+        ZygoteSpawning,
+        CompatZygoteSpawning,
+    }
+
+    public static Collection<SpawningMode[]> spawningModes() {
+        return Arrays.stream(SpawningMode.values()).map(m -> new SpawningMode[] { m }).toList();
+    }
+
+    private void forEachPackage(SpawningMode spawningMode, Consumer<String> action) {
+        for (String pkg : new String[] {
+                TEST_PACKAGE_SDK_27,
+                TEST_PACKAGE_SDK_LATEST,
+                TEST_PACKAGE_SDK_LATEST_PREINSTALLED,
+        }) {
             if (pkg == TEST_PACKAGE_SDK_LATEST_PREINSTALLED) {
                 try {
                     if (!getDevice().getBooleanProperty("ro.debuggable", false)) {
@@ -71,6 +91,12 @@ public class SELinuxTest extends BaseHostJUnit4Test {
                     throw new IllegalStateException(e);
                 }
             }
+            setComplexFlagState(pkg, GosPackageStateFlag.USE_EXEC_SPAWNING,
+                    GosPackageStateFlag.USE_EXEC_SPAWNING_NON_DEFAULT,
+                    spawningMode == SpawningMode.ExecSpawning);
+            setComplexFlagState(pkg, GosPackageStateFlag.USE_HARDENED_MALLOC,
+                    GosPackageStateFlag.USE_HARDENED_MALLOC_NON_DEFAULT,
+                    spawningMode != SpawningMode.CompatZygoteSpawning);
             action.accept(pkg);
         }
     }
@@ -94,8 +120,9 @@ public class SELinuxTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testDynamicCodeLoadingRestricted() {
-        forEachPackage(pkg -> {
+    @Parameters(method = "spawningModes")
+    public void testDynamicCodeLoadingRestricted(SpawningMode spawningMode) {
+        forEachPackage(spawningMode, pkg -> {
             for (var t : DclTestType.values()) {
                 setComplexFlagState(pkg, t.gosPsFlag, t.gosPsNonDefaultFlag, true);
                 runDeviceTest(pkg, t.testName("DclRestricted"));
@@ -110,8 +137,9 @@ public class SELinuxTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testDynamicCodeLoadingAllowed() {
-        forEachPackage(pkg -> {
+    @Parameters(method = "spawningModes")
+    public void testDynamicCodeLoadingAllowed(SpawningMode spawningMode) {
+        forEachPackage(spawningMode, pkg -> {
             if (pkg == TEST_PACKAGE_SDK_LATEST_PREINSTALLED) {
                 // preinstalled apps are DCL-restricted (except allowlisted ones)
                 return;
@@ -125,8 +153,9 @@ public class SELinuxTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testPtraceAllowed() {
-        forEachPackage(pkg -> {
+    @Parameters(method = "spawningModes")
+    public void testPtraceAllowed(SpawningMode spawningMode) {
+        forEachPackage(spawningMode, pkg -> {
             if (pkg == TEST_PACKAGE_SDK_LATEST_PREINSTALLED) {
                 // preinstalled apps are always denied ptrace access
                 return;
@@ -141,8 +170,9 @@ public class SELinuxTest extends BaseHostJUnit4Test {
     }
 
     @Test
-    public void testPtraceDenied() {
-        forEachPackage(pkg -> {
+    @Parameters(method = "spawningModes")
+    public void testPtraceDenied(SpawningMode spawningMode) {
+        forEachPackage(spawningMode, pkg -> {
             setComplexFlagState(pkg,
                 GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING,
                 GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_NON_DEFAULT,

@@ -10,6 +10,7 @@
         tools:node="remove" />
 
     <application
+        android:debuggable="true"
         android:zygotePreloadName="app.grapheneos.hardeningtest.ZygotePreloadImpl" >
 
         <uses-library android:name="android.test.runner" />
@@ -24,6 +25,15 @@
             android:isolatedProcess="true"
             android:useAppZygote="true"
             android:exported="false" />
+
+        <service
+            android:name=".IsolatedNativeTestService"
+            android:isolatedProcess="true"
+            android:nativeService="true"
+            android:exported="false">
+            <property android:name="android.app.PROPERTY_NATIVE_SERVICE_LIBRARY_NAME"
+                android:value="libhardening_test.so" />
+        </service>
 
 	<!--   Since there are multiple versions of HardeningTest, authority value of androidx InitializationProvider -->
 	<!--   conflicts between them.-->

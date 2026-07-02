@@ -27,16 +27,15 @@ class HardeningTest {
     @Rule @JvmField
     val isolatedServiceRule = ServiceTestRule()
 
-    lateinit var service: ITestService
-    lateinit var isolatedService: ITestService
-
-    @Before
-    fun bindServices() {
-        isolatedService = bindService(isolatedServiceRule, IsolatedTestService::class)
-        service = bindService(serviceRule, TestService::class)
+    val service: ITestService by lazy {
+        bindService(serviceRule, TestService::class)
     }
 
-    private fun testDynamicCodeLoading(svc: ITestService, isAllowed: Boolean, type: MultiTests.Type) {
+    val isolatedService: ITestService by lazy {
+        bindService(isolatedServiceRule, IsolatedTestService::class)
+    }
+
+    private fun testDynamicCodeLoading(svc: ITestService, isAllowed: Boolean, type: MultiTests.Type, callNativeService: Boolean = false) {
         Assert.assertEquals("Environment.isExecmemBlocked()",
             !isAllowed, Environment.isExecmemBlocked())
 
@@ -45,6 +44,7 @@ class HardeningTest {
             isAllowed,
             ParcelFileDescriptor.adoptFd(Utils.getFdForExecAppDataFileTest(ctx)),
             ParcelFileDescriptor.adoptFd(Utils.getFdForExecmodTest(ctx)),
+            callNativeService,
         )?.let {
             Assert.fail(it)
         }
@@ -57,10 +57,16 @@ class HardeningTest {
     fun testMemoryDclAllowedIsolated() = testDynamicCodeLoading(isolatedService, true, MultiTests.Type.MemoryDcl)
 
     @Test
+    fun testMemoryDclAllowedIsolatedNative() = testDynamicCodeLoading(service, true, MultiTests.Type.MemoryDcl, true)
+
+    @Test
     fun testMemoryDclRestricted() = testDynamicCodeLoading(service, false, MultiTests.Type.MemoryDcl)
 
     @Test
     fun testMemoryDclRestrictedIsolated() = testDynamicCodeLoading(isolatedService, false, MultiTests.Type.MemoryDcl)
+
+    @Test
+    fun testMemoryDclRestrictedIsolatedNative() = testDynamicCodeLoading(service, false, MultiTests.Type.MemoryDcl, true)
 
     @Test
     fun testStorageDclAllowed() = testDynamicCodeLoading(service, true, MultiTests.Type.StorageDcl)
@@ -69,13 +75,19 @@ class HardeningTest {
     fun testStorageDclAllowedIsolated() = testDynamicCodeLoading(isolatedService, true, MultiTests.Type.StorageDcl)
 
     @Test
+    fun testStorageDclAllowedIsolatedNative() = testDynamicCodeLoading(service, true, MultiTests.Type.StorageDcl, true)
+
+    @Test
     fun testStorageDclRestricted() = testDynamicCodeLoading(service, false, MultiTests.Type.StorageDcl)
 
     @Test
     fun testStorageDclRestrictedIsolated() = testDynamicCodeLoading(isolatedService, false, MultiTests.Type.StorageDcl)
 
-    private fun testPtrace(svc: ITestService, isAllowed: Boolean) {
-        svc.testPtrace(isAllowed, mainProcessPid)?.let {
+    @Test
+    fun testStorageDclRestrictedIsolatedNative() = testDynamicCodeLoading(service, false, MultiTests.Type.StorageDcl, true)
+
+    private fun testPtrace(svc: ITestService, isAllowed: Boolean, callNativeService: Boolean = false) {
+        svc.testPtrace(isAllowed, mainProcessPid, callNativeService)?.let {
             Assert.fail(it)
         }
     }
@@ -87,10 +99,16 @@ class HardeningTest {
     fun testPtraceAllowedIsolated() = testPtrace(isolatedService, true)
 
     @Test
+    fun testPtraceAllowedIsolatedNative() = testPtrace(service, true, true)
+
+    @Test
     fun testPtraceDenied() = testPtrace(service, false)
 
     @Test
     fun testPtraceDeniedIsolated() = testPtrace(isolatedService, false)
+
+    @Test
+    fun testPtraceDeniedIsolatedNative() = testPtrace(service, false, true)
 
     private fun bindService(rule: ServiceTestRule, cls: KClass<*>): ITestService {
         val binder = rule.bindService(Intent(ctx, cls.java))

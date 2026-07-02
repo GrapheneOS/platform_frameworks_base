@@ -35,7 +35,7 @@ extern "C" jint Java_app_grapheneos_hardeningtest_MultiTests_execmod(JNIEnv *env
 
     void *addr = mmap(nullptr, sizeof(buf), PROT_WRITE, MAP_PRIVATE, fd, 0);
     close(fd);
-    assert(addr != nullptr);
+    assert(addr != MAP_FAILED);
 
     // modify the file mapping
     (* ((char*) addr))++;
@@ -75,7 +75,7 @@ extern "C" jint Java_app_grapheneos_hardeningtest_MultiTests_exec_1appdomain_1tm
     return 0;
 }
 
-extern "C" jint Java_app_grapheneos_hardeningtest_MultiTests_ptrace(JNIEnv *env, jclass cls, jint pid) {
+extern "C" jint Java_app_grapheneos_hardeningtest_MultiTests_ptrace(JNIEnv *env, jclass cls) {
     pid_t fork_res = fork();
 
     if (fork_res == 0) {

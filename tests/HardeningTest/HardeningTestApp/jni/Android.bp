@@ -1,3 +1,20 @@
+aidl_interface {
+    name: "hardening_test_native_service_aidl_interface",
+    unstable: true,
+    backend: {
+        java: {
+            platform_apis: false,
+        },
+        ndk: {
+            enabled: true,
+        },
+    },
+    srcs: [
+        "aidl/**/*.aidl",
+    ],
+    local_include_dir: "aidl",
+}
+
 cc_library_shared {
     name: "libhardening_test",
 
@@ -13,9 +30,19 @@ cc_library_shared {
     shared_libs: [
         "libandroid",
         "libbase",
+        "libbinder_ndk",
         "libcutils",
         "liblog",
         "libnativehelper",
         "libutils",
     ],
+
+    header_libs: [
+        "liblog_headers",
+    ],
+    static_libs: [
+        "hardening_test_native_service_aidl_interface-ndk",
+    ],
+
+    stl: "c++_shared",
 }

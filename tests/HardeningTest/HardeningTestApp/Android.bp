@@ -23,6 +23,7 @@ android_app {
         "androidx.appcompat_appcompat",
         "androidx.test.core",
         "androidx.test.rules",
+        "hardening_test_native_service_aidl_interface-java",
     ],
 
     aaptflags: [
@@ -54,6 +55,7 @@ android_test_helper_app {
         "androidx.appcompat_appcompat",
         "androidx.test.core",
         "androidx.test.rules",
+        "hardening_test_native_service_aidl_interface-java",
     ],
 
     aaptflags: [
@@ -83,6 +85,7 @@ android_test_helper_app {
         "androidx.appcompat_appcompat",
         "androidx.test.core",
         "androidx.test.rules",
+        "hardening_test_native_service_aidl_interface-java",
     ],
 
     aaptflags: [
