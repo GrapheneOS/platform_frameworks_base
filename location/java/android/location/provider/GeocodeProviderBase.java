@@ -155,19 +155,23 @@ public abstract class GeocodeProviderBase {
 
         @Override
         public void onError(Throwable e) {
+            IGeocodeCallback callback = Objects.requireNonNull(mCallback.getAndSet(null));
             try {
-                Objects.requireNonNull(mCallback.getAndSet(null)).onError(e.toString());
+                callback.onError(e.toString());
             } catch (RemoteException r) {
-                throw r.rethrowFromSystemServer();
+                // IGeocodeCallback is a oneway binder that is provided by the untrusted client
+                Log.i("GeocodeProviderBase", "", r);
             }
         }
 
         @Override
         public void onResult(List<Address> results) {
+            IGeocodeCallback callback = Objects.requireNonNull(mCallback.getAndSet(null));
             try {
-                Objects.requireNonNull(mCallback.getAndSet(null)).onResults(results);
+                callback.onResults(results);
             } catch (RemoteException e) {
-                throw e.rethrowFromSystemServer();
+                // IGeocodeCallback is a oneway binder that is provided by the untrusted client
+                Log.i("GeocodeProviderBase", "", e);
             }
         }
     }
