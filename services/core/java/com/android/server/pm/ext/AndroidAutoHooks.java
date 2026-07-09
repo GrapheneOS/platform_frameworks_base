@@ -119,6 +119,7 @@ public class AndroidAutoHooks extends PackageHooks {
             case Manifest.permission.CALL_PHONE:
             case Manifest.permission.CALL_PRIVILEGED:
             case Manifest.permission.CONTROL_INCALL_EXPERIENCE:
+            case Manifest.permission.MODIFY_PHONE_STATE:
             // unprivileged permission
             case Manifest.permission.READ_PHONE_STATE:
             case Manifest.permission.READ_PRIVILEGED_PHONE_STATE_ANDROID_AUTO:
