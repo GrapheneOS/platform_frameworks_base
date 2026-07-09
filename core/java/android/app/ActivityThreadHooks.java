@@ -66,7 +66,7 @@ class ActivityThreadHooks {
         onGosPackageStateChanged(appContext, gosPs, true);
     }
 
-    // called from both main and worker threads
+    // called from both main and binder threads
     static void onGosPackageStateChanged(Context ctx, GosPackageState state, boolean fromBind) {
         if (!Process.isIsolated()) {
             StorageScopesAppHooks.maybeEnable(state);

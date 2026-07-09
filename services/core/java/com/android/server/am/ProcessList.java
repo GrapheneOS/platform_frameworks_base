@@ -3923,21 +3923,20 @@ public final class ProcessList extends ProcessListInternal
     }
 
     @GuardedBy(anyOf = {"mService", "mProcLock"})
-    void onGosPackageStateChangedLOSP(int uid, GosPackageState state) {
+    void dispatchGosPackageStateChangedLOSP(int uid) {
         for (int i = mLruProcesses.size() - 1; i >= 0; i--) {
             ProcessRecord r = mLruProcesses.get(i);
             if (r.uid != uid) {
-                // isolated and "sdk sandbox" processes are skipped intentionally (they run in
-                // separate UIDs)
+                // isolated processes are skipped intentionally (they run in separate UIDs)
                 continue;
             }
             final IApplicationThread thread = r.getThread();
             if (thread != null) {
                 try {
-                    thread.onGosPackageStateChanged(state);
+                    thread.onGosPackageStateChanged();
                 } catch (RemoteException ex) {
-                    Slog.d(TAG, "onGosPackageStateChanged failed; uid " + uid
-                            + ", processName " + r.info.processName);
+                    Slog.i(TAG, "onGosPackageStateChanged failed; uid " + uid
+                            + ", processName " + r.info.processName, ex);
                 }
             }
         }

@@ -2517,9 +2517,10 @@ public final class ActivityThread extends ClientTransactionHandler
         }
 
         @Override
-        public void onGosPackageStateChanged(GosPackageState state) {
-            // this is a oneway method, caller (ActivityManager) will not be blocked
-            ActivityThreadHooks.onGosPackageStateChanged(mInitialApplication, state, false);
+        public void onGosPackageStateChanged() {
+            Context ctx = mInitialApplication;
+            GosPackageState state = GosPackageState.getForSelf(ctx);
+            ActivityThreadHooks.onGosPackageStateChanged(ctx, state, false);
         }
     }
 

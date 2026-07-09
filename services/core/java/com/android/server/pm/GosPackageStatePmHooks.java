@@ -154,13 +154,15 @@ public class GosPackageStatePmHooks {
         if ((editorFlags & EDITOR_FLAG_NOTIFY_UID_AFTER_APPLY) != 0) {
             int uid = UserHandle.getUid(userId, appId);
 
-            // get GosPackageState as the target app
-            GosPackageState ps = getFiltered(pm, uid, GosPackageStatePermissions.UNKNOWN_CALLING_PID, packageName, userId);
-
             final long token = Binder.clearCallingIdentity();
             try {
                 var am = LocalServices.getService(ActivityManagerInternal.class);
-                am.onGosPackageStateChanged(uid, ps);
+                // New GosPackageState is intentionally not passed since the GosPackageState change
+                // callback is delivered to the app process via a oneway binder call. Oneway binder
+                // calls to frozen processes are queued until the process is unfrozen. Not passing
+                // the GosPackageState also removes the need to maintain ordering between
+                // concurrent GosPackageState changes.
+                am.dispatchGosPackageStateCallbacks(uid);
             } finally {
                 Binder.restoreCallingIdentity(token);
             }

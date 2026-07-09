@@ -525,9 +525,9 @@ public class NativeApplicationThreadWrapper implements IApplicationThread {
             @NonNull MethodDescriptor methodDescriptor, @NonNull IOffsetCallback resultCallback) {}
 
     @Override
-    public void onGosPackageStateChanged(GosPackageState state) {
-        Slog.e(TAG, "onGosPackageStateChanged");
-        System.exit(1);
+    public void onGosPackageStateChanged() {
+        // native processes run in isolated UIDs, onGosPackageStateChanged() is never called for them
+        Slog.wtf(TAG, "onGosPackageStateChanged called");
     }
 
     @NeverCompile
