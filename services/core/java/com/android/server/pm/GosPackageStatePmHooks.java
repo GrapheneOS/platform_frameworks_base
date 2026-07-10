@@ -148,7 +148,7 @@ public class GosPackageStatePmHooks {
             final long token = Binder.clearCallingIdentity();
             try {
                 // important to call outside the 'synchronized (pm.mLock)' section, may deadlock otherwise
-                ActivityManager.getService().killUid(appId, userId, "GosPackageState");
+                ActivityManager.getService().killUid(appId, userId, "GosPackageStateChange");
             } catch (RemoteException e) {
                 e.rethrowAsRuntimeException();
             } finally {
