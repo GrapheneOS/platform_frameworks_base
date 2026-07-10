@@ -40,6 +40,7 @@ import com.android.systemui.qs.tiles.impl.wifi.domain.interactor.WifiTileUserAct
 import com.android.systemui.qs.tiles.impl.wifi.domain.model.WifiTileModel
 import com.android.systemui.qs.tiles.impl.wifi.ui.mapper.WifiTileMapper
 import com.android.systemui.res.R
+import com.android.systemui.statusbar.policy.KeyguardStateController
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -61,6 +62,7 @@ import org.mockito.kotlin.whenever
 class WifiTileTest : SysuiTestCase() {
 
     @Mock private lateinit var host: QSHost
+    @Mock private lateinit var keyguardStateController: KeyguardStateController
     @Mock private lateinit var uiEventLogger: QsEventLogger
     @Mock private lateinit var metricsLogger: MetricsLogger
     @Mock private lateinit var statusBarStateController: StatusBarStateController
@@ -100,6 +102,9 @@ class WifiTileTest : SysuiTestCase() {
                         )
                 }
             )
+
+        whenever(keyguardStateController.isMethodSecure).thenReturn(false)
+        whenever(host.keyguardStateController).thenReturn(keyguardStateController)
 
         underTest =
             WifiTile(
