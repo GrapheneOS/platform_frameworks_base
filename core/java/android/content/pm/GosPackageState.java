@@ -14,7 +14,10 @@ import android.os.Parcelable;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.permission.PermissionManager;
+import android.util.Log;
+import android.util.SparseArray;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -169,6 +172,71 @@ public final class GosPackageState implements Parcelable {
     /** @see #NONE */
     public boolean isNone() {
         return this == NONE;
+    }
+
+    private static volatile SparseArray<String> flagNames;
+
+    @Override
+    public String toString() {
+        if (this == DEFAULT) {
+            return "GosPackageState.DEFAULT";
+        }
+        if (this == NONE) {
+            return "GosPackageState.NONE";
+        }
+        var b = new StringBuilder("GosPackageState{");
+        int origLength = b.length();
+        if (flagStorage1 != 0) {
+            SparseArray<String> flagNames = GosPackageState.flagNames;
+            if (flagNames == null) {
+                Field[] fields = GosPackageStateFlag.class.getDeclaredFields();
+                int numFields = fields.length;
+                flagNames = new SparseArray(numFields);
+                for (int i = 0; i < numFields; ++i) {
+                    Field f = fields[i];
+                    int fieldValue;
+                    try {
+                        fieldValue = (int) f.get(null);
+                    } catch (ReflectiveOperationException e) {
+                        Log.e("GosPackageState", "", e);
+                        continue;
+                    }
+                    flagNames.set(fieldValue, f.getName());
+                }
+                GosPackageState.flagNames = flagNames;
+            }
+            b.append("flags:");
+            boolean first = true;
+            for (int i = 0; i < Long.SIZE; ++i) {
+                if (hasFlag(i)) {
+                    String name = flagNames.get(i);
+                    if (name == null) {
+                        name = "UNKNOWN_FLAG_" + i;
+                    }
+                    b.append(first ? " " : " | ");
+                    first = false;
+                    b.append(name);
+                }
+            }
+            b.append(", ");
+        }
+        if (packageFlagStorage != 0) {
+            b.append("packageFlags: 0x");
+            b.append(Long.toHexString(packageFlagStorage));
+            b.append(", ");
+        }
+        if (storageScopes != null) {
+            b.append("has storageScopes, ");
+        }
+        if (contactScopes != null) {
+            b.append("has contactScopes, ");
+        }
+        if (b.length() != origLength) {
+            // trim trailing comma + space
+            b.setLength(b.length() - 2);
+        }
+        b.append('}');
+        return b.toString();
     }
 
     @NonNull
