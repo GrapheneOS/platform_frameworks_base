@@ -348,6 +348,7 @@ import java.util.function.Predicate;
  * </pre>
  */
 public class PackageManagerService implements PackageSender, TestUtilityService {
+    public final GosPackageStatePmHooks gosPackageStatePmHooks;
 
     static final String TAG = "PackageManager";
     public static final boolean DEBUG_SETTINGS = false;
@@ -1907,6 +1908,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
     @VisibleForTesting(visibility = VisibleForTesting.Visibility.PRIVATE)
     public PackageManagerService(@NonNull PackageManagerServiceInjector injector,
             @NonNull PackageManagerServiceTestParams testParams) {
+        gosPackageStatePmHooks = new GosPackageStatePmHooks(this);
         mInjector = injector;
         mInjector.bootstrap(this);
         mAppsFilter = injector.getAppsFilter();
@@ -2022,6 +2024,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
             final String partitionsFingerprint, final boolean isEngBuild,
             final boolean isUserDebugBuild, final int sdkVersion, final String incrementalVersion,
             final int sdkVersionFull) {
+        gosPackageStatePmHooks = new GosPackageStatePmHooks(this);
         mIsEngBuild = isEngBuild;
         mIsUserDebugBuild = isUserDebugBuild;
         mSdkVersion = sdkVersion;
@@ -4690,7 +4693,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
             dexUseManager.systemReady();
         }
 
-        GosPackageStatePmHooks.init(this);
+        gosPackageStatePmHooks.init();
 
         PackageMetrics.logInvalidationMetrics();
     }
@@ -7130,7 +7133,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
         public GosPackageState getGosPackageState(@NonNull String packageName, int userId) {
             int callingUid = Binder.getCallingUid();
             int callingPid = Binder.getCallingPid();
-            return GosPackageStatePmHooks.getFiltered(PackageManagerService.this, callingUid, callingPid, packageName, userId);
+            return gosPackageStatePmHooks.getFiltered(callingUid, callingPid, packageName, userId);
         }
 
         @Override
@@ -7138,7 +7141,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                                                   @NonNull GosPackageState updatedPs, int editorFlags) {
             int callingUid = Binder.getCallingUid();
             int callingPid = Binder.getCallingPid();
-            return GosPackageStatePmHooks.set(PackageManagerService.this, callingUid, callingPid, packageName, userId,
+            return gosPackageStatePmHooks.set(callingUid, callingPid, packageName, userId,
                     updatedPs, editorFlags);
         }
 
@@ -7836,7 +7839,7 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
         @NonNull
         @Override
         public GosPackageState getGosPackageState(String packageName, int userId) {
-            return GosPackageStatePmHooks.getUnfiltered(PackageManagerService.this, packageName, userId);
+            return gosPackageStatePmHooks.getUnfiltered(packageName, userId);
         }
 
         @Override

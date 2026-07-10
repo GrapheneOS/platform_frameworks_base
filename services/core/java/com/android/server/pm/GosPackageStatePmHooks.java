@@ -33,17 +33,23 @@ import static com.android.server.pm.GosPackageStateUtils.parseFlag;
 public class GosPackageStatePmHooks {
     private static final String TAG = "GosPackageStatePmHooks";
 
-    static void init(PackageManagerService pm) {
-        GosPackageStatePermissions.init(pm);
+    private final PackageManagerService pkgManager;
+
+    GosPackageStatePmHooks(PackageManagerService pkgManager) {
+        this.pkgManager = pkgManager;
+    }
+
+    void init() {
+        GosPackageStatePermissions.init(pkgManager);
     }
 
     @NonNull
-    public static GosPackageState getUnfiltered(PackageManagerService pm, String packageName, int userId) {
-        return getUnfiltered(pm.snapshotComputer(), packageName, userId);
+    GosPackageState getUnfiltered(String packageName, int userId) {
+        return getUnfiltered(pkgManager.snapshotComputer(), packageName, userId);
     }
 
     @NonNull
-    public static GosPackageState getUnfiltered(Computer snapshot, String packageName, int userId) {
+    private static GosPackageState getUnfiltered(Computer snapshot, String packageName, int userId) {
         PackageStateInternal psi = snapshot.getPackageStates().get(packageName);
         if (psi == null) {
             return NONE;
@@ -52,9 +58,8 @@ public class GosPackageStatePmHooks {
     }
 
     @NonNull
-    public static GosPackageState getFiltered(PackageManagerService pm, int callingUid, int callingPid,
-                                              String packageName, int userId) {
-        Computer pmComputer = pm.snapshotComputer();
+    GosPackageState getFiltered(int callingUid, int callingPid, String packageName, int userId) {
+        Computer pmComputer = pkgManager.snapshotComputer();
         PackageStateInternal packageState = pmComputer.getPackageStates().get(packageName);
         if (packageState == null) {
             // the package was likely racily uninstalled
@@ -80,8 +85,7 @@ public class GosPackageStatePmHooks {
         return permission.filterRead(gosPs);
     }
 
-    static boolean set(PackageManagerService pm,
-                       final int callingUid, final int callingPid,
+    boolean set(final int callingUid, final int callingPid,
                        String packageName, int userId,
                        GosPackageState update, int editorFlags) {
         final int appId;
