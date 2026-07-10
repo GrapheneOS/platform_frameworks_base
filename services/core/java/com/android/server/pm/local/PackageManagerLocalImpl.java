@@ -61,6 +61,16 @@ public class PackageManagerLocalImpl implements PackageManagerLocal {
     }
 
     @Override
+    public void addGosPackageStateChangeCallback(GosPackageStateChangeCallback callback) {
+        mService.gosPackageStatePmHooks.addChangeCallback(callback);
+    }
+
+    @Override
+    public boolean removeGosPackageStateChangeCallback(GosPackageStateChangeCallback callback) {
+        return mService.gosPackageStatePmHooks.removeChangeCallback(callback);
+    }
+
+    @Override
     public void reconcileSdkData(@Nullable String volumeUuid, @NonNull String packageName,
             @NonNull List<String> subDirNames, int userId, int appId, int previousAppId,
             @NonNull String seInfo, int flags) throws IOException {

@@ -22,6 +22,8 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.annotation.TestApi;
+import android.annotation.UserIdInt;
+import android.content.pm.GosPackageState;
 import android.content.pm.SigningDetails;
 import android.os.Binder;
 import android.os.UserHandle;
@@ -47,6 +49,27 @@ import java.util.Map;
  */
 @SystemApi(client = SystemApi.Client.SYSTEM_SERVER)
 public interface PackageManagerLocal {
+
+     /** @hide */
+    @SystemApi(client = SystemApi.Client.SYSTEM_SERVER)
+    interface GosPackageStateChangeCallback {
+         /**
+          * Called after each successful GosPackageState update on a separate callbacks thread.
+          *
+          * @param uid UID of the package(s). GosPackageState is shared for sharedUid packages.
+          * @param state Updated GosPackageState.
+          * @param userId The user id.
+          */
+        void onGosPackageStateChanged(int uid, @NonNull GosPackageState state, @UserIdInt int userId);
+    }
+
+    void addGosPackageStateChangeCallback(@NonNull GosPackageStateChangeCallback callback);
+
+    /**
+     * @param callback A callback that was previously registered with {@link #addGosPackageStateChangeCallback}.
+     * @return {@code false} if the callback was missing from the list of callbacks, {@code true} otherwise.
+     */
+    boolean removeGosPackageStateChangeCallback(@NonNull GosPackageStateChangeCallback callback);
 
     /**
      * Indicates if operation should include device encrypted storage.
