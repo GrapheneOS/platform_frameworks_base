@@ -69,7 +69,7 @@ public interface PackageManagerLocal {
         }
 
          /**
-          * Called after each successful GosPackageState update on a separate callbacks thread.
+          * Called after each successful GosPackageState update.
           *
           * @param uid UID of the package(s). GosPackageState is shared for sharedUid packages.
           * @param state Updated GosPackageState.
