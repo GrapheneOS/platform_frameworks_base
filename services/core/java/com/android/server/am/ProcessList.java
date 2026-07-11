@@ -3922,7 +3922,7 @@ public final class ProcessList extends ProcessListInternal
         }
     }
 
-    @GuardedBy(anyOf = {"mService", "mProcLock"})
+    @GuardedBy("mService")
     void dispatchGosPackageStateChangedLOSP(int uid) {
         for (int i = mLruProcesses.size() - 1; i >= 0; i--) {
             ProcessRecord r = mLruProcesses.get(i);

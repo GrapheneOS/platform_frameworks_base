@@ -96,7 +96,6 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.ComponentInfo;
-import android.content.pm.GosPackageState;
 import android.content.pm.IPackageManager;
 import android.content.pm.InstrumentationInfo;
 import android.content.pm.PackageInfo;
@@ -2518,9 +2517,7 @@ public final class ActivityThread extends ClientTransactionHandler
 
         @Override
         public void onGosPackageStateChanged() {
-            Context ctx = mInitialApplication;
-            GosPackageState state = GosPackageState.getForSelf(ctx);
-            ActivityThreadHooks.onGosPackageStateChanged(ctx, state, false);
+            ActivityThreadHooks.onGosPackageStateChanged(null);
         }
     }
 

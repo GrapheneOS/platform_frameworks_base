@@ -19401,7 +19401,7 @@ public class ActivityManagerService extends IActivityManager.Stub
 
         @Override
         public void dispatchGosPackageStateCallbacks(int uid) {
-            synchronized (mProcLock) {
+            synchronized (mGlobalLock) {
                 mProcessList.dispatchGosPackageStateChangedLOSP(uid);
             }
         }
