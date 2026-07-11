@@ -103,8 +103,9 @@ package com.android.server.pm {
     method @NonNull public java.util.Map<String, com.android.server.pm.pkg.PackageState> getPackageStates();
   }
 
-  public static interface PackageManagerLocal.GosPackageStateChangeCallback {
-    method public void onGosPackageStateChanged(int, @NonNull android.content.pm.GosPackageState, int);
+  public abstract static class PackageManagerLocal.GosPackageStateChangeCallback {
+    ctor public PackageManagerLocal.GosPackageStateChangeCallback(@NonNull android.os.Handler);
+    method public abstract void onGosPackageStateChanged(int, @NonNull android.content.pm.GosPackageState, int);
   }
 
   public static interface PackageManagerLocal.UnfilteredSnapshot extends AutoCloseable {

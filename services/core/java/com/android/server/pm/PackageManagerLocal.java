@@ -26,6 +26,7 @@ import android.annotation.UserIdInt;
 import android.content.pm.GosPackageState;
 import android.content.pm.SigningDetails;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.UserHandle;
 
 import com.android.server.pm.pkg.AndroidPackage;
@@ -38,6 +39,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * In-process API for server side PackageManager related infrastructure.
@@ -50,9 +52,22 @@ import java.util.Map;
 @SystemApi(client = SystemApi.Client.SYSTEM_SERVER)
 public interface PackageManagerLocal {
 
-     /** @hide */
+    /** @hide */
     @SystemApi(client = SystemApi.Client.SYSTEM_SERVER)
-    interface GosPackageStateChangeCallback {
+    abstract class GosPackageStateChangeCallback {
+        private final Handler handler;
+
+        /** @param handler Handler for dispatching {@link #onGosPackageStateChanged} callbacks. */
+        public GosPackageStateChangeCallback(@NonNull Handler handler) {
+            this.handler = Objects.requireNonNull(handler);
+        }
+
+        /** @hide */
+        @NonNull
+        public final Handler getHandler() {
+            return this.handler;
+        }
+
          /**
           * Called after each successful GosPackageState update on a separate callbacks thread.
           *
@@ -60,7 +75,7 @@ public interface PackageManagerLocal {
           * @param state Updated GosPackageState.
           * @param userId The user id.
           */
-        void onGosPackageStateChanged(int uid, @NonNull GosPackageState state, @UserIdInt int userId);
+        public abstract void onGosPackageStateChanged(int uid, @NonNull GosPackageState state, @UserIdInt int userId);
     }
 
     void addGosPackageStateChangeCallback(@NonNull GosPackageStateChangeCallback callback);

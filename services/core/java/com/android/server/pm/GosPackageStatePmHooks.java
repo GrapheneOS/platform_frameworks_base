@@ -10,7 +10,6 @@ import android.content.pm.GosPackageStateFlag;
 import android.ext.KnownSystemPackages;
 import android.ext.DerivedPackageFlag;
 import android.os.Binder;
-import android.os.HandlerThread;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.ShellCommand;
@@ -39,8 +38,6 @@ public class GosPackageStatePmHooks {
     private final PackageManagerService pkgManager;
 
     private final CopyOnWriteArrayList<GosPackageStateChangeCallback> changeCallbacks = new CopyOnWriteArrayList<>();
-    private final HandlerThread changeCallbacksThread = new HandlerThread("GosPackageStateChangeCallbacks");
-    private boolean changeCallbacksThreadStarted;
 
     GosPackageStatePmHooks(PackageManagerService pkgManager) {
         this.pkgManager = pkgManager;
@@ -155,17 +152,10 @@ public class GosPackageStatePmHooks {
 
             uid = UserHandle.getUid(userId, appId);
 
-            synchronized (changeCallbacksThread) {
-                if (!changeCallbacksThreadStarted) {
-                    changeCallbacksThread.start();
-                    changeCallbacksThreadStarted = true;
-                }
-                changeCallbacksThread.getThreadHandler().post(() -> {
-                    // changeCallbacks is a CopyOnWriteArrayList, no need for external synchronization
-                    for (GosPackageStateChangeCallback callback : changeCallbacks) {
-                        callback.onGosPackageStateChanged(uid, updatedGosPs, userId);
-                    }
-                });
+            // changeCallbacks is a CopyOnWriteArrayList, no need for external synchronization
+            for (GosPackageStateChangeCallback callback : changeCallbacks) {
+                callback.getHandler().post(() ->
+                        callback.onGosPackageStateChanged(uid, updatedGosPs, userId));
             }
         }
         Slogf.i(TAG, "set: callingUid: %s, uid: %s, pkgName: %s, value: %s", callingUid, uid, packageName, updatedGosPs);
