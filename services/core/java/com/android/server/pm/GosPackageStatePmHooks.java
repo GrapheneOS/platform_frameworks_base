@@ -27,8 +27,8 @@ import com.android.server.pm.pkg.PackageUserStateInternal;
 import com.android.server.pm.pkg.SharedUserApi;
 import com.android.server.utils.Slogf;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static android.content.pm.GosPackageState.*;
 import static com.android.server.pm.GosPackageStateUtils.parseFlag;
@@ -38,7 +38,7 @@ public class GosPackageStatePmHooks {
 
     private final PackageManagerService pkgManager;
 
-    private final ArrayList<GosPackageStateChangeCallback> changeCallbacks = new ArrayList<>();
+    private final CopyOnWriteArrayList<GosPackageStateChangeCallback> changeCallbacks = new CopyOnWriteArrayList<>();
     private final HandlerThread changeCallbacksThread = new HandlerThread("GosPackageStateChangeCallbacks");
     private boolean changeCallbacksThreadStarted;
 
@@ -161,10 +161,9 @@ public class GosPackageStatePmHooks {
                     changeCallbacksThreadStarted = true;
                 }
                 changeCallbacksThread.getThreadHandler().post(() -> {
-                    synchronized (changeCallbacks) {
-                        for (GosPackageStateChangeCallback callback : changeCallbacks) {
-                            callback.onGosPackageStateChanged(uid, updatedGosPs, userId);
-                        }
+                    // changeCallbacks is a CopyOnWriteArrayList, no need for external synchronization
+                    for (GosPackageStateChangeCallback callback : changeCallbacks) {
+                        callback.onGosPackageStateChanged(uid, updatedGosPs, userId);
                     }
                 });
             }
