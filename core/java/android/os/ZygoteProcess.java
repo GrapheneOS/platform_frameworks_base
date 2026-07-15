@@ -895,6 +895,7 @@ public class ZygoteProcess implements IZygoteProcess {
         }
         if (Build.SUPPORTED_64_BIT_ABIS.length > 0) {
             bootCompleted(Build.SUPPORTED_64_BIT_ABIS[0], ZygoteSelectionMode.Regular);
+            bootCompleted(Build.SUPPORTED_64_BIT_ABIS[0], ZygoteSelectionMode.PreferCompatZygote);
         }
     }
 
@@ -1070,58 +1071,14 @@ public class ZygoteProcess implements IZygoteProcess {
             if (Log.isLoggable(LOG_TAG, Log.VERBOSE)) {
                 Log.v(LOG_TAG, "attemptConnectionToZygote " + type, new Throwable());
             }
-            if (type == ZygoteType.Compat) {
-                if (!"running".equals(SystemProperties.get("init.svc.zygote_compat", null))) {
-                    long start = SystemClock.elapsedRealtime();
-                    startCompatZygote();
-                    Log.d(LOG_TAG, "waited " + (SystemClock.elapsedRealtime() - start) + " ms for compat zygote");
-                }
-            }
             zygoteState =
                     ZygoteState.connect(mZygoteSocketAddresses[typeIdx], mUsapPoolSocketAddresses[typeIdx]);
             mZygoteStates[typeIdx] = zygoteState;
 
             maybeSetApiDenylistExemptions(zygoteState, false);
             maybeSetHiddenApiAccessLogSampleRate(zygoteState);
-            if (type == ZygoteType.Compat) {
-                // compat zygote is started on-demand, it might not be running when bootCompleted()
-                // is dispatched to other zygotes
-                bootCompleted(Build.SUPPORTED_64_BIT_ABIS[0], ZygoteSelectionMode.PreferCompatZygote);
-            }
         }
         return zygoteState;
-    }
-
-    @GuardedBy("mLock")
-    private void startCompatZygote() throws IOException {
-        SystemProperties.set("sys.start_compat_zygote", "1");
-        boolean started = false;
-        LocalSocketAddress zygoteSocketAddress = mZygoteSocketAddresses[ZygoteType.Compat.ordinal()];
-
-        try (var zygoteSocket = new LocalSocket()) {
-            // The following loop is a lighter-weight variant of waitForConnectionToZygote(). Note
-            // that both mLock and the global ActivityManagerService lock are held at this point.
-            // zygote_compat startup usually completes in under 2 seconds. Starting zygote_compat
-            // lazily saves ~200 MiB of RAM as of Android 16 QPR2 when zygote_compat isn't needed.
-            final int TIMEOUT_MS = 20_000;
-            final int RETRY_DELAY_MS = 10;
-            int numRetries = TIMEOUT_MS / RETRY_DELAY_MS;
-            for (int i = 0; i < numRetries; ++i) {
-                try {
-                    zygoteSocket.connect(zygoteSocketAddress);
-                    started = true;
-                    break;
-                } catch (IOException e) {
-                    if ((i % 50) == 0) {
-                        Log.d(LOG_TAG, "waiting for compat zygote to start");
-                    }
-                    SystemClock.sleep(RETRY_DELAY_MS);
-                }
-            }
-        }
-        if (!started) {
-            throw new RuntimeException("timed out while waiting for compat zygote");
-        }
     }
 
     /**
