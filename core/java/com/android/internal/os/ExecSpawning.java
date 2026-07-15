@@ -133,6 +133,10 @@ public class ExecSpawning {
                 case "org.chromium.chrome.app.TrichromeZygotePreload":
                 case "org.chromium.content_public.app.ZygotePreload":
                 case "org.mozilla.gecko.process.ZygotePreload":
+                // VosZygotePreload is used by https://www.v-key.com/products/v-os-mobile-app-protection/
+                // Its checks don't pass for an unknown reason when exec spawning is used, but
+                // skipping them entirely works at least for some apps (e.g. for com.dbs.sg.dbsmbanking app)
+                case "vkey.android.vos.VosZygotePreload":
                     Log.i(TAG, "skipping Java ZygotePreload: " + zygotePreloadName);
                     return true;
                 default:
