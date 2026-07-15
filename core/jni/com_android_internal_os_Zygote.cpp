@@ -2863,7 +2863,9 @@ static void com_android_internal_os_Zygote_nativeInitNativeState(JNIEnv* env, jc
    * Storage Initialization
    */
 
-  UnmountStorageOnInit(env);
+  if (!gIsExecSpawning) {
+    UnmountStorageOnInit(env);
+  }
 
   /*
    * Performance Initialization
