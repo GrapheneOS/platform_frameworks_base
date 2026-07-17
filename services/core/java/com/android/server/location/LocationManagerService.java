@@ -403,7 +403,7 @@ public class LocationManagerService extends ILocationManager.Stub implements
 
             // Managers added after onSystemThirdPartyAppsCanStart has wired the boot-time
             // managers must also receive the population density provider; otherwise their
-            // fudger silently falls back to the legacy fixed-grid coarsening.
+            // fudger fails closed and suppresses every coarse fix.
             if (mPopulationDensityProvider != null) {
                 manager.setPopulationDensityProvider(mPopulationDensityProvider);
             }

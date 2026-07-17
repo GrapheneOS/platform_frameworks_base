@@ -45,7 +45,7 @@ public class LocationFudger {
 
     private static final String TAG = "LocationFudger";
 
-    // minimum accuracy a coarsened location can have
+    // Minimum scale for the random coarsening offset.
     private static final float MIN_ACCURACY_M = 200.0f;
 
     // how often random offsets are updated
@@ -90,6 +90,10 @@ public class LocationFudger {
     // Rate-limit persistent provider faults.
     private static final long FAULT_LOG_INTERVAL_MS = 60 * 1000;
 
+    // Re-query cached failures after transient faults that do not trigger a provider rebind.
+    @VisibleForTesting
+    static final long NEGATIVE_CACHE_TTL_MS = 2000;
+
     private final float mAccuracyM;
     private final Clock mClock;
     private final Random mRandom;
@@ -106,6 +110,12 @@ public class LocationFudger {
     @Nullable private Location mCachedFineLocation;
     @GuardedBy("this")
     @Nullable private Location mCachedCoarseLocation;
+    @GuardedBy("this")
+    private long mCachedLocationGeneration;
+    @GuardedBy("this")
+    @Nullable private ProxyPopulationDensityProvider mCachedLocationProvider;
+    @GuardedBy("this")
+    private long mCachedLocationFailureRealtimeMs;
 
     @GuardedBy("this")
     @Nullable private LocationResult mCachedFineLocationResult;
@@ -118,6 +128,11 @@ public class LocationFudger {
     @GuardedBy("this")
     @Nullable private ProxyPopulationDensityProvider mPopulationDensityProvider = null;
 
+    /**
+     * Creates a location fudger with the given random-offset scale.
+     *
+     * <p>The population density provider selects the S2 coarsening level.
+     */
     public LocationFudger(float accuracyM) {
         this(accuracyM, SystemClock.elapsedRealtimeClock(), new SecureRandom());
     }
@@ -131,12 +146,7 @@ public class LocationFudger {
         resetOffsets();
     }
 
-    /**
-     * Provides the optional {@link ProxyPopulationDensityProvider} for coarsening based on
-     * population density. When set, coarse locations are snapped to the center of the locally
-     * derived S2 cell at the level the provider returns for the location; when null, the legacy
-     * fixed-grid algorithm is used.
-     */
+    /** Sets the population density provider, or null to make coarsening fail closed. */
     public void setPopulationDensityProvider(@Nullable ProxyPopulationDensityProvider provider) {
         synchronized (this) {
             mPopulationDensityProvider = provider;
@@ -154,10 +164,10 @@ public class LocationFudger {
 
     /**
      * Coarsens a {@link LocationResult} by coarsening every location within it with
-     * {@link #createCoarse(Location)}. Returns null if any location can't be coarsened (a provider
-     * fault), suppressing the whole result rather than delivering a wrong or under-coarse location.
-     * A failure is remembered by input identity, so re-coarsening the same result fails
-     * immediately.
+     * {@link #createCoarse(Location)}. Returns null if any location can't be coarsened (no
+     * provider configured or a provider fault), suppressing the whole result rather than
+     * delivering a wrong or under-coarse location. A failure is remembered by input identity, so
+     * re-coarsening the same result fails immediately.
      */
     public @Nullable LocationResult createCoarse(LocationResult fineLocationResult) {
         synchronized (this) {
@@ -190,22 +200,35 @@ public class LocationFudger {
     }
 
     /**
-     * Creates a coarse location from a fine one, or returns null if no coarse location can be
-     * produced for this fix (a provider fault), in which case the fix is suppressed. A failure is
-     * remembered by input identity, so re-coarsening the same fix fails immediately.
+     * Creates a density-coarsened location, or returns null on a provider fault.
      *
-     * <p>First a slowly-varying random offset is added to mitigate detecting position when crossing
-     * cell boundaries. Then, when a population density provider is configured, the offset point is
-     * quantized to the center of its S2 cell at {@link #MAX_COARSENING_S2_LEVEL} before being sent
-     * to the provider, and the location is snapped to the center of the enclosing cell at the
-     * level the provider returns (which reflects local density); otherwise it is snapped to a
-     * fixed grid of width {@code mAccuracyM}.
+     * <p>The provider sees the center of the offset point's finest accepted S2 cell. Only its
+     * returned level is trusted; the output cell is derived locally.
      */
     public @Nullable Location createCoarse(Location fine) {
+        ProxyPopulationDensityProvider provider;
+        long providerGeneration;
         synchronized (this) {
-            // A null cached outcome is a remembered failure, returned as the suppression it is.
-            if (fine == mCachedFineLocation || fine == mCachedCoarseLocation) {
-                return mCachedCoarseLocation;
+            provider = mPopulationDensityProvider;
+            providerGeneration = currentBindingGeneration();
+        }
+        return createCoarse(fine, provider, providerGeneration);
+    }
+
+    private @Nullable Location createCoarse(Location fine,
+            @Nullable ProxyPopulationDensityProvider provider,
+            long providerGeneration) {
+        synchronized (this) {
+            if ((fine == mCachedFineLocation || fine == mCachedCoarseLocation)
+                    && mCachedLocationProvider == provider
+                    && mCachedLocationGeneration == providerGeneration) {
+                if (mCachedCoarseLocation != null) {
+                    return mCachedCoarseLocation;
+                }
+                if (mClock.millis() - mCachedLocationFailureRealtimeMs
+                        < NEGATIVE_CACHE_TTL_MS) {
+                    return null;
+                }
             }
         }
 
@@ -237,87 +260,93 @@ public class LocationFudger {
         latitude = wrapLatitude(latitude);
         longitude = wrapLongitude(longitude);
 
-        // Copy the provider reference so a concurrent setPopulationDensityProvider(null) doesn't
-        // affect this in-flight coarsening.
-        ProxyPopulationDensityProvider providerCopy;
-        synchronized (this) {
-            providerCopy = mPopulationDensityProvider;
-        }
-        double[] coarsened;
-        float accuracy;
-        if (providerCopy != null) {
-            // Quantize the query to the center of the offset point's S2 cell at
-            // MAX_COARSENING_S2_LEVEL before it crosses the trust boundary: the provider only
-            // needs enough precision to answer at the levels the framework accepts, so it never
-            // sees coordinates finer than the finest cell the framework is willing to emit. Cells
-            // nest strictly, so snapping from the quantized point below yields the same cell as
-            // snapping from the offset point at every accepted level, and cell centers are always
-            // normalized coordinates. Quantization also makes queries repeat exactly while the
-            // device stays within one cell, letting the proxy answer from its cache without IPC.
-            long queryS2CellId = S2CellIdUtils.getParent(
-                    S2CellIdUtils.fromLatLngDegrees(latitude, longitude), MAX_COARSENING_S2_LEVEL);
-            double[] queryPoint = new double[] {0.0, 0.0};
-            S2CellIdUtils.toLatLngDegrees(queryS2CellId, queryPoint);
+        // Limit provider input precision without changing any accepted parent cell.
+        long queryS2CellId = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(latitude, longitude), MAX_COARSENING_S2_LEVEL);
+        double[] queryPoint = new double[] {0.0, 0.0};
+        S2CellIdUtils.toLatLngDegrees(queryS2CellId, queryPoint);
 
-            // Density-based coarsening: query the provider synchronously for the S2 cell whose
-            // level encodes the local population density, then snap to the center of the cell at
-            // that level around this location.
-            //
-            // The provider initializes eagerly when bound, so queries normally answer from local
-            // state well inside the proxy's deadline; a query racing a provider (re)start can
-            // still time out, suppressing this fix and recovering on a later one.
-            long s2CellId;
-            try {
-                s2CellId = providerCopy.getCoarsenedS2CellId(
-                        queryPoint[LAT_INDEX], queryPoint[LNG_INDEX]);
-            } catch (PopulationDensityUnavailableException e) {
-                // No density answer available (provider not bound, query failed, or timed out).
-                // Suppress this fix rather than emit a wrong or under-coarse location.
-                logCoarseningFault("density query failed: " + e.getMessage());
-                return recordFailure(fine);
-            }
-            // Trust only the level from the provider's cell, not its position: the provider runs a
-            // separate S2 implementation, so the cell is re-derived locally below from this
-            // location. Reject a malformed or too-fine level (one the edge table cannot express,
-            // which would under-coarsen) by suppressing the fix.
-            int level = S2CellIdUtils.getLevel(s2CellId);
-            if (level < 0 || level > MAX_COARSENING_S2_LEVEL) {
-                logCoarseningFault("provider returned invalid coarsening level " + level);
-                return recordFailure(fine);
-            }
-            coarsened = snapToCenterOfS2Cell(queryPoint[LAT_INDEX], queryPoint[LNG_INDEX], level);
-            accuracy = getS2CellApproximateEdge(level);
-        } else {
-            // Population density feature not configured: legacy fixed-grid snapping.
-            coarsened = snapToGrid(latitude, longitude);
-            accuracy = mAccuracyM;
+        if (provider == null) {
+            logCoarseningFault("no population density provider configured");
+            return recordFailure(fine, provider, providerGeneration);
+        }
+        if (!isCurrentProvider(provider, providerGeneration)) {
+            return recordFailure(fine, provider, providerGeneration);
         }
 
-        coarse.setLatitude(coarsened[LAT_INDEX]);
-        coarse.setLongitude(coarsened[LNG_INDEX]);
+        long s2CellId;
+        try {
+            s2CellId = provider.getCoarsenedS2CellId(
+                    queryPoint[LAT_INDEX], queryPoint[LNG_INDEX]);
+        } catch (PopulationDensityUnavailableException e) {
+            logCoarseningFault("density query failed: " + e.getMessage());
+            return recordFailure(fine, provider, providerGeneration);
+        }
+        if (!isCurrentProvider(provider, providerGeneration)) {
+            return recordFailure(fine, provider, providerGeneration);
+        }
+        // Trust only the returned level; derive the cell locally from the query point.
+        int level = S2CellIdUtils.getLevel(s2CellId);
+        if (level < 0 || level > MAX_COARSENING_S2_LEVEL) {
+            logCoarseningFault("provider returned invalid coarsening level " + level);
+            return recordFailure(fine, provider, providerGeneration);
+        }
+        snapToCenterOfS2Cell(queryPoint[LAT_INDEX], queryPoint[LNG_INDEX], level, queryPoint);
+        float accuracy = getS2CellApproximateEdge(level);
+
+        coarse.setLatitude(queryPoint[LAT_INDEX]);
+        coarse.setLongitude(queryPoint[LNG_INDEX]);
         coarse.setAccuracy(Math.max(accuracy, fine.getAccuracy()));
 
         synchronized (this) {
+            if (!isCurrentProvider(provider, providerGeneration)) {
+                return recordFailure(fine, provider, providerGeneration);
+            }
             mCachedFineLocation = fine;
             mCachedCoarseLocation = coarse;
+            mCachedLocationProvider = provider;
+            mCachedLocationGeneration = providerGeneration;
         }
 
         return coarse;
     }
 
-    // Records a failed outcome for the latest coarsening input (see the identity cache fields)
-    // and suppresses it. Returns null so failure paths can return the recorded suppression
-    // directly.
-    private @Nullable Location recordFailure(Location fine) {
+    private @Nullable Location recordFailure(Location fine,
+            @Nullable ProxyPopulationDensityProvider provider, long generation) {
         synchronized (this) {
             mCachedFineLocation = fine;
             mCachedCoarseLocation = null;
+            mCachedLocationProvider = provider;
+            mCachedLocationGeneration = generation;
+            mCachedLocationFailureRealtimeMs = mClock.millis();
         }
         return null;
     }
 
-    // The LocationResult analog of recordFailure(Location).
+    @GuardedBy("this")
+    private long currentBindingGeneration() {
+        return mPopulationDensityProvider == null
+                ? 0 : mPopulationDensityProvider.getBindingGeneration();
+    }
+
+    private boolean isCurrentProvider(@Nullable ProxyPopulationDensityProvider provider,
+            long generation) {
+        synchronized (this) {
+            return mPopulationDensityProvider == provider
+                    && (provider == null || provider.getBindingGeneration() == generation);
+        }
+    }
+
     private @Nullable LocationResult recordBatchFailure(LocationResult fineLocationResult) {
+        synchronized (this) {
+            mCachedFineLocationResult = fineLocationResult;
+            mCachedCoarseLocationResult = null;
+        }
+        return null;
+    }
+
+    private @Nullable LocationResult recordBatchFailure(LocationResult fineLocationResult,
+            @Nullable ProxyPopulationDensityProvider provider, long generation) {
         synchronized (this) {
             mCachedFineLocationResult = fineLocationResult;
             mCachedCoarseLocationResult = null;
@@ -350,31 +379,19 @@ public class LocationFudger {
         return S2_CELL_AVG_EDGE_PER_LEVEL[level] * 1000;
     }
 
-    // quantize location by snapping to a grid. this is the primary means of obfuscation. it
-    // gives nice consistent results and is very effective at hiding the true location (as
-    // long as you are not sitting on a grid boundary, which the random offsets mitigate).
-    //
-    // note that we quantize the latitude first, since the longitude quantization depends on
-    // the latitude value and so leaks information about the latitude
-    private double[] snapToGrid(double latitude, double longitude) {
+    // Derive the cell locally; accept only the provider-supplied level.
+    @VisibleForTesting
+    protected double[] snapToCenterOfS2Cell(double latDegrees, double lngDegrees, int level) {
         double[] center = new double[] {0.0, 0.0};
-        double latGranularity = metersToDegreesLatitude(mAccuracyM);
-        center[LAT_INDEX] = wrapLatitude(Math.round(latitude / latGranularity) * latGranularity);
-        double lonGranularity = metersToDegreesLongitude(mAccuracyM, latitude);
-        center[LNG_INDEX] = wrapLongitude(Math.round(longitude / lonGranularity) * lonGranularity);
+        snapToCenterOfS2Cell(latDegrees, lngDegrees, level, center);
         return center;
     }
 
-    // Snaps a location to the center of the S2 cell of the given level that contains it. Only the
-    // level comes from the population density provider; the cell is computed locally so a provider
-    // running a different S2 implementation cannot shift the coarse position away from this device.
-    @VisibleForTesting
-    protected double[] snapToCenterOfS2Cell(double latDegrees, double lngDegrees, int level) {
+    private void snapToCenterOfS2Cell(double latDegrees, double lngDegrees, int level,
+            double[] center) {
         long leafCell = S2CellIdUtils.fromLatLngDegrees(latDegrees, lngDegrees);
         long coarsenedCell = S2CellIdUtils.getParent(leafCell, level);
-        double[] center = new double[] {0.0, 0.0};
         S2CellIdUtils.toLatLngDegrees(coarsenedCell, center);
-        return center;
     }
 
     /**

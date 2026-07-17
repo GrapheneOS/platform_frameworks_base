@@ -35,7 +35,6 @@ import android.location.Location;
 import android.location.LocationResult;
 import android.os.Bundle;
 import android.platform.test.annotations.Presubmit;
-import android.util.Log;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
@@ -53,18 +52,16 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Presubmit
 @SmallTest
 @RunWith(AndroidJUnit4.class)
 public class LocationFudgerTest {
 
-    private static final String TAG = "LocationFudgerTest";
-
     private static final double APPROXIMATE_METERS_PER_DEGREE_AT_EQUATOR = 111_000;
     private static final float ACCURACY_M = 2000;
-    private static final float MAX_COARSE_FUDGE_DISTANCE_M =
-            (float) Math.sqrt(2 * ACCURACY_M * ACCURACY_M) + ACCURACY_M / 4f;
 
     private static final int TEST_COARSENING_LEVEL = 12;
 
@@ -74,10 +71,7 @@ public class LocationFudgerTest {
 
     @Before
     public void setUp() {
-        long seed = System.currentTimeMillis();
-        Log.i(TAG, "location random seed: " + seed);
-
-        mRandom = new Random(seed);
+        mRandom = new Random(0);
         mFudger = new LocationFudger(
                 ACCURACY_M,
                 Clock.fixed(Instant.ofEpochMilli(0), ZoneId.systemDefault()),
@@ -85,7 +79,13 @@ public class LocationFudgerTest {
     }
 
     @Test
-    public void testCoarsen() {
+    public void testCoarsen() throws Exception {
+        mFudger.setPopulationDensityProvider(fixedLevelProvider(TEST_COARSENING_LEVEL));
+        float cellEdge = mFudger.getS2CellApproximateEdge(TEST_COARSENING_LEVEL);
+        // This is a deterministic sanity threshold, not a geometric upper bound for S2 cells or
+        // Gaussian offsets.
+        float sanityDistanceM = (float) Math.sqrt(2) * cellEdge + ACCURACY_M;
+
         // Coarsening must drop every position-sensitive field while carrying only the
         // non-sensitive fields that downstream code and LocationResult.validate() rely on. Every
         // sensitive field is set on the fine input, so a regression that copies any of them is
@@ -132,14 +132,15 @@ public class LocationFudgerTest {
                     .isEqualTo(fine.getElapsedRealtimeUncertaintyNanos());
             assertThat(coarse.isMock()).isTrue();
 
-            assertThat(coarse.getAccuracy()).isEqualTo(ACCURACY_M);
+            assertThat(coarse.getAccuracy()).isEqualTo(cellEdge);
             assertThat(coarse.distanceTo(fine)).isGreaterThan(1F);
-            assertThat(coarse).isNearby(fine, MAX_COARSE_FUDGE_DISTANCE_M);
+            assertThat(coarse).isNearby(fine, sanityDistanceM);
         }
     }
 
     @Test
-    public void testCoarsen_Consistent() {
+    public void testCoarsen_Consistent() throws Exception {
+        mFudger.setPopulationDensityProvider(fixedLevelProvider(TEST_COARSENING_LEVEL));
         // test that coarsening the same location will always return the same coarse location
         // (and thus that averaging to eliminate random noise won't work)
         for (int i = 0; i < 100; i++) {
@@ -151,7 +152,8 @@ public class LocationFudgerTest {
     }
 
     @Test
-    public void testCoarsen_AvgMany() {
+    public void testCoarsen_AvgMany() throws Exception {
+        mFudger.setPopulationDensityProvider(fixedLevelProvider(TEST_COARSENING_LEVEL));
         // test that a set of locations normally distributed around the user's real location still
         // cannot be easily average to reveal the user's real location
 
@@ -193,10 +195,10 @@ public class LocationFudgerTest {
             }
         }
 
-        // very generally speaking, the closer the initial fine point is to a grid point, the more
+        // very generally speaking, the closer the initial fine point is to a cell center, the more
         // accurate the coarsened average will be. we use 70% as a lower bound by -very- roughly
-        // taking the area within a grid where we expect a reasonable percentage of points generated
-        // by step() to fall in another grid square. this likely doesn't have much mathematical
+        // taking the area within a cell where we expect a reasonable percentage of points generated
+        // by step() to fall in another cell. this likely doesn't have much mathematical
         // validity, but it serves as a validity test as least.
         assertThat(passed / (double) iterations).isGreaterThan(.70);
     }
@@ -212,6 +214,46 @@ public class LocationFudgerTest {
                 0);
     }
 
+    private static ProxyPopulationDensityProvider fixedLevelProvider(int level)
+            throws PopulationDensityUnavailableException {
+        long cell = S2CellIdUtils.getParent(S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), level);
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doReturn(cell).when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        return provider;
+    }
+
+    /** Creates a clock backed by the given mutable time source. */
+    private static Clock advancingClock(AtomicLong currentTimeMillis) {
+        return new Clock() {
+            @Override
+            public ZoneId getZone() {
+                return ZoneId.systemDefault();
+            }
+
+            @Override
+            public Clock withZone(ZoneId zone) {
+                return this;
+            }
+
+            @Override
+            public Instant instant() {
+                return Instant.ofEpochMilli(currentTimeMillis.get());
+            }
+
+            @Override
+            public long millis() {
+                return currentTimeMillis.get();
+            }
+        };
+    }
+
+    @Test
+    public void testNoProviderConfigured_suppressesFix() {
+        Location coarse = mFudger.createCoarse(createLocation("test", mRandom));
+
+        assertThat(coarse).isNull();
+    }
+
     @Test
     public void testCoarsen_nearAntimeridianAndPoles_normalizesAndCoarsens() throws Exception {
         long cell = S2CellIdUtils.getParent(
@@ -225,8 +267,7 @@ public class LocationFudgerTest {
         }).when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
         mFudger.setPopulationDensityProvider(provider);
 
-        // Both anti-meridian sides and both poles, so whichever sign the random offsets have,
-        // some raw offset sum falls outside the valid coordinate ranges.
+        // Cover both offset signs.
         assertThat(mFudger.createCoarse(createLocation("test", 89.9999, 179.9999, 1f)))
                 .isNotNull();
         assertThat(mFudger.createCoarse(createLocation("test", -89.9999, -179.9999, 1f)))
@@ -361,6 +402,75 @@ public class LocationFudgerTest {
     }
 
     @Test
+    public void testDensityBasedCoarsening_providerRebind_reCoarsensSameFix() throws Exception {
+        long cell = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doThrow(new PopulationDensityUnavailableException("test"))
+                .doReturn(cell)
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        AtomicLong bindingGeneration = new AtomicLong();
+        doAnswer(invocation -> bindingGeneration.get()).when(provider).getBindingGeneration();
+        mFudger.setPopulationDensityProvider(provider);
+        Location fine = createLocation("test", mRandom);
+
+        assertThat(mFudger.createCoarse(fine)).isNull();
+        bindingGeneration.incrementAndGet();
+        assertThat(mFudger.createCoarse(fine)).isNotNull();
+
+        verify(provider, times(2)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+    }
+
+    @Test
+    public void testDensityBasedCoarsening_bindingChangesDuringCacheLookup_suppressesStaleResult()
+            throws Exception {
+        ProxyPopulationDensityProvider provider = fixedLevelProvider(TEST_COARSENING_LEVEL);
+        AtomicLong bindingGeneration = new AtomicLong();
+        AtomicBoolean advanceGenerationOnNextRead = new AtomicBoolean();
+        doAnswer(invocation -> {
+            long generation = bindingGeneration.get();
+            if (advanceGenerationOnNextRead.compareAndSet(true, false)) {
+                bindingGeneration.incrementAndGet();
+            }
+            return generation;
+        }).when(provider).getBindingGeneration();
+        mFudger.setPopulationDensityProvider(provider);
+        Location fine = createLocation("test", mRandom);
+
+        assertThat(mFudger.createCoarse(fine)).isNotNull();
+        advanceGenerationOnNextRead.set(true);
+        assertThat(mFudger.createCoarse(fine)).isNull();
+        assertThat(mFudger.createCoarse(fine)).isNotNull();
+
+        verify(provider, times(2)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+    }
+
+    @Test
+    public void testDensityBasedCoarsening_faultThenTtlExpiry_reQueriesSameFix() throws Exception {
+        AtomicLong currentTimeMillis = new AtomicLong();
+        LocationFudger fudger = new LocationFudger(
+                ACCURACY_M, advancingClock(currentTimeMillis), new Random(0));
+
+        long cell = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doThrow(new PopulationDensityUnavailableException("test"))
+                .doReturn(cell)
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        doReturn(0L).when(provider).getBindingGeneration();
+        fudger.setPopulationDensityProvider(provider);
+        Location fine = createLocation("test", new Random(0));
+
+        assertThat(fudger.createCoarse(fine)).isNull();
+        currentTimeMillis.set(LocationFudger.NEGATIVE_CACHE_TTL_MS - 1);
+        assertThat(fudger.createCoarse(fine)).isNull();
+        verify(provider, times(1)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        currentTimeMillis.set(LocationFudger.NEGATIVE_CACHE_TTL_MS);
+        assertThat(fudger.createCoarse(fine)).isNotNull();
+        verify(provider, times(2)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+    }
+
+    @Test
     public void testDensityBasedCoarsening_faultThenRecovery_nextFixCoarsens() throws Exception {
         long cell = S2CellIdUtils.getParent(
                 S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
@@ -390,6 +500,34 @@ public class LocationFudgerTest {
         assertThat(mFudger.createCoarse(failedFine)).isNotNull();
 
         verify(provider, times(3)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+    }
+
+    @Test
+    public void testCoarsenLocationResult_allCoarsen_returnsFullBatch() throws Exception {
+        mFudger.setPopulationDensityProvider(fixedLevelProvider(TEST_COARSENING_LEVEL));
+        LocationResult fine = createLocationResult("test", mRandom, 3);
+
+        LocationResult coarse = mFudger.createCoarse(fine);
+
+        assertThat(coarse).isNotNull();
+        assertThat(coarse.asList()).hasSize(3);
+        assertThat(coarse.get(0).getAccuracy())
+                .isEqualTo(mFudger.getS2CellApproximateEdge(TEST_COARSENING_LEVEL));
+    }
+
+    @Test
+    public void testCoarsenLocationResult_midBatchFault_suppressesWholeBatch() throws Exception {
+        long cell = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doReturn(cell)
+                .doThrow(new PopulationDensityUnavailableException("mid-batch fault"))
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mFudger.setPopulationDensityProvider(provider);
+
+        LocationResult coarse = mFudger.createCoarse(createLocationResult("test", mRandom, 3));
+
+        assertThat(coarse).isNull();
     }
 
     @Test

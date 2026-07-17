@@ -1365,8 +1365,21 @@ public class LocationProviderManager extends
                 fineLocationResult = null;
             }
 
-            // lastly - note app ops
             if (fineLocationResult != null) {
+                // Coarsen only the last location retained by this one-shot request.
+                fineLocationResult = fineLocationResult.asLastLocationResult();
+            }
+
+            LocationResult permittedLocationResult = getPermittedLocationResult(
+                    fineLocationResult, getPermissionLevel());
+            if (fineLocationResult != null && permittedLocationResult == null) {
+                // Keep the one-shot registration for a later fix when coarsening fails.
+                EVENT_LOG.logProviderCoarseningSuppressed(mName, getIdentity());
+                return null;
+            }
+
+            // Note app ops only for a location that can be delivered.
+            if (permittedLocationResult != null) {
                 int op =
                         isOnlyBypassPermitted()
                                 ? AppOpsManager.OP_EMERGENCY_LOCATION
@@ -1375,16 +1388,11 @@ public class LocationProviderManager extends
                     if (D) {
                         Log.w(TAG, "noteOp denied for " + getIdentity());
                     }
-                    fineLocationResult = null;
+                    permittedLocationResult = null;
                 }
             }
 
-            if (fineLocationResult != null) {
-                fineLocationResult = fineLocationResult.asLastLocationResult();
-            }
-
-            LocationResult locationResult = getPermittedLocationResult(fineLocationResult,
-                    getPermissionLevel());
+            LocationResult locationResult = permittedLocationResult;
 
             // deliver location
             return new ListenerOperation<LocationTransport>() {
@@ -1805,6 +1813,7 @@ public class LocationProviderManager extends
             return null;
         }
 
+        // Return null when the cached fix cannot be coarsened.
         Location location = getPermittedLocation(
                 getLastLocationUnsafe(
                         identity.getUserId(),
