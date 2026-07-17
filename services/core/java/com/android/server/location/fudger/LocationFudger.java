@@ -82,7 +82,7 @@ public class LocationFudger {
     // We take square root of the average area.
     private static final float[] S2_CELL_AVG_EDGE_PER_LEVEL = new float[] {
             9220.14f, 4610.07f, 2305.04f, 1152.52f, 576.26f, 288.13f, 144.06f,
-            72.03f, 36.02f, 20.79f, 9f, 5.05f, 2.25f};
+            72.03f, 36.02f, 18.01f, 9f, 4.50f, 2.25f};
 
     // Also limits the location precision sent to the provider.
     private static final int MAX_COARSENING_S2_LEVEL = S2_CELL_AVG_EDGE_PER_LEVEL.length - 1;

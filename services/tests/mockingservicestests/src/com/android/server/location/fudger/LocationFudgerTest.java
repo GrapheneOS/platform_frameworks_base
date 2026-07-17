@@ -804,29 +804,19 @@ public class LocationFudgerTest {
     }
 
     @Test
-    public void getS2CellApproximateEdge_returnsCorrectRadius() {
-        int level = 10;
-
-        float radius = mFudger.getS2CellApproximateEdge(level);
-
-        assertThat(radius).isEqualTo(9000);  // in meters
+    public void getS2CellApproximateEdge_returnsCorrectEdge() {
+        assertThat(mFudger.getS2CellApproximateEdge(9)).isWithin(1f).of(18010f);
+        assertThat(mFudger.getS2CellApproximateEdge(10)).isWithin(1f).of(9000f);
+        assertThat(mFudger.getS2CellApproximateEdge(11)).isWithin(1f).of(4500f);
     }
 
     @Test
-    public void getS2CellApproximateEdge_doesNotThrow() {
-        int level = -1;
-
-        mFudger.getS2CellApproximateEdge(level);
-
-        // No exception thrown.
+    public void getS2CellApproximateEdge_belowRange_clampsToLevelZero() {
+        assertThat(mFudger.getS2CellApproximateEdge(-1)).isEqualTo(9_220_140f);
     }
 
     @Test
-    public void getS2CellApproximateEdge_doesNotThrow2() {
-        int level = 14;
-
-        mFudger.getS2CellApproximateEdge(level);
-
-        // No exception thrown.
+    public void getS2CellApproximateEdge_aboveRange_clampsToLastLevel() {
+        assertThat(mFudger.getS2CellApproximateEdge(14)).isEqualTo(2_250f);
     }
 }
