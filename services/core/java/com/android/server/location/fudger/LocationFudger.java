@@ -87,6 +87,10 @@ public class LocationFudger {
     // Also limits the location precision sent to the provider.
     private static final int MAX_COARSENING_S2_LEVEL = S2_CELL_AVG_EDGE_PER_LEVEL.length - 1;
 
+    // Bound batch work before each location. One in-flight query may extend past this duration.
+    @VisibleForTesting
+    static final long MAX_BATCH_COARSENING_DURATION_MS = 100;
+
     // Rate-limit persistent provider faults.
     private static final long FAULT_LOG_INTERVAL_MS = 60 * 1000;
 
@@ -121,6 +125,12 @@ public class LocationFudger {
     @Nullable private LocationResult mCachedFineLocationResult;
     @GuardedBy("this")
     @Nullable private LocationResult mCachedCoarseLocationResult;
+    @GuardedBy("this")
+    private long mCachedLocationResultGeneration;
+    @GuardedBy("this")
+    @Nullable private ProxyPopulationDensityProvider mCachedLocationResultProvider;
+    @GuardedBy("this")
+    private long mCachedLocationResultFailureRealtimeMs;
 
     @GuardedBy("this")
     private long mNextFaultLogRealtimeMs;
@@ -149,7 +159,16 @@ public class LocationFudger {
     /** Sets the population density provider, or null to make coarsening fail closed. */
     public void setPopulationDensityProvider(@Nullable ProxyPopulationDensityProvider provider) {
         synchronized (this) {
+            if (mPopulationDensityProvider == provider) {
+                return;
+            }
             mPopulationDensityProvider = provider;
+            mCachedFineLocation = null;
+            mCachedCoarseLocation = null;
+            mCachedLocationProvider = null;
+            mCachedFineLocationResult = null;
+            mCachedCoarseLocationResult = null;
+            mCachedLocationResultProvider = null;
         }
     }
 
@@ -163,37 +182,58 @@ public class LocationFudger {
     }
 
     /**
-     * Coarsens a {@link LocationResult} by coarsening every location within it with
-     * {@link #createCoarse(Location)}. Returns null if any location can't be coarsened (no
-     * provider configured or a provider fault), suppressing the whole result rather than
-     * delivering a wrong or under-coarse location. A failure is remembered by input identity, so
-     * re-coarsening the same result fails immediately.
+     * Coarsens a location result from oldest to newest.
+     *
+     * <p>A provider fault suppresses the result. Reaching the batch deadline before a location
+     * returns the completed prefix, or null before the first location. This deadline also applies
+     * to a one-entry result; {@link #createCoarse(Location)} has no batch deadline.
      */
     public @Nullable LocationResult createCoarse(LocationResult fineLocationResult) {
+        ProxyPopulationDensityProvider provider;
+        long providerGeneration;
         synchronized (this) {
-            // A null cached outcome is a remembered failure, returned as the suppression it is.
-            if (fineLocationResult == mCachedFineLocationResult
-                    || fineLocationResult == mCachedCoarseLocationResult) {
-                return mCachedCoarseLocationResult;
+            provider = mPopulationDensityProvider;
+            providerGeneration = currentBindingGeneration();
+            if (isCurrentProviderLocked(provider, providerGeneration)
+                    && (fineLocationResult == mCachedFineLocationResult
+                            || fineLocationResult == mCachedCoarseLocationResult)) {
+                if (mCachedLocationResultProvider == provider
+                        && mCachedLocationResultGeneration == providerGeneration
+                        && (mCachedCoarseLocationResult != null
+                                || mClock.millis() - mCachedLocationResultFailureRealtimeMs
+                                        < NEGATIVE_CACHE_TTL_MS)) {
+                    return mCachedCoarseLocationResult;
+                }
             }
         }
 
-        // Coarsen each location. If any can't be coarsened (a provider fault), suppress the entire
-        // result rather than emit a wrong or under-coarse location.
         List<Location> fineLocations = fineLocationResult.asList();
         ArrayList<Location> coarseLocations = new ArrayList<>(fineLocations.size());
+        long batchDeadlineRealtimeMs = mClock.millis() + MAX_BATCH_COARSENING_DURATION_MS;
         for (Location fineLocation : fineLocations) {
-            Location coarseLocation = createCoarse(fineLocation);
+            if (mClock.millis() >= batchDeadlineRealtimeMs) {
+                logCoarseningFault("batch exceeded coarsening deadline");
+                break;
+            }
+            Location coarseLocation = createCoarse(fineLocation, provider, providerGeneration);
             if (coarseLocation == null) {
-                return recordBatchFailure(fineLocationResult);
+                return recordBatchFailure(fineLocationResult, provider, providerGeneration);
             }
             coarseLocations.add(coarseLocation);
+        }
+        if (coarseLocations.isEmpty()) {
+            return recordBatchFailure(fineLocationResult, provider, providerGeneration);
         }
         LocationResult coarseLocationResult = LocationResult.wrap(coarseLocations);
 
         synchronized (this) {
+            if (!isCurrentProvider(provider, providerGeneration)) {
+                return recordBatchFailure(fineLocationResult, provider, providerGeneration);
+            }
             mCachedFineLocationResult = fineLocationResult;
             mCachedCoarseLocationResult = coarseLocationResult;
+            mCachedLocationResultProvider = provider;
+            mCachedLocationResultGeneration = providerGeneration;
         }
 
         return coarseLocationResult;
@@ -314,6 +354,9 @@ public class LocationFudger {
     private @Nullable Location recordFailure(Location fine,
             @Nullable ProxyPopulationDensityProvider provider, long generation) {
         synchronized (this) {
+            if (!isCurrentProviderLocked(provider, generation)) {
+                return null;
+            }
             mCachedFineLocation = fine;
             mCachedCoarseLocation = null;
             mCachedLocationProvider = provider;
@@ -332,24 +375,28 @@ public class LocationFudger {
     private boolean isCurrentProvider(@Nullable ProxyPopulationDensityProvider provider,
             long generation) {
         synchronized (this) {
-            return mPopulationDensityProvider == provider
-                    && (provider == null || provider.getBindingGeneration() == generation);
+            return isCurrentProviderLocked(provider, generation);
         }
     }
 
-    private @Nullable LocationResult recordBatchFailure(LocationResult fineLocationResult) {
-        synchronized (this) {
-            mCachedFineLocationResult = fineLocationResult;
-            mCachedCoarseLocationResult = null;
-        }
-        return null;
+    @GuardedBy("this")
+    private boolean isCurrentProviderLocked(@Nullable ProxyPopulationDensityProvider provider,
+            long generation) {
+        return mPopulationDensityProvider == provider
+                && (provider == null || provider.getBindingGeneration() == generation);
     }
 
     private @Nullable LocationResult recordBatchFailure(LocationResult fineLocationResult,
             @Nullable ProxyPopulationDensityProvider provider, long generation) {
         synchronized (this) {
+            if (!isCurrentProviderLocked(provider, generation)) {
+                return null;
+            }
             mCachedFineLocationResult = fineLocationResult;
             mCachedCoarseLocationResult = null;
+            mCachedLocationResultProvider = provider;
+            mCachedLocationResultGeneration = generation;
+            mCachedLocationResultFailureRealtimeMs = mClock.millis();
         }
         return null;
     }

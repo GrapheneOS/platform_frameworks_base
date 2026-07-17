@@ -2852,7 +2852,7 @@ public class LocationProviderManager extends
     /**
      * Returns a deliverable location result, or null when none can be produced.
      *
-     * <p>Coarse requests fail closed.
+     * <p>Coarse requests fail closed and may return a deadline-limited prefix.
      */
     @Nullable LocationResult getPermittedLocationResult(
             @Nullable LocationResult fineLocationResult, @PermissionLevel int permissionLevel) {
