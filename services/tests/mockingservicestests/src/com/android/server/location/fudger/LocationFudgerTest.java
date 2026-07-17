@@ -54,6 +54,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -64,6 +67,7 @@ public class LocationFudgerTest {
 
     private static final double APPROXIMATE_METERS_PER_DEGREE_AT_EQUATOR = 111_000;
     private static final float ACCURACY_M = 2000;
+    private static final long COORDINATION_TIMEOUT_SECONDS = 10;
 
     private static final int TEST_COARSENING_LEVEL = 12;
 
@@ -621,6 +625,90 @@ public class LocationFudgerTest {
     }
 
     @Test
+    public void testCoarsenLocationResult_resetOffsets_reCoarsensSameInput() throws Exception {
+        Random random = mock(Random.class);
+        doReturn(0.0, 0.0, 10.0, 10.0).when(random).nextGaussian();
+        LocationFudger fudger = new LocationFudger(
+                ACCURACY_M,
+                Clock.fixed(Instant.ofEpochMilli(0), ZoneId.systemDefault()),
+                random);
+        ProxyPopulationDensityProvider provider = fixedLevelProvider(TEST_COARSENING_LEVEL);
+        fudger.setPopulationDensityProvider(provider);
+        LocationResult fine = LocationResult.wrap(
+                List.of(createLocation("test", 0.0, 0.0, 1.0f)));
+
+        LocationResult firstCoarse = fudger.createCoarse(fine);
+        assertThat(firstCoarse).isNotNull();
+        fudger.resetOffsets();
+        LocationResult secondCoarse = fudger.createCoarse(fine);
+
+        assertThat(secondCoarse).isNotNull();
+        long firstCellId = S2CellIdUtils.fromLatLngDegrees(
+                firstCoarse.get(0).getLatitude(), firstCoarse.get(0).getLongitude());
+        long secondCellId = S2CellIdUtils.fromLatLngDegrees(
+                secondCoarse.get(0).getLatitude(), secondCoarse.get(0).getLongitude());
+        assertThat(secondCellId).isNotEqualTo(firstCellId);
+        verify(provider, times(2)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+    }
+
+    @Test
+    public void testCoarsenLocationResult_scheduledOffsetUpdate_reCoarsensSameInput()
+            throws Exception {
+        AtomicLong currentTimeMillis = new AtomicLong();
+        Random random = mock(Random.class);
+        doReturn(0.0, 0.0, 1.0, 1.0).when(random).nextGaussian();
+        LocationFudger fudger =
+                new LocationFudger(
+                        ACCURACY_M, advancingClock(currentTimeMillis), random);
+        ProxyPopulationDensityProvider provider = fixedLevelProvider(TEST_COARSENING_LEVEL);
+        fudger.setPopulationDensityProvider(provider);
+        LocationResult fine = LocationResult.wrap(
+                List.of(createLocation("test", 0.0, 0.0, 1.0f)));
+
+        assertThat(fudger.createCoarse(fine)).isNotNull();
+        currentTimeMillis.set(LocationFudger.OFFSET_UPDATE_INTERVAL_MS);
+        assertThat(fudger.createCoarse(fine)).isNotNull();
+
+        verify(provider, times(2)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+    }
+
+    @Test
+    public void testCoarsenLocation_resetDuringQuery_discardsStaleResult() throws Exception {
+        long cell = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
+        CountDownLatch queryStarted = new CountDownLatch(1);
+        CountDownLatch releaseQuery = new CountDownLatch(1);
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doAnswer(invocation -> {
+            queryStarted.countDown();
+            assertThat(releaseQuery.await(
+                    COORDINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+            return cell;
+        }).when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mFudger.setPopulationDensityProvider(provider);
+        Location fine = createLocation("test", 0.0, 0.0, 1.0f);
+        FutureTask<Location> queryResult = new FutureTask<>(() -> mFudger.createCoarse(fine));
+        Thread queryThread = new Thread(queryResult, "LocationFudgerTest-query");
+        queryThread.start();
+
+        try {
+            assertThat(queryStarted.await(
+                    COORDINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+            mFudger.resetOffsets();
+            releaseQuery.countDown();
+            assertThat(queryResult.get(
+                    COORDINATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isNull();
+            assertThat(mFudger.createCoarse(fine)).isNotNull();
+            verify(provider, times(2)).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        } finally {
+            queryResult.cancel(true);
+            releaseQuery.countDown();
+            queryThread.join(TimeUnit.SECONDS.toMillis(COORDINATION_TIMEOUT_SECONDS));
+            assertThat(queryThread.isAlive()).isFalse();
+        }
+    }
+
+    @Test
     public void testCoarsenLocationResult_failedResult_retriesAfterTtl() throws Exception {
         AtomicLong currentTimeMillis = new AtomicLong(0);
         LocationFudger fudger =
@@ -724,7 +812,7 @@ public class LocationFudgerTest {
     public void testCoarsenLocationResult_deadlineExpiresBeforeFirst_suppressesResult()
             throws Exception {
         Clock clock = mock(Clock.class);
-        doReturn(0L, 0L, LocationFudger.MAX_BATCH_COARSENING_DURATION_MS)
+        doReturn(0L, 0L, 0L, LocationFudger.MAX_BATCH_COARSENING_DURATION_MS)
                 .when(clock).millis();
         LocationFudger fudger = new LocationFudger(ACCURACY_M, clock, new Random(0));
         ProxyPopulationDensityProvider provider = fixedLevelProvider(TEST_COARSENING_LEVEL);

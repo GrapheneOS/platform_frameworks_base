@@ -108,6 +108,8 @@ public class LocationFudger {
     private double mLongitudeOffsetM;
     @GuardedBy("this")
     private long mNextUpdateRealtimeMs;
+    @GuardedBy("this")
+    private long mOffsetGeneration;
 
     // Cache the latest input by identity to share one outcome across registrations.
     @GuardedBy("this")
@@ -116,6 +118,8 @@ public class LocationFudger {
     @Nullable private Location mCachedCoarseLocation;
     @GuardedBy("this")
     private long mCachedLocationGeneration;
+    @GuardedBy("this")
+    private long mCachedLocationOffsetGeneration;
     @GuardedBy("this")
     @Nullable private ProxyPopulationDensityProvider mCachedLocationProvider;
     @GuardedBy("this")
@@ -127,6 +131,8 @@ public class LocationFudger {
     @Nullable private LocationResult mCachedCoarseLocationResult;
     @GuardedBy("this")
     private long mCachedLocationResultGeneration;
+    @GuardedBy("this")
+    private long mCachedLocationResultOffsetGeneration;
     @GuardedBy("this")
     @Nullable private ProxyPopulationDensityProvider mCachedLocationResultProvider;
     @GuardedBy("this")
@@ -163,12 +169,7 @@ public class LocationFudger {
                 return;
             }
             mPopulationDensityProvider = provider;
-            mCachedFineLocation = null;
-            mCachedCoarseLocation = null;
-            mCachedLocationProvider = null;
-            mCachedFineLocationResult = null;
-            mCachedCoarseLocationResult = null;
-            mCachedLocationResultProvider = null;
+            clearCachedLocationsLocked();
         }
     }
 
@@ -176,9 +177,23 @@ public class LocationFudger {
      * Resets the random offsets completely.
      */
     public void resetOffsets() {
-        mLatitudeOffsetM = nextRandomOffset();
-        mLongitudeOffsetM = nextRandomOffset();
-        mNextUpdateRealtimeMs = mClock.millis() + OFFSET_UPDATE_INTERVAL_MS;
+        synchronized (this) {
+            mLatitudeOffsetM = nextRandomOffset();
+            mLongitudeOffsetM = nextRandomOffset();
+            mNextUpdateRealtimeMs = mClock.millis() + OFFSET_UPDATE_INTERVAL_MS;
+            mOffsetGeneration++;
+            clearCachedLocationsLocked();
+        }
+    }
+
+    @GuardedBy("this")
+    private void clearCachedLocationsLocked() {
+        mCachedFineLocation = null;
+        mCachedCoarseLocation = null;
+        mCachedLocationProvider = null;
+        mCachedFineLocationResult = null;
+        mCachedCoarseLocationResult = null;
+        mCachedLocationResultProvider = null;
     }
 
     /**
@@ -191,14 +206,22 @@ public class LocationFudger {
     public @Nullable LocationResult createCoarse(LocationResult fineLocationResult) {
         ProxyPopulationDensityProvider provider;
         long providerGeneration;
+        double latitudeOffsetM;
+        double longitudeOffsetM;
+        long offsetGeneration;
         synchronized (this) {
+            updateOffsets();
             provider = mPopulationDensityProvider;
             providerGeneration = currentBindingGeneration();
-            if (isCurrentProviderLocked(provider, providerGeneration)
+            latitudeOffsetM = mLatitudeOffsetM;
+            longitudeOffsetM = mLongitudeOffsetM;
+            offsetGeneration = mOffsetGeneration;
+            if (isCurrentStateLocked(provider, providerGeneration, offsetGeneration)
                     && (fineLocationResult == mCachedFineLocationResult
                             || fineLocationResult == mCachedCoarseLocationResult)) {
                 if (mCachedLocationResultProvider == provider
                         && mCachedLocationResultGeneration == providerGeneration
+                        && mCachedLocationResultOffsetGeneration == offsetGeneration
                         && (mCachedCoarseLocationResult != null
                                 || mClock.millis() - mCachedLocationResultFailureRealtimeMs
                                         < NEGATIVE_CACHE_TTL_MS)) {
@@ -215,25 +238,31 @@ public class LocationFudger {
                 logCoarseningFault("batch exceeded coarsening deadline");
                 break;
             }
-            Location coarseLocation = createCoarse(fineLocation, provider, providerGeneration);
+            Location coarseLocation = createCoarse(
+                    fineLocation, provider, providerGeneration, latitudeOffsetM, longitudeOffsetM,
+                    offsetGeneration);
             if (coarseLocation == null) {
-                return recordBatchFailure(fineLocationResult, provider, providerGeneration);
+                return recordBatchFailure(fineLocationResult, provider, providerGeneration,
+                        offsetGeneration);
             }
             coarseLocations.add(coarseLocation);
         }
         if (coarseLocations.isEmpty()) {
-            return recordBatchFailure(fineLocationResult, provider, providerGeneration);
+            return recordBatchFailure(fineLocationResult, provider, providerGeneration,
+                    offsetGeneration);
         }
         LocationResult coarseLocationResult = LocationResult.wrap(coarseLocations);
 
         synchronized (this) {
-            if (!isCurrentProvider(provider, providerGeneration)) {
-                return recordBatchFailure(fineLocationResult, provider, providerGeneration);
+            if (!isCurrentStateLocked(provider, providerGeneration, offsetGeneration)) {
+                return recordBatchFailure(fineLocationResult, provider, providerGeneration,
+                        offsetGeneration);
             }
             mCachedFineLocationResult = fineLocationResult;
             mCachedCoarseLocationResult = coarseLocationResult;
             mCachedLocationResultProvider = provider;
             mCachedLocationResultGeneration = providerGeneration;
+            mCachedLocationResultOffsetGeneration = offsetGeneration;
         }
 
         return coarseLocationResult;
@@ -248,20 +277,31 @@ public class LocationFudger {
     public @Nullable Location createCoarse(Location fine) {
         ProxyPopulationDensityProvider provider;
         long providerGeneration;
+        double latitudeOffsetM;
+        double longitudeOffsetM;
+        long offsetGeneration;
         synchronized (this) {
+            updateOffsets();
             provider = mPopulationDensityProvider;
             providerGeneration = currentBindingGeneration();
+            latitudeOffsetM = mLatitudeOffsetM;
+            longitudeOffsetM = mLongitudeOffsetM;
+            offsetGeneration = mOffsetGeneration;
         }
-        return createCoarse(fine, provider, providerGeneration);
+        return createCoarse(fine, provider, providerGeneration, latitudeOffsetM, longitudeOffsetM,
+                offsetGeneration);
     }
 
     private @Nullable Location createCoarse(Location fine,
             @Nullable ProxyPopulationDensityProvider provider,
-            long providerGeneration) {
+            long providerGeneration, double latitudeOffsetM, double longitudeOffsetM,
+            long offsetGeneration) {
         synchronized (this) {
-            if ((fine == mCachedFineLocation || fine == mCachedCoarseLocation)
+            if (isCurrentStateLocked(provider, providerGeneration, offsetGeneration)
+                    && (fine == mCachedFineLocation || fine == mCachedCoarseLocation)
                     && mCachedLocationProvider == provider
-                    && mCachedLocationGeneration == providerGeneration) {
+                    && mCachedLocationGeneration == providerGeneration
+                    && mCachedLocationOffsetGeneration == offsetGeneration) {
                 if (mCachedCoarseLocation != null) {
                     return mCachedCoarseLocation;
                 }
@@ -271,9 +311,6 @@ public class LocationFudger {
                 }
             }
         }
-
-        // update the offsets in use
-        updateOffsets();
 
         // Build the coarse location from an allowlist: start from a fresh location and copy only
         // non-sensitive fields, so no present or future Location field can leak fine-grained data
@@ -292,8 +329,8 @@ public class LocationFudger {
         double longitude = wrapLongitude(fine.getLongitude());
 
         // add offsets - update longitude first using the non-offset latitude
-        longitude += wrapLongitude(metersToDegreesLongitude(mLongitudeOffsetM, latitude));
-        latitude += wrapLatitude(metersToDegreesLatitude(mLatitudeOffsetM));
+        longitude += wrapLongitude(metersToDegreesLongitude(longitudeOffsetM, latitude));
+        latitude += wrapLatitude(metersToDegreesLatitude(latitudeOffsetM));
 
         // The sums can leave the valid coordinate ranges (only the base coordinates and the
         // offsets were normalized individually), so re-normalize before deriving cells.
@@ -308,10 +345,10 @@ public class LocationFudger {
 
         if (provider == null) {
             logCoarseningFault("no population density provider configured");
-            return recordFailure(fine, provider, providerGeneration);
+            return recordFailure(fine, provider, providerGeneration, offsetGeneration);
         }
-        if (!isCurrentProvider(provider, providerGeneration)) {
-            return recordFailure(fine, provider, providerGeneration);
+        if (!isCurrentState(provider, providerGeneration, offsetGeneration)) {
+            return recordFailure(fine, provider, providerGeneration, offsetGeneration);
         }
 
         long s2CellId;
@@ -320,16 +357,16 @@ public class LocationFudger {
                     queryPoint[LAT_INDEX], queryPoint[LNG_INDEX]);
         } catch (PopulationDensityUnavailableException e) {
             logCoarseningFault("density query failed: " + e.getMessage());
-            return recordFailure(fine, provider, providerGeneration);
+            return recordFailure(fine, provider, providerGeneration, offsetGeneration);
         }
-        if (!isCurrentProvider(provider, providerGeneration)) {
-            return recordFailure(fine, provider, providerGeneration);
+        if (!isCurrentState(provider, providerGeneration, offsetGeneration)) {
+            return recordFailure(fine, provider, providerGeneration, offsetGeneration);
         }
         // Trust only the returned level; derive the cell locally from the query point.
         int level = S2CellIdUtils.getLevel(s2CellId);
         if (level < 0 || level > MAX_COARSENING_S2_LEVEL) {
             logCoarseningFault("provider returned invalid coarsening level " + level);
-            return recordFailure(fine, provider, providerGeneration);
+            return recordFailure(fine, provider, providerGeneration, offsetGeneration);
         }
         snapToCenterOfS2Cell(queryPoint[LAT_INDEX], queryPoint[LNG_INDEX], level, queryPoint);
         float accuracy = getS2CellApproximateEdge(level);
@@ -339,28 +376,31 @@ public class LocationFudger {
         coarse.setAccuracy(Math.max(accuracy, fine.getAccuracy()));
 
         synchronized (this) {
-            if (!isCurrentProvider(provider, providerGeneration)) {
-                return recordFailure(fine, provider, providerGeneration);
+            if (!isCurrentStateLocked(provider, providerGeneration, offsetGeneration)) {
+                return recordFailure(fine, provider, providerGeneration, offsetGeneration);
             }
             mCachedFineLocation = fine;
             mCachedCoarseLocation = coarse;
             mCachedLocationProvider = provider;
             mCachedLocationGeneration = providerGeneration;
+            mCachedLocationOffsetGeneration = offsetGeneration;
         }
 
         return coarse;
     }
 
     private @Nullable Location recordFailure(Location fine,
-            @Nullable ProxyPopulationDensityProvider provider, long generation) {
+            @Nullable ProxyPopulationDensityProvider provider, long providerGeneration,
+            long offsetGeneration) {
         synchronized (this) {
-            if (!isCurrentProviderLocked(provider, generation)) {
+            if (!isCurrentStateLocked(provider, providerGeneration, offsetGeneration)) {
                 return null;
             }
             mCachedFineLocation = fine;
             mCachedCoarseLocation = null;
             mCachedLocationProvider = provider;
-            mCachedLocationGeneration = generation;
+            mCachedLocationGeneration = providerGeneration;
+            mCachedLocationOffsetGeneration = offsetGeneration;
             mCachedLocationFailureRealtimeMs = mClock.millis();
         }
         return null;
@@ -372,30 +412,34 @@ public class LocationFudger {
                 ? 0 : mPopulationDensityProvider.getBindingGeneration();
     }
 
-    private boolean isCurrentProvider(@Nullable ProxyPopulationDensityProvider provider,
-            long generation) {
+    private boolean isCurrentState(@Nullable ProxyPopulationDensityProvider provider,
+            long providerGeneration, long offsetGeneration) {
         synchronized (this) {
-            return isCurrentProviderLocked(provider, generation);
+            return isCurrentStateLocked(provider, providerGeneration, offsetGeneration);
         }
     }
 
     @GuardedBy("this")
-    private boolean isCurrentProviderLocked(@Nullable ProxyPopulationDensityProvider provider,
-            long generation) {
-        return mPopulationDensityProvider == provider
-                && (provider == null || provider.getBindingGeneration() == generation);
+    private boolean isCurrentStateLocked(@Nullable ProxyPopulationDensityProvider provider,
+            long providerGeneration, long offsetGeneration) {
+        return mOffsetGeneration == offsetGeneration
+                && mPopulationDensityProvider == provider
+                && (provider == null
+                        || provider.getBindingGeneration() == providerGeneration);
     }
 
     private @Nullable LocationResult recordBatchFailure(LocationResult fineLocationResult,
-            @Nullable ProxyPopulationDensityProvider provider, long generation) {
+            @Nullable ProxyPopulationDensityProvider provider, long providerGeneration,
+            long offsetGeneration) {
         synchronized (this) {
-            if (!isCurrentProviderLocked(provider, generation)) {
+            if (!isCurrentStateLocked(provider, providerGeneration, offsetGeneration)) {
                 return null;
             }
             mCachedFineLocationResult = fineLocationResult;
             mCachedCoarseLocationResult = null;
             mCachedLocationResultProvider = provider;
-            mCachedLocationResultGeneration = generation;
+            mCachedLocationResultGeneration = providerGeneration;
+            mCachedLocationResultOffsetGeneration = offsetGeneration;
             mCachedLocationResultFailureRealtimeMs = mClock.millis();
         }
         return null;
@@ -453,7 +497,8 @@ public class LocationFudger {
      * mechanism. It just needs to be large enough to stop information leakage as we cross grid
      * boundaries.
      */
-    private synchronized void updateOffsets() {
+    @GuardedBy("this")
+    private void updateOffsets() {
         long now = mClock.millis();
         if (now < mNextUpdateRealtimeMs) {
             return;
@@ -462,6 +507,8 @@ public class LocationFudger {
         mLatitudeOffsetM = (OLD_WEIGHT * mLatitudeOffsetM) + (NEW_WEIGHT * nextRandomOffset());
         mLongitudeOffsetM = (OLD_WEIGHT * mLongitudeOffsetM) + (NEW_WEIGHT * nextRandomOffset());
         mNextUpdateRealtimeMs = now + OFFSET_UPDATE_INTERVAL_MS;
+        mOffsetGeneration++;
+        clearCachedLocationsLocked();
     }
 
     private double nextRandomOffset() {
