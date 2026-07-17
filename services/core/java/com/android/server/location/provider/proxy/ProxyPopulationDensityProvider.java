@@ -16,6 +16,7 @@
 
 package com.android.server.location.provider.proxy;
 
+import static android.Manifest.permission.BIND_POPULATION_DENSITY_PROVIDER_SERVICE;
 import static android.location.provider.PopulationDensityProviderBase.ACTION_POPULATION_DENSITY_PROVIDER;
 
 import android.annotation.Nullable;
@@ -79,7 +80,9 @@ public class ProxyPopulationDensityProvider implements ServiceListener<BoundServ
                                 com.android.internal.R.bool
                                         .config_enablePopulationDensityProviderOverlay,
                                 com.android.internal.R.string
-                                        .config_populationDensityProviderPackageName),
+                                        .config_populationDensityProviderPackageName,
+                                BIND_POPULATION_DENSITY_PROVIDER_SERVICE,
+                                /* servicePermission= */ null),
                         this);
     }
 
