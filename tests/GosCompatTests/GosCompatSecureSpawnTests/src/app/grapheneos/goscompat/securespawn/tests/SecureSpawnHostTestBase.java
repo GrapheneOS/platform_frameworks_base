@@ -114,6 +114,16 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         runCheckCase("nativeServiceTerminatesOnSigterm");
     }
 
+    @Test
+    public void nativeServiceHasNoSupplementaryGroups() throws Exception {
+        runCheckCase("nativeServiceHasNoSupplementaryGroups");
+    }
+
+    @Test
+    public void nativeServiceUsingAppZygoteHasNoSupplementaryGroups() throws Exception {
+        runCheckCase("nativeServiceUsingAppZygoteHasNoSupplementaryGroups");
+    }
+
     protected void runDeviceTest(String methodName) throws Exception {
         runDeviceTest(PACKAGE_NAME, methodName);
     }

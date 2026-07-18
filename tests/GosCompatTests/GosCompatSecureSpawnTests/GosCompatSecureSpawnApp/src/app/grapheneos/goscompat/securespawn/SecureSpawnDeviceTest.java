@@ -36,6 +36,10 @@ public final class SecureSpawnDeviceTest {
     private static final String TAG = "GosCompatSecureSpawn";
     private static final long NATIVE_SERVICE_TIMEOUT_SECONDS = 10;
 
+    private interface NativeSignalProbeAction {
+        void run(INativeSignalProbe probe) throws Exception;
+    }
+
     @Test
     public void execSpawned() {
         SecureSpawnCheck.ProcessState result = SecureSpawnCheck.processState();
@@ -68,6 +72,38 @@ public final class SecureSpawnDeviceTest {
 
     @Test
     public void nativeServiceTerminatesOnSigterm() throws Exception {
+        withNativeSignalProbe(".NativeSignalProbeService", probe -> {
+            CountDownLatch terminated = new CountDownLatch(1);
+            probe.asBinder().linkToDeath(terminated::countDown, 0);
+            probe.terminateWithSigterm();
+
+            assertWithMessage("expected SIGTERM to terminate native signal probe service")
+                    .that(terminated.await(NATIVE_SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    .isTrue();
+        });
+    }
+
+    @Test
+    public void nativeServiceHasNoSupplementaryGroups() throws Exception {
+        withNativeSignalProbe(".NativeSignalProbeService", probe ->
+                assertWithMessage(
+                        "expected isolated native service to have no supplementary groups")
+                        .that(probe.getSupplementaryGroups()).isEmpty());
+    }
+
+    @Test
+    public void nativeServiceUsingAppZygoteHasNoSupplementaryGroups() throws Exception {
+        // NativeZygoteProcess does not pass the shared app GID that AppZygote requests for a
+        // native app zygote, so its children have no supplementary groups, unlike the children of
+        // a Java app zygote.
+        withNativeSignalProbe(".NativeAppZygoteSignalProbeService", probe ->
+                assertWithMessage(
+                        "expected native app zygote child to have no supplementary groups")
+                        .that(probe.getSupplementaryGroups()).isEmpty());
+    }
+
+    private static void withNativeSignalProbe(
+            String serviceClassName, NativeSignalProbeAction action) throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         CompletableFuture<IBinder> connected = new CompletableFuture<>();
         ServiceConnection connection = new ServiceConnection() {
@@ -81,7 +117,7 @@ public final class SecureSpawnDeviceTest {
         };
         boolean bound = context.bindService(
                 new Intent().setComponent(
-                        ComponentName.createRelative(PACKAGE_NAME, ".NativeSignalProbeService")),
+                        ComponentName.createRelative(PACKAGE_NAME, serviceClassName)),
                 connection,
                 Context.BIND_AUTO_CREATE);
         try {
@@ -89,13 +125,7 @@ public final class SecureSpawnDeviceTest {
                     .that(bound).isTrue();
 
             IBinder binder = connected.get(NATIVE_SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            CountDownLatch terminated = new CountDownLatch(1);
-            binder.linkToDeath(terminated::countDown, 0);
-            INativeSignalProbe.Stub.asInterface(binder).terminateWithSigterm();
-
-            assertWithMessage("expected SIGTERM to terminate native signal probe service")
-                    .that(terminated.await(NATIVE_SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS))
-                    .isTrue();
+            action.run(INativeSignalProbe.Stub.asInterface(binder));
         } finally {
             if (bound) {
                 context.unbindService(connection);
