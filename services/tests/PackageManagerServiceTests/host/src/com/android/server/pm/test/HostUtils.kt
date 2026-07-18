@@ -89,12 +89,15 @@ internal fun retryUntilSuccess(block: () -> Boolean) {
 
 internal object HostUtils {
 
-    fun getDataDir(device: ITestDevice, pkgName: String) =
-            device.executeShellCommand("dumpsys package $pkgName")
-                    .lineSequence()
-                    .map(String::trim)
-                    .single { it.startsWith("dataDir=") }
-                    .removePrefix("dataDir=")
+    fun getDataDir(device: ITestDevice, pkgName: String): String {
+        val userHeader = "User ${device.currentUser}:"
+        return packageSection(device, pkgName)
+                .dropWhile { !it.startsWith(userHeader) }
+                .drop(1)
+                .takeWhile { !it.startsWith("User ") }
+                .single { it.startsWith("dataDir=") }
+                .removePrefix("dataDir=")
+    }
 
     fun makePathForApk(fileName: String, partition: Partition) =
             makePathForApk(File(fileName), partition)
