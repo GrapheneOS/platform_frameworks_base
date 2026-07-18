@@ -47,6 +47,14 @@ import java.util.concurrent.TimeUnit;
 public final class SecureSpawnDeviceTest {
     private static final String PACKAGE_NAME = "app.grapheneos.goscompat.securespawn";
     private static final String TAG = "GosCompatSecureSpawn";
+    // Mirrors UserHandle shared app, cache app and user GID calculations.
+    private static final int PER_USER_RANGE = 100000;
+    private static final int FIRST_SHARED_APP_GID = 50000;
+    private static final int FIRST_CACHE_APP_GID = 20000;
+    private static final int SHARED_USER_GID = 9997;
+    // Primary zygote groups from system/core/rootdir/init.zygote64.rc.
+    private static final int AID_RESERVED_DISK = 1065;
+    private static final int AID_READPROC = 3009;
     private static final Set<String> PRIMARY_ZYGOTE_NAMES = Set.of("zygote64", "zygote");
     // init starts the standalone native zygote as /system/bin/zygote_next with --name zygote_next.
     private static final Set<String> NATIVE_ZYGOTE_NAMES =
@@ -179,7 +187,38 @@ public final class SecureSpawnDeviceTest {
             status.expectBits("SigIgn", "SIGTERM bit", signalBit(OsConstants.SIGTERM), 0);
             status.expectBits("SigCgt", "SIGTERM bit", signalBit(OsConstants.SIGTERM), 0);
         }
-        checkParent(kind, status, execSpawning);
+        int appId = definingUid % PER_USER_RANGE;
+        int sharedAppGid = FIRST_SHARED_APP_GID + appId - Process.FIRST_APPLICATION_UID;
+        switch (kind) {
+            case APP -> {
+                // ProcessList.computeGidsForProcess(), without permission or storage GIDs.
+                int userId = definingUid / PER_USER_RANGE;
+                int cacheAppGid = userId * PER_USER_RANGE + FIRST_CACHE_APP_GID
+                        + appId - Process.FIRST_APPLICATION_UID;
+                int userGid = userId * PER_USER_RANGE + SHARED_USER_GID;
+                checkGroups(status, sharedAppGid, cacheAppGid, userGid);
+            }
+            // Isolated managed processes keep the primary zygote's groups when no list is passed.
+            case ISOLATED -> checkGroups(status, AID_RESERVED_DISK, AID_READPROC);
+            case APP_ZYGOTE, WEBVIEW -> checkGroups(status, sharedAppGid);
+            // NativeZygoteProcess does not pass groups, even the shared app GID requested by
+            // AppZygote. Both native service paths therefore have an empty group list.
+            case NATIVE_ISOLATED, NATIVE_APP_ZYGOTE -> checkGroups(status);
+        }
+        ProcessStatus parent = checkParent(kind, status, execSpawning);
+        if (parent != null) {
+            if (execSpawning || kind == ProcessKind.APP || kind == ProcessKind.ISOLATED) {
+                checkGroups(parent, AID_RESERVED_DISK, AID_READPROC);
+            } else if (kind == ProcessKind.APP_ZYGOTE || kind == ProcessKind.WEBVIEW) {
+                checkGroups(parent, sharedAppGid);
+            } else {
+                checkGroups(parent);
+            }
+        }
+    }
+
+    private static void checkGroups(ProcessStatus status, int... expected) {
+        status.expectIntegers("Groups", true, expected);
     }
 
     private static long signalBit(int signal) {
