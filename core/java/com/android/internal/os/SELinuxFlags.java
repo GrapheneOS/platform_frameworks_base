@@ -57,12 +57,6 @@ public class SELinuxFlags {
 
     static long getForWebViewProcess(Context ctx, int userId, ApplicationInfo callerAppInfo,
                                      GosPackageState callerPs) {
-        if (Build.IS_DEBUGGABLE || Build.IS_EMULATOR) {
-            if (!kernelSupportsSELinuxFlags()) {
-                return 0L;
-            }
-        }
-
         long res = ALL_RESTRICTIONS;
 
         if (!AswRestrictWebViewDynCodeLoading.I.get(ctx, userId, callerAppInfo, callerPs)) {
@@ -74,12 +68,6 @@ public class SELinuxFlags {
 
     static long get(Context ctx, int userId, ApplicationInfo appInfo,
                     GosPackageState ps, boolean isIsolatedProcess) {
-        if (Build.IS_DEBUGGABLE || Build.IS_EMULATOR) {
-            if (!kernelSupportsSELinuxFlags()) {
-                return 0L;
-            }
-        }
-
         long res = ALL_RESTRICTIONS;
 
         if (!AswDenyNativeDebug.I.get(ctx, userId, appInfo, ps)) {

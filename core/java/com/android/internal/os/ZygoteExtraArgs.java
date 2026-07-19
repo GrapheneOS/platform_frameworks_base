@@ -8,6 +8,7 @@ import android.content.pm.GosPackageState;
 import android.ext.settings.app.AswUseExecSpawning;
 import android.ext.settings.app.AswUseExtendedVaSpace;
 import android.ext.settings.app.AswUseHardenedMalloc;
+import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.ZygoteSelectionMode;
@@ -103,6 +104,11 @@ public class ZygoteExtraArgs implements Parcelable {
     }
 
     public long getSelinuxFlags() {
+        if (Build.IS_DEBUGGABLE || Build.IS_EMULATOR) {
+            if (!SELinuxFlags.kernelSupportsSELinuxFlags()) {
+                return 0L;
+            }
+        }
         return selinuxFlags;
     }
 
@@ -165,7 +171,7 @@ public class ZygoteExtraArgs implements Parcelable {
 
     public long[] makeJniLongArray() {
         long[] res = new long[ARR_LEN];
-        res[IDX_SELINUX_FLAGS] = selinuxFlags;
+        res[IDX_SELINUX_FLAGS] = getSelinuxFlags();
         res[IDX_FLAGS] = flags;
         return res;
     }
