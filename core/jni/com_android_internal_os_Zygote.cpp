@@ -19,6 +19,7 @@
 
 #include "com_android_internal_os_Zygote.h"
 
+#include <android/binder_auto_utils.h>
 #include <android-base/file.h>
 #include <android-base/logging.h>
 #include <android-base/properties.h>
@@ -3110,72 +3111,11 @@ static int __rt_sigprocmask(int how, const sigset64_t* new_set, sigset64_t* old_
     return (int) syscall(SYS_rt_sigprocmask, how, new_set, old_set, sizeof(sigset64_t));
 }
 
-static jint com_android_internal_os_Zygote_nativeForkExec(JNIEnv* env, jclass,
-                                                    jboolean is_64_bit,
-                                                    jboolean is_native_app_launch,
-                                                    jbyteArray command_buf,
-                                                    jboolean disable_hardened_malloc,
-                                                    jboolean enable_compat_va_39_bit) {
-    int cmd_fd = memfd_create("zygote_fork_exec_cmds", 0);
-    if (cmd_fd < 0) {
-        ALOGE("memfd_create failed: %#m");
-        return -1;
-    }
-    size_t cmd_buf_size;
-    {
-        ScopedByteArrayRO cmd(env, command_buf);
-        cmd_buf_size = cmd.size();
-        if (!android::base::WriteFully(cmd_fd, cmd.get(), cmd_buf_size)) {
-            ALOGE("WriteFully failed: %#m");
-            close(cmd_fd);
-            return -1;
-        }
-
-        if (lseek(cmd_fd, 0, SEEK_SET) != 0) {
-            ALOGE("lseek(cmd_fd) failed: %#m");
-            close(cmd_fd);
-            return -1;
-        }
-    }
-
-    char cmd_fd_arg[50];
-    snprintf(cmd_fd_arg, sizeof(cmd_fd_arg), "--command-fd=%d_%zu", cmd_fd, cmd_buf_size);
-
-    const char*const java_app_argv[] = {
-        // keep in sync with system/core/rootdir/init.zygote64.rc
-        is_64_bit ? "/system/bin/app_process64" : "/system/bin/app_process32",
-        "-Xzygote",
-        "/system/bin",
-        "--zygote",
-        cmd_fd_arg,
-        nullptr,
-    };
-    const char*const native_app_argv[] = {
-        // keep in sync with system/zygote/zygote/zygote_next.rc
-        "/system/bin/zygote_next",
-        "--name=zygote_next_exec_spawn",
-        "--species=android-native-app",
-        "--log-level=INFO",
-        cmd_fd_arg,
-        nullptr,
-    };
-
-    const char*const* argv = is_native_app_launch ? native_app_argv : java_app_argv;
-
-    const char*const extra_env_vars_no_hmalloc[] = {
-        "IS_EXEC_SPAWNED_APP_PROCESS=1",
-        "DISABLE_HARDENED_MALLOC=1",
-        nullptr,
-    };
-    const char*const extra_env_vars[] = {
-        "IS_EXEC_SPAWNED_APP_PROCESS=1",
-        nullptr,
-    };
-
-    char** environment = clone_environ(disable_hardened_malloc ? extra_env_vars_no_hmalloc : extra_env_vars);
+static int fork_exec(const char*const* argv, const char*const* extra_env_vars, const int fd_to_keep,
+                     const bool enable_compat_va_39_bit) {
+    char** environment = clone_environ(extra_env_vars);
     if (environment == nullptr) {
         ALOGE("clone_environ failed: %#m");
-        close(cmd_fd);
         return -1;
     }
 
@@ -3191,7 +3131,7 @@ static jint com_android_internal_os_Zygote_nativeForkExec(JNIEnv* env, jclass,
     // ensure that no new file descriptors are racily opened by signal handlers in the child process
     if (__rt_sigprocmask(SIG_BLOCK, &full_sig_set, &prev_sig_set) != 0) {
         ALOGE("__rt_sigprocmask failed before fork: %#m");
-        close(cmd_fd);
+        free_environ(environment);
         return -1;
     }
 
@@ -3207,19 +3147,20 @@ static jint com_android_internal_os_Zygote_nativeForkExec(JNIEnv* env, jclass,
             ALOGE("__rt_sigprocmask failed in parent after fork: %#m");
             _exit(1);
         }
-        close(cmd_fd);
         free_environ(environment);
         return pid;
     } else {
         // Set CLOEXEC for all file descriptors except for the command file descriptor. Note that
         // the parent process is multithreaded at fork time since it has Java daemon threads in
         // addition to the main thread.
-        if (close_range(0, cmd_fd - 1, CLOSE_RANGE_CLOEXEC) != 0) {
-            async_safe_format_log(ANDROID_LOG_ERROR, "ZygoteForkExec", "close_range(CLOSE_RANGE_CLOEXEC) up to %d failed: %#m", cmd_fd - 1);
-            _exit(1);
+        if (fd_to_keep != 0) {
+            if (close_range(0, fd_to_keep - 1, CLOSE_RANGE_CLOEXEC) != 0) {
+                async_safe_format_log(ANDROID_LOG_ERROR, "ZygoteForkExec", "close_range(CLOSE_RANGE_CLOEXEC) up to %d failed: %#m", fd_to_keep - 1);
+                _exit(1);
+            }
         }
-        if (close_range(cmd_fd + 1, ~0U, CLOSE_RANGE_CLOEXEC) != 0) {
-            async_safe_format_log(ANDROID_LOG_ERROR, "ZygoteForkExec", "close_range(CLOSE_RANGE_CLOEXEC) from %d failed: %#m", cmd_fd + 1);
+        if (close_range(fd_to_keep + 1, ~0U, CLOSE_RANGE_CLOEXEC) != 0) {
+            async_safe_format_log(ANDROID_LOG_ERROR, "ZygoteForkExec", "close_range(CLOSE_RANGE_CLOEXEC) from %d failed: %#m", fd_to_keep + 1);
             _exit(1);
         }
 
@@ -3246,6 +3187,71 @@ static jint com_android_internal_os_Zygote_nativeForkExec(JNIEnv* env, jclass,
         // exec failed
         _exit(1);
     }
+}
+
+static jint com_android_internal_os_Zygote_nativeForkExec(JNIEnv* env, jclass,
+                                                    jboolean is_64_bit,
+                                                    jboolean is_native_app_launch,
+                                                    jbyteArray command_buf,
+                                                    jboolean disable_hardened_malloc,
+                                                    jboolean enable_compat_va_39_bit) {
+    int cmd_fd = memfd_create("zygote_fork_exec_cmds", 0);
+    if (cmd_fd < 0) {
+        ALOGE("memfd_create failed: %#m");
+        return -1;
+    }
+    ndk::ScopedFileDescriptor scoped_cmd_fd(cmd_fd);
+    size_t cmd_buf_size;
+    {
+        ScopedByteArrayRO cmd(env, command_buf);
+        cmd_buf_size = cmd.size();
+        if (!android::base::WriteFully(cmd_fd, cmd.get(), cmd_buf_size)) {
+            ALOGE("WriteFully failed: %#m");
+            return -1;
+        }
+
+        if (lseek(cmd_fd, 0, SEEK_SET) != 0) {
+            ALOGE("lseek(cmd_fd) failed: %#m");
+            return -1;
+        }
+    }
+
+    char cmd_fd_arg[50];
+    snprintf(cmd_fd_arg, sizeof(cmd_fd_arg), "--command-fd=%d_%zu", cmd_fd, cmd_buf_size);
+
+    const char*const java_app_argv[] = {
+        // keep in sync with system/core/rootdir/init.zygote64.rc
+        is_64_bit ? "/system/bin/app_process64" : "/system/bin/app_process32",
+        "-Xzygote",
+        "/system/bin",
+        "--zygote",
+        cmd_fd_arg,
+        nullptr,
+    };
+    const char*const native_app_argv[] = {
+        // keep in sync with system/zygote/zygote/zygote_next.rc
+        "/system/bin/zygote_next",
+        "--name=zygote_next_exec_spawn",
+        "--species=android-native-app",
+        "--log-level=INFO",
+        cmd_fd_arg,
+        nullptr,
+    };
+
+    const char*const extra_env_vars_no_hmalloc[] = {
+        "IS_EXEC_SPAWNED_APP_PROCESS=1",
+        "DISABLE_HARDENED_MALLOC=1",
+        nullptr,
+    };
+    const char*const extra_env_vars_regular[] = {
+        "IS_EXEC_SPAWNED_APP_PROCESS=1",
+        nullptr,
+    };
+
+    auto argv = is_native_app_launch ? native_app_argv : java_app_argv;
+    auto extra_env_vars = disable_hardened_malloc ? extra_env_vars_no_hmalloc : extra_env_vars_regular;
+
+    return fork_exec(argv, extra_env_vars, cmd_fd, enable_compat_va_39_bit);
 }
 
 static void com_android_internal_os_Zygote_nativeMarkOpenedFilesBeforePreload(JNIEnv* env, jclass) {
