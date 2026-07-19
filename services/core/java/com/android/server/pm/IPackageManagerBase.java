@@ -64,6 +64,7 @@ import android.util.Log;
 import com.android.internal.R;
 import com.android.internal.content.InstallLocationUtils;
 import com.android.internal.util.CollectionUtils;
+import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageStateInternal;
 import com.android.server.pm.verify.domain.DomainVerificationManagerInternal;
 import com.android.server.pm.verify.domain.proxy.DomainVerificationProxyV1;
@@ -719,7 +720,20 @@ public abstract class IPackageManagerBase extends IPackageManager.Stub {
         if (packageState == null) {
             return null;
         }
-        return mPackageProperty.getProperty(propertyName, packageName, className);
+        final PackageManager.Property property =
+                mPackageProperty.getProperty(propertyName, packageName, className);
+        // original-package changes Vanadium's effective package name, but Property retains the
+        // manifest package name used while parsing and PackageProperty indexes it by that name.
+        final String legacyVanadiumPkgName = "org.chromium.chrome";
+        final String realVanadiumPkgName = "app.vanadium.browser";
+        final AndroidPackage pkg = packageState.getPkg();
+        if (property == null && pkg != null
+                && legacyVanadiumPkgName.equals(packageName)
+                && legacyVanadiumPkgName.equals(pkg.getPackageName())
+                && realVanadiumPkgName.equals(pkg.getManifestPackageName())) {
+            return mPackageProperty.getProperty(propertyName, realVanadiumPkgName, className);
+        }
+        return property;
     }
 
     @Nullable
