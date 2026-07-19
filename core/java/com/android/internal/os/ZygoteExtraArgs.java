@@ -64,13 +64,24 @@ public class ZygoteExtraArgs implements Parcelable {
             res.setFlag(Flag.USE_ZYGOTE_SPAWNING, true);
             if (!AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps)) {
                 res.setFlag(Flag.PREFER_COMPAT_ZYGOTE, true);
+                // See comment for the same statement below.
+                res.selinuxFlags |= SELinuxFlags.DISABLE_HARDENED_MALLOC;
             }
         } else {
-            res.setFlag(Flag.DISABLE_HARDENED_MALLOC, !AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps));
             if (!appInfo.isSystemApp()) {
                 // The value of /proc/self/attr/prev is "u:r:zygote:s0" when exec spawning is used.
                 // Some apps expect the value to be "u:r:init:s0", as is the case under zygote spawning.
                 res.selinuxFlags |= SELinuxFlags.OVERRIDE_PREV_SELINUX_CTX_TO_INIT;
+            }
+
+            if (!AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps)) {
+                // This flag is passed to the target process as the DISABLE_HARDENED_MALLOC=1 env
+                // variable.
+                res.setFlag(Flag.DISABLE_HARDENED_MALLOC, true);
+                // This flag applies only to the children of the target process since it's set too
+                // late to be read by the target process itself. Apps aren't allowed to change the
+                // GrapheneOS SELinux flags.
+                res.selinuxFlags |= SELinuxFlags.DISABLE_HARDENED_MALLOC;
             }
             res.setFlag(Flag.ENABLE_COMPAT_VA_39_BIT, !AswUseExtendedVaSpace.I.get(ctx, userId, appInfo, ps));
         }

@@ -3245,6 +3245,9 @@ static jint com_android_internal_os_Zygote_nativeForkExec(JNIEnv* env, jclass,
     };
     const char*const extra_env_vars_regular[] = {
         "IS_EXEC_SPAWNED_APP_PROCESS=1",
+        // this variable is used to ignore the value of the GrapheneOS SELinux flag for disabling
+        // hardened_malloc, which avoids an extra open+read+close at each app process startup
+        "USE_HARDENED_MALLOC=1",
         nullptr,
     };
 
