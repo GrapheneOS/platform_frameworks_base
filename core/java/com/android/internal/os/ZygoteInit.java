@@ -183,10 +183,10 @@ public class ZygoteInit {
         warmUpJcaProviders(fullPreload);
 
         if (!fullPreload) {
-            // run the privileged DisplayMetrics class initializer while the process is running in
+            // run the privileged class initializers while the process is running in
             // the zygote SELinux context
             // noinspection unused
-            int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE;
+            int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE + RoSystemProperties.FACTORYTEST;
         }
 
         Log.d(TAG, "end preload");
