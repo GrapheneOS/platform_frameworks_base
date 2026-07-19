@@ -18,6 +18,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.HexFormat;
 
+import static android.os.Process.ZYGOTE_POLICY_FLAG_NATIVE_PROCESS;
+
 public class ZygoteExtraArgs implements Parcelable {
     private long selinuxFlags;
     private int flags;
@@ -56,13 +58,16 @@ public class ZygoteExtraArgs implements Parcelable {
     public static ZygoteExtraArgs create(Context ctx, int userId, ApplicationInfo appInfo,
                                          boolean shouldForciblyEnableMemoryTagging,
                                          GosPackageState ps,
-                                         boolean isIsolatedProcess) {
+                                         boolean isIsolatedProcess,
+                                         int zygotePolicyFlags) {
         var res = new ZygoteExtraArgs();
         res.selinuxFlags = SELinuxFlags.get(ctx, userId, appInfo, ps, isIsolatedProcess);
-        boolean useZygoteSpawning = !AswUseExecSpawning.I.get(ctx, userId, appInfo, ps);
+        final boolean useHardenedMalloc = AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps);
+        final boolean useZygoteSpawning = !AswUseExecSpawning.I.get(ctx, userId, appInfo, ps)
+                && ((zygotePolicyFlags & ZYGOTE_POLICY_FLAG_NATIVE_PROCESS) == 0 || useHardenedMalloc);
         if (useZygoteSpawning) {
             res.setFlag(Flag.USE_ZYGOTE_SPAWNING, true);
-            if (!AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps)) {
+            if (!useHardenedMalloc) {
                 res.setFlag(Flag.PREFER_COMPAT_ZYGOTE, true);
                 // See comment for the same statement below.
                 res.selinuxFlags |= SELinuxFlags.DISABLE_HARDENED_MALLOC;
@@ -74,7 +79,7 @@ public class ZygoteExtraArgs implements Parcelable {
                 res.selinuxFlags |= SELinuxFlags.OVERRIDE_PREV_SELINUX_CTX_TO_INIT;
             }
 
-            if (!AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps)) {
+            if (!useHardenedMalloc) {
                 // This flag is passed to the target process as the DISABLE_HARDENED_MALLOC=1 env
                 // variable.
                 res.setFlag(Flag.DISABLE_HARDENED_MALLOC, true);

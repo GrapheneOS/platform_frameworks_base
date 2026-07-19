@@ -2104,7 +2104,7 @@ public final class ProcessList extends ProcessListInternal
                 GosPackageState ps = pmi.getGosPackageState(definingAppInfo.packageName, userId);
 
                 zygoteExtArgs = ZygoteExtraArgs.create(ctx, userId, definingAppInfo,
-                        shouldForciblyEnableMemoryTagging.get(), ps, app.isolated);
+                        shouldForciblyEnableMemoryTagging.get(), ps, app.isolated, zygotePolicyFlags);
                 if (zygoteExtArgs.shouldUseExecSpawning()) {
                     ApplicationInfo appInfoForPreloading = hostingRecord.getAppInfoForPreloading();
 
