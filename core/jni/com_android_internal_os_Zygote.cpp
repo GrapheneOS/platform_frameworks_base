@@ -2108,7 +2108,7 @@ static void SpecializeCommon(JNIEnv* env, ExtraArgs& extra_args, uid_t uid, gid_
     const char* se_info_ptr = se_info.has_value() ? se_info.value().c_str() : nullptr;
 
     if (selinux_android_setcontext2(uid, is_system_server, se_info_ptr, nice_name_ptr, extra_args.selinux_flags) == -1) {
-        fail_fn(CREATE_ERROR("selinux_android_setcontext(%d, %d, \"%s\", \"%s\", selinux_flags: \"%" PRIx64 "\") failed", uid,
+        fail_fn(CREATE_ERROR("selinux_android_setcontext(%d, %d, \"%s\", \"%s\", grapheneos_flags: \"%" PRIx64 "\") failed", uid,
                              is_system_server, se_info_ptr, nice_name_ptr, extra_args.selinux_flags));
     }
 

@@ -1,6 +1,5 @@
 package com.android.internal.os;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.GosPackageState;
@@ -17,11 +16,11 @@ import android.util.Log;
 import java.io.File;
 import java.nio.file.Files;
 
-// Per-app per-user per-process SELinux flags which are passed to the kernel via the selinux_flags
-// process attribute.
+// Per-app per-user per-process SELinux-protected flags which are passed to the kernel via the
+// grapheneos_flags process attribute.
 //
-// This process attribute is writable only by zygote and webview_zygote SELinux domains, app_zygote
-// domain is intentionally omitted since it can run untrusted app code.
+// This process attribute is writable only by zygote, zygote_next and webview_zygote SELinux domains,
+// app_zygote domain is intentionally omitted since it runs untrusted app code.
 public class SELinuxFlags {
     public static final long DENY_EXECMEM = 1;
     public static final long DENY_EXECMOD = (1 << 1);
@@ -93,7 +92,7 @@ public class SELinuxFlags {
     }
 
     private static String getSelfProcAttrPath() {
-        return "/proc/self/task/" + Process.myPid() + "/attr/selinux_flags";
+        return "/proc/self/attr/grapheneos_flags";
     }
 
     public static boolean isExecmemBlocked() {
