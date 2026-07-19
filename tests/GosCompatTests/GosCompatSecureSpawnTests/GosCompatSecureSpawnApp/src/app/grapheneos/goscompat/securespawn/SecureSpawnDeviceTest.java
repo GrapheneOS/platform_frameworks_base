@@ -17,6 +17,10 @@ import app.grapheneos.goscompat.securespawn.shared.SecureSpawnTestApiCompatCheck
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 @RunWith(AndroidJUnit4.class)
 public final class SecureSpawnDeviceTest {
     private static final String TAG = "GosCompatSecureSpawn";
@@ -75,6 +79,15 @@ public final class SecureSpawnDeviceTest {
         assertWithMessage(failureMessage(
                 "expected detached mount ID regression == false", result))
                 .that(result.hasDetachedMountIdRegression()).isFalse();
+    }
+
+    @Test
+    public void prevSELinuxContextCheck() throws IOException {
+        String path = "/proc/self/attr/prev";
+        String value = new String(Files.readAllBytes(Path.of(path)));
+        assertWithMessage(path + " value")
+                .that(value)
+                .isEqualTo("u:r:init:s0\0");
     }
 
     @Test

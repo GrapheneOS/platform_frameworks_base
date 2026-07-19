@@ -35,6 +35,7 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
     protected static final String MEMORY_ACCOUNTING_METHOD =
             "runtimeMemoryAccountingCheck";
     protected static final String FD_STATE_METHOD = "fdStateCheck";
+    private static final String PREV_SELINUX_CONTEXT_METHOD = "prevSELinuxContextCheck";
     private static final String HIDDEN_API_METHOD =
             "hiddenApiEnforcementCheck";
     private static final String TEST_API_COMPAT_DEFAULT_METHOD =
@@ -101,6 +102,11 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
     @Test
     public void fdStateCheck() throws Exception {
         runCheckCase(FD_STATE_METHOD);
+    }
+
+    @Test
+    public void prevSELinuxContextCheck() throws Exception {
+        runCheckCase(PREV_SELINUX_CONTEXT_METHOD);
     }
 
     protected void runDeviceTest(String methodName) throws Exception {
@@ -237,6 +243,9 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         }
         if (FD_STATE_METHOD.equals(methodName)) {
             return "fd_state";
+        }
+        if (PREV_SELINUX_CONTEXT_METHOD.equals(methodName)) {
+            return "prev_selinux_context";
         }
         if (HIDDEN_API_METHOD.equals(methodName)) {
             return "hidden_api";
