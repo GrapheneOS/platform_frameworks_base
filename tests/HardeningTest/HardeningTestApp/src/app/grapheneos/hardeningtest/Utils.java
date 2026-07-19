@@ -40,21 +40,21 @@ public class Utils {
 
         FileDescriptor fd = null;
         try {
-            String path = "/proc/" + myPid + "/task/" + myPid + "/attr/selinux_flags";
+            String path = "/proc/" + myPid + "/task/" + myPid + "/attr/grapheneos_flags";
             fd = Os.open(path, O_RDWR, 0);
             try (var s = new FileInputStream(fd)) {
                 var bytes = s.readAllBytes();
-                Log.d(TAG, "selinux_flags " + new String(bytes));
+                Log.d(TAG, "grapheneos_flags " + new String(bytes));
             }
             Os.lseek(fd, 0L, SEEK_SET);
             try {
                 Os.write(fd, ByteBuffer.wrap("0".getBytes()));
-                // app should never be able to change selinux_flags
-                fail("write to selinux_flags should have failed");
+                // app should never be able to change grapheneos_flags
+                fail("write to grapheneos_flags should have failed");
             } catch (ErrnoException e) {
                 int errno = e.errno;
                 if (errno != EPERM && errno != EACCES) {
-                    fail("selinux_flags should have failed with EPERM or EACCES, got "
+                    fail("grapheneos_flags should have failed with EPERM or EACCES, got "
                         + Os.strerror(errno));
                 }
             }
