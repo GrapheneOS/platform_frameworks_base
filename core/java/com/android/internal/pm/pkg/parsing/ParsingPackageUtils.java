@@ -163,6 +163,8 @@ public class ParsingPackageUtils {
 
     private static final String TAG = ParsingUtils.TAG;
 
+    private static final String NO_SENSORS_PERMISSION = "org.grapheneos.NO_SENSORS";
+
     public static final boolean DEBUG_JAR = false;
     public static final boolean DEBUG_BACKUP = false;
     public static final float DEFAULT_PRE_O_MAX_ASPECT_RATIO = 1.86f;
@@ -1068,7 +1070,9 @@ public class ParsingPackageUtils {
             }
         }
 
-        if (pkg.isDeclaredHavingCode() && !pkg.getUsesPermissionMapping().containsKey(android.Manifest.permission.OTHER_SENSORS)) {
+        if (pkg.isDeclaredHavingCode()
+                && !pkg.getUsesPermissionMapping().containsKey(android.Manifest.permission.OTHER_SENSORS)
+                && !pkg.getUsesPermissionMapping().containsKey(NO_SENSORS_PERMISSION)) {
             pkg.addImplicitPermission(android.Manifest.permission.OTHER_SENSORS);
         }
 
