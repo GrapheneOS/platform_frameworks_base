@@ -217,6 +217,10 @@ abstract class RequestSession<T, U, V> implements CredentialManagerUi.Credential
         mProviders.put(componentName.flattenToString(), providerSession);
     }
 
+    final boolean isProviderEnabled(@NonNull ComponentName componentName) {
+        return mEnabledProviders.contains(componentName);
+    }
+
     // UI callbacks
 
     @Override // from CredentialManagerUiCallbacks
