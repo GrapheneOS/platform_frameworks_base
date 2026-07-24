@@ -515,6 +515,9 @@ class WebViewUpdateServiceImpl2 {
                 return allProviders[n];
             }
         }
+        if (mSystemInterface.systemIsDebuggable()) {
+            return new WebViewProviderInfo(packageName, "Stub WebViewProviderInfo", false, false, null);
+        }
         return null;
     }
 
