@@ -253,6 +253,14 @@ public abstract class ProviderSession<T, R>
 
     protected boolean enforceRemoteEntryRestrictions(
             @Nullable ComponentName expectedRemoteEntryProviderService) {
+        RequestSession requestSession = (RequestSession) mCallbacks;
+        if (GmsCompatCredentialManagerHooks.shouldUseRemoteEntryCompatValidation(
+                mComponentName, requestSession.isProviderEnabled(mComponentName),
+                requestSession.mHybridService)) {
+            return GmsCompatCredentialManagerHooks.isGmsCoreRemoteCredentialService(
+                    mContext, mUserId, mComponentName);
+        }
+
         // Check if the service is the one set by the OEM. If not silently reject this entry
         if (!mComponentName.equals(expectedRemoteEntryProviderService)) {
             Slog.w(TAG, "Remote entry being dropped as it is not from the service "
