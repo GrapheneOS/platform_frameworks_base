@@ -1,5 +1,6 @@
 package android.ext.settings.app;
 
+import android.annotation.UserIdInt;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.GosPackageState;
@@ -16,6 +17,17 @@ public class AswUseExecSpawning extends AppSwitch {
         gosPsFlag = GosPackageStateFlag.USE_EXEC_SPAWNING;
         gosPsFlagNonDefault = GosPackageStateFlag.USE_EXEC_SPAWNING_NON_DEFAULT;
         compatChangeToDisableHardening = AppCompatProtos.USE_ZYGOTE_SPAWNING;
+    }
+
+    public static boolean isEnabledFor(Context ctx, @UserIdInt int userId, ApplicationInfo appInfo,
+                                       GosPackageState gosPackageState, boolean isNativeProcess) {
+        boolean res = AswUseExecSpawning.I.get(ctx, userId, appInfo, gosPackageState);
+        if (!res && isNativeProcess && !AswUseHardenedMalloc.I.get(ctx, userId, appInfo, gosPackageState)) {
+            // There's no compat zygote equivalent for the native zygote, i.e. exec spawning is
+            // required for disabling hardened_malloc for a native process
+            return true;
+        }
+        return res;
     }
 
     @Override

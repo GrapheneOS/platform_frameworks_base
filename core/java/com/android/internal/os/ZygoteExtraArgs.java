@@ -63,8 +63,8 @@ public class ZygoteExtraArgs implements Parcelable {
         var res = new ZygoteExtraArgs();
         res.selinuxFlags = SELinuxFlags.get(ctx, userId, appInfo, ps, isIsolatedProcess);
         final boolean useHardenedMalloc = AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps);
-        final boolean useZygoteSpawning = !AswUseExecSpawning.I.get(ctx, userId, appInfo, ps)
-                && ((zygotePolicyFlags & ZYGOTE_POLICY_FLAG_NATIVE_PROCESS) == 0 || useHardenedMalloc);
+        final boolean useZygoteSpawning = !AswUseExecSpawning.isEnabledFor(ctx, userId, appInfo, ps,
+                (zygotePolicyFlags & ZYGOTE_POLICY_FLAG_NATIVE_PROCESS) != 0);
         if (useZygoteSpawning) {
             res.setFlag(Flag.USE_ZYGOTE_SPAWNING, true);
             if (!useHardenedMalloc) {
@@ -102,7 +102,7 @@ public class ZygoteExtraArgs implements Parcelable {
                                                           ApplicationInfo callerAppInfo, GosPackageState callerPs) {
         var res = new ZygoteExtraArgs();
         res.selinuxFlags = SELinuxFlags.getForWebViewProcess(ctx, userId, callerAppInfo, callerPs);
-        res.setFlag(Flag.USE_ZYGOTE_SPAWNING, !AswUseExecSpawning.I.get(ctx, userId, callerAppInfo, callerPs));
+        res.setFlag(Flag.USE_ZYGOTE_SPAWNING, !AswUseExecSpawning.isEnabledFor(ctx, userId, callerAppInfo, callerPs, false));
         return res;
     }
 

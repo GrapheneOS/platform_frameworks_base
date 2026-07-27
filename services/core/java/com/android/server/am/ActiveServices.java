@@ -6346,7 +6346,8 @@ public final class ActiveServices {
                         return null;
                     }
 
-                    if (AswUseExecSpawning.I.get(mAm.mContext, userId, definingAppInfo, GosPackageState.get(definingPkgName, userId))) {
+                    if (AswUseExecSpawning.isEnabledFor(mAm.mContext, userId, definingAppInfo,
+                            GosPackageState.get(definingPkgName, userId), isNativeService)) {
                         boolean preload = (isNativeService ?
                                 definingAppInfo.zygotePreloadNativeLib :
                                 definingAppInfo.zygotePreloadName) != null;
