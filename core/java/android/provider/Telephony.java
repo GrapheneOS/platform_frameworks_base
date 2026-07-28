@@ -4026,7 +4026,6 @@ public final class Telephony {
          * @hide
          */
         @ChangeId
-        @EnabledAfter(targetSdkVersion = android.os.Build.VERSION_CODES.Q)
         public static final long APN_READING_PERMISSION_CHANGE_ID = 124107808L;
     }
 
