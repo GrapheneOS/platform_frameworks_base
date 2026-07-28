@@ -1146,6 +1146,14 @@ public class Vpn {
      *     was no always-on VPN to start. {@code false} otherwise.
      */
     public boolean startAlwaysOnVpn() {
+        // If the user is locked and the always-on package has not marked its VpnService as
+        // directBootAware then isAlwaysOnPackageSupported() will return false. As a result, the
+        // package will be erroneously removed as the always-on package and in turn leak blocking
+        // will be disabled too.
+        if (!mUserManager.isUserUnlocked(mUserId)) {
+            throw new IllegalStateException("attempted to start VPN prior to unlocking user");
+        }
+
         final String alwaysOnPackage;
         synchronized (this) {
             alwaysOnPackage = getAlwaysOnPackage();

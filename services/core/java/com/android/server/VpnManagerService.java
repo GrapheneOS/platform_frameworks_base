@@ -625,7 +625,7 @@ public class VpnManagerService extends IVpnManager.Stub {
             if (!vpn.setAlwaysOnPackage(packageName, lockdown, lockdownAllowlist)) {
                 return false;
             }
-            if (!startAlwaysOnVpn(userId)) {
+            if (mUserManager.isUserUnlocked(userId) && !startAlwaysOnVpn(userId)) {
                 vpn.setAlwaysOnPackage(null, false, null);
                 return false;
             }
@@ -879,6 +879,9 @@ public class VpnManagerService extends IVpnManager.Stub {
             return;
         }
         final int userId = UserHandle.getUserId(uid);
+        if (!mUserManager.isUserUnlocked()) {
+            return;
+        }
         synchronized (mVpns) {
             final Vpn vpn = mVpns.get(userId);
             if (vpn == null) {

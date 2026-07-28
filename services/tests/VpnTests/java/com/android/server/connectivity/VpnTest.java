@@ -3692,6 +3692,8 @@ public class VpnTest extends VpnTestBase {
             final int id = (int) invocation.getArguments()[0];
             return userMap.get(id);
         }).when(mUserManager).getUserInfo(anyInt());
+
+        doAnswer(invocation -> true).when(mUserManager).isUserUnlocked(anyInt());
     }
 
     /**
