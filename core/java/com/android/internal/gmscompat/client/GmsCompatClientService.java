@@ -19,12 +19,13 @@ import android.util.Log;
  * and to their clients during package parsing.
  */
 public class GmsCompatClientService extends Service {
-    private static final String TAG = GmsCompatClientService.class.getSimpleName();
+    protected String TAG;
 
     private final Binder dummyBinder = new Binder();
 
     @Override
     public void onCreate() {
+        TAG = getClass().getSimpleName();
         Log.d(TAG, "onCreate");
     }
 

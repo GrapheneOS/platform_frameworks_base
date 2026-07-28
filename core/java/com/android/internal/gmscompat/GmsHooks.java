@@ -58,11 +58,13 @@ import android.util.SparseArray;
 import android.webkit.WebView;
 
 import com.android.internal.gmscompat.client.GmsCompatClientService;
+import com.android.internal.gmscompat.client.GmsCorePersistentService;
 import com.android.internal.gmscompat.flags.GmsFlag;
 import com.android.internal.gmscompat.flags.GmsFlagOverrides;
 import com.android.internal.gmscompat.gcarriersettings.GCarrierSettingsApp;
 import com.android.internal.gmscompat.gcarriersettings.TestCarrierConfigService;
 import com.android.internal.gmscompat.sysservice.GmcPackageManager;
+import com.android.internal.os.BackgroundThread;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -123,6 +125,20 @@ public final class GmsHooks {
 
         if (inPersistentGmsCoreProcess) {
             GmsFlagOverrides.init(ctx);
+            // The persistent GmsCore process can get frozen if it's not being used by any
+            // non-background process. AlarmManager alarms are dropped for frozen processes,
+            // which breaks FCM notifications.
+            //
+            // Bind to GmsCore persistent process from the never-background GmsCompat app to avoid
+            // this issue.
+            //
+            // It's important to use a non-main thread for this call to prevent a deadlock since
+            // both GmsHooks.init() and GmsCorePersistentService.onCreate() run on the main thread
+            // of the com.google.android.gms.persistent process.
+            BackgroundThread.getHandler().post(() ->
+                    GmsCompatApp.raisePackageToForeground(PackageId.GMS_CORE_NAME, 0L,
+                    "GmsCore persistent process startup", PowerExemptionManager.REASON_OTHER,
+                    GmsCorePersistentService.class.getName()));
         }
 
         GmcPackageManager.init(ctx);
@@ -597,6 +613,9 @@ public final class GmsHooks {
 
         if (GmsCompat.isEnabled()) {
             if (GmsCompat.isGmsCore()) {
+                if (GmsCorePersistentService.class.getName().equals(className)) {
+                    return new GmsCorePersistentService();
+                }
                 if (GmcMediaProjectionService.class.getName().equals(className)) {
                     return new GmcMediaProjectionService();
                 }

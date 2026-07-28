@@ -299,12 +299,18 @@ public final class GmsCompatApp {
     // package by binding to it from foreground GmsCompat app
     public static void raisePackageToForeground(String targetPkg, long durationMs,
                                                 @Nullable String reason, int reasonCode) {
-        if (durationMs <= 0) {
+        raisePackageToForeground(targetPkg, durationMs, reason, reasonCode, null);
+    }
+
+    public static void raisePackageToForeground(String targetPkg, long durationMs,
+                                                @Nullable String reason, int reasonCode,
+                                                @Nullable String serviceClassName) {
+        if (durationMs < 0) {
             Log.e(TAG, "invalid duration: " + durationMs, new Throwable());
             return;
         }
         try {
-            GmsCompatApp.iGms2Gca().raisePackageToForeground(targetPkg, durationMs, reason, reasonCode);
+            GmsCompatApp.iGms2Gca().raisePackageToForeground(targetPkg, durationMs, reason, reasonCode, serviceClassName);
         } catch (RemoteException e) {
             throw callFailed(e);
         }
