@@ -22,6 +22,7 @@ import android.annotation.Nullable;
 import android.app.compat.gms.GmsCompat;
 import android.content.ContentProviderClient;
 import android.content.Context;
+import android.content.pm.StringParceledListSlice;
 import android.database.ContentObserver;
 import android.net.ConnectivityManager;
 import android.net.Uri;
@@ -35,6 +36,9 @@ import android.util.ArraySet;
 import android.util.Log;
 
 import com.android.internal.gmscompat.fileservice.FileProxyService;
+
+import java.util.ArrayList;
+import java.util.Set;
 
 import static com.android.internal.gmscompat.GmsHooks.inPersistentGmsCoreProcess;
 
@@ -208,17 +212,29 @@ public final class GmsCompatApp {
     }
 
     public static boolean setProperties(DeviceConfig.Properties props) {
-        String[] keys = props.getKeyset().toArray(new String[0]);
-        String[] values = new String[keys.length];
-
-        for (int i = 0; i < keys.length; ++i) {
-            values[i] = props.getString(keys[i], null);
-        }
-
+        Set<String> keyset = props.getKeyset();
+        int numKeys = keyset.size();
+        var keys = new ArrayList<String>(numKeys);
+        var values = new ArrayList<String>(numKeys);
         String ns = deviceConfigNamespace(props.getNamespace());
 
+        for (String key : keyset) {
+            if (key == null) {
+                throw new IllegalStateException("null DeviceConfig.Properties key");
+            }
+            String value = props.getString(key, null);
+            if (value == null) {
+                // null is the default value
+                continue;
+            }
+            keys.add(key);
+            values.add(value);
+        }
+
         try {
-            return iGms2Gca().privSettingsPutStrings(ns, keys, values);
+            return iGms2Gca().privSettingsPutStrings(ns,
+                    new StringParceledListSlice(keys),
+                    new StringParceledListSlice(values));
         } catch (RemoteException e) {
             throw callFailed(e);
         }

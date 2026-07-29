@@ -4,6 +4,7 @@ import android.app.ApplicationErrorReport;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.pm.StringParceledListSlice;
 import android.database.IContentObserver;
 import android.os.BinderDef;
 
@@ -40,7 +41,7 @@ interface IGms2Gca {
 
     @nullable String privSettingsGetString(String ns, String key);
     boolean privSettingsPutString(String ns, String key, @nullable String value);
-    boolean privSettingsPutStrings(String ns, in String[] keys, in String[] values);
+    boolean privSettingsPutStrings(String ns, in StringParceledListSlice keys, in StringParceledListSlice values);
     void privSettingsRegisterObserver(String ns, String key, IContentObserver observer);
     void privSettingsUnregisterObserver(IContentObserver observer);
 
