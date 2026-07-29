@@ -90,6 +90,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -996,6 +997,27 @@ public class RecoverableKeyStoreManager {
             Log.e(TAG, "Key store error encountered during recoverable key sync", e);
         } catch (InsecureUserException e) {
             Log.e(TAG, "InsecureUserException during lock screen secret update", e);
+        }
+    }
+
+    /**
+     * Removes recoverable keystore state for a recovery agent.
+     *
+     * <p>Run the cleanup on the key sync executor so it cannot race a previously scheduled key
+     * sync task.
+     */
+    public void removeRecoverableKeystoreStateForRecoveryAgent(int userId, int uid) {
+        try {
+            mExecutorService.submit(() -> {
+                mRecoverySessionStorage.remove(uid);
+                mListenersStorage.remove(uid);
+                mCleanupManager.removeDataForRecoveryAgent(userId, uid);
+            }).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.e(TAG, "Interrupted while removing recoverable keystore state for uid " + uid, e);
+        } catch (ExecutionException e) {
+            Log.e(TAG, "Failed to remove recoverable keystore state for uid " + uid, e.getCause());
         }
     }
 

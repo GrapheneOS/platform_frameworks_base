@@ -1,13 +1,16 @@
 package com.android.server.pm.ext;
 
 import android.Manifest;
+import android.annotation.Nullable;
 import android.app.compat.gms.GmsCorePackageFlag;
 import android.content.pm.GosPackageState;
 import android.content.pm.PackageManagerInternal;
 import android.content.pm.ServiceInfo;
 import android.ext.PackageId;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.service.credentials.CredentialProviderService;
+import android.util.Slog;
 
 import com.android.internal.gmscompat.GmcMediaProjectionService;
 import com.android.internal.gmscompat.GmsCompatApp;
@@ -20,10 +23,35 @@ import com.android.internal.pm.pkg.component.ParsedServiceImpl;
 import com.android.internal.pm.pkg.component.ParsedUsesPermissionImpl;
 import com.android.internal.pm.pkg.parsing.ParsingPackage;
 import com.android.server.LocalServices;
+import com.android.server.locksettings.LockSettingsInternal;
+import com.android.server.pm.pkg.PackageState;
 
 import java.util.List;
 
-class GmsCoreHooks extends PackageHooks {
+public class GmsCoreHooks extends PackageHooks {
+    private static final String TAG = "GmsCoreHooks";
+
+    GmsCoreHooks() {}
+
+    public static boolean isUserInstalledGmsCore(@Nullable PackageState packageState) {
+        return packageState != null
+                && isUserInstalledPkg(packageState)
+                && PackageExt.get(packageState).getPackageId() == PackageId.GMS_CORE;
+    }
+
+    public static void removeRecoverableKeystoreState(int[] userIds, int appId) {
+        LockSettingsInternal lockSettings =
+                LocalServices.getService(LockSettingsInternal.class);
+        if (lockSettings == null) {
+            Slog.w(TAG, "LockSettingsInternal is unavailable");
+            return;
+        }
+
+        for (int userId : userIds) {
+            lockSettings.removeRecoverableKeystoreStateForRecoveryAgent(
+                    userId, UserHandle.getUid(userId, appId));
+        }
+    }
 
     @Override
     public int overridePermissionState(String permission, int userId) {

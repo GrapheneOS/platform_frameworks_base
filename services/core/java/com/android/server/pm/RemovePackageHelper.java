@@ -47,6 +47,7 @@ import com.android.internal.pm.parsing.pkg.AndroidPackageLegacyUtils;
 import com.android.internal.pm.parsing.pkg.PackageImpl;
 import com.android.internal.pm.pkg.component.ParsedInstrumentation;
 import com.android.internal.util.ArrayUtils;
+import com.android.server.pm.ext.GmsCoreHooks;
 import com.android.server.pm.parsing.PackageCacher;
 import com.android.server.pm.permission.PermissionManagerServiceInternal;
 import com.android.server.pm.pkg.AndroidPackage;
@@ -353,13 +354,19 @@ final class RemovePackageHelper {
         if (ps.getAppId() == SYSTEM_UID) {
             return;
         }
+        final boolean isUserInstalledGmsCore = GmsCoreHooks.isUserInstalledGmsCore(ps);
+        final int appId = ps.getAppId();
         mPm.mInjector.getBackgroundHandler().post(() -> {
             try {
                 Trace.traceBegin(TRACE_TAG_PACKAGE_MANAGER,
-                        "clearKeystoreData:" + ps.getAppId() + " for user: " + userId);
-                mAppDataHelper.clearKeystoreData(userId, ps.getAppId());
+                        "clearKeystoreData:" + appId + " for user: " + userId);
+                mAppDataHelper.clearKeystoreData(userId, appId);
             } finally {
                 Trace.traceEnd(TRACE_TAG_PACKAGE_MANAGER);
+            }
+            if (isUserInstalledGmsCore) {
+                GmsCoreHooks.removeRecoverableKeystoreState(
+                        mPm.resolveUserIds(userId), appId);
             }
         });
     }
