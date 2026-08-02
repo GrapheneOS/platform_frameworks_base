@@ -80,7 +80,13 @@ public class RecoverySessionStorage implements Destroyable {
         if (mSessionsByUid.get(uid) == null) {
             return;
         }
-        mSessionsByUid.get(uid).removeIf(session -> session.mSessionId.equals(sessionId));
+        mSessionsByUid.get(uid).removeIf(session -> {
+            if (!session.mSessionId.equals(sessionId)) {
+                return false;
+            }
+            session.destroy();
+            return true;
+        });
     }
 
     /**
