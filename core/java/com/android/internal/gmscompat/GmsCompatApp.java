@@ -20,6 +20,7 @@ import android.Manifest;
 import android.accounts.AccountManager;
 import android.annotation.Nullable;
 import android.app.compat.gms.GmsCompat;
+import android.content.ContentProviderClient;
 import android.content.Context;
 import android.database.ContentObserver;
 import android.net.ConnectivityManager;
@@ -103,6 +104,24 @@ public final class GmsCompatApp {
     }
 
     private static final String RPC_PROVIDER_AUTHORITY = PKG_NAME + ".RpcProvider";
+    // Keep a stable provider connection for the process lifetime so that ActivityManager propagates
+    // this process's OOM adjustment to GmsCompat. If GmsCompat dies, this stable provider 
+    // connection means Android will kill clients with ApplicationExitInfo.REASON_DEPENDENCY_DIED
+    private static ContentProviderClient rpcProviderClient;
+
+    private static synchronized ContentProviderClient getRpcProviderClient(Context ctx,
+            String authority) {
+        ContentProviderClient client = rpcProviderClient;
+        if (client == null) {
+            client = ctx.getContentResolver().acquireContentProviderClient(authority);
+            if (client == null) {
+                throw new IllegalStateException("Unable to acquire " + authority);
+            }
+            rpcProviderClient = client;
+        }
+        return client;
+    }
+
     public static final String KEY_BINDER = "binder";
     public static final String KEY_PKG_NAME = "pkg";
 
@@ -111,9 +130,12 @@ public final class GmsCompatApp {
 
     public static Bundle callRpcProvider(Context ctx, int method, String arg, Bundle extras) {
         String authority = RPC_PROVIDER_AUTHORITY;
-        var cr = ctx.getContentResolver();
         try {
-            return cr.call(authority, Integer.toString(method), arg, extras);
+            Bundle result = getRpcProviderClient(ctx, authority).call(Integer.toString(method),
+                    arg, extras);
+            // ContentResolver.call() marks provider results as defusable.
+            Bundle.setDefusable(result, true);
+            return result;
         } catch (Throwable t) {
             Log.e(TAG, "call to " + authority + " failed", t);
             if (GmsCompat.isEnabled()) {
