@@ -469,7 +469,10 @@ public final class GmsHooks {
 
     // Activity#onCreate(Bundle)
     public static void activityOnCreate(Activity activity) {
-
+        if (GmsCompat.isGmsCore() && activity.getClass().getName().contains(".fido.")) {
+            Log.i(TAG, "calling setTranslucent(false) for " + activity.getClass().getName());
+            activity.setTranslucent(false);
+        }
     }
 
     // ContentResolver#insert(Uri, ContentValues, Bundle)
