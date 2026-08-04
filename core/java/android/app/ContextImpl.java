@@ -1431,6 +1431,23 @@ class ContextImpl extends Context {
     }
 
     @Override
+    public void sendBroadcastAsUserMultiplePermissions(Intent intent, UserHandle user,
+            String[] receiverPermissions, BroadcastOptions options) {
+        String resolvedType = intent.resolveTypeIfNeeded(getContentResolver());
+        try {
+            intent.prepareToLeaveProcess(this);
+            ActivityManager.getService().broadcastIntentWithFeature(
+                    mMainThread.getApplicationThread(), getAttributionTag(), intent, resolvedType,
+                    null, Activity.RESULT_OK, null, null, receiverPermissions,
+                    null /*excludedPermissions=*/, null, AppOpsManager.OP_NONE,
+                    options != null ? options.toBundle() : null, false, false,
+                    user.getIdentifier());
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    @Override
     public void sendBroadcastMultiplePermissions(Intent intent, String[] receiverPermissions,
             String[] excludedPermissions, String[] excludedPackages, BroadcastOptions options) {
         if (GmsCompat.isEnabled()) {

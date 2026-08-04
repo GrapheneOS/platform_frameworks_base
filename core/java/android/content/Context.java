@@ -2804,6 +2804,14 @@ public abstract class Context {
                 (options == null ? null : options.toBundle()));
     }
 
+    /** @hide */
+    @SystemApi
+    public void sendBroadcastAsUserMultiplePermissions(@NonNull Intent intent,
+            @NonNull UserHandle user,
+            @NonNull String[] receiverPermissions, @Nullable BroadcastOptions options) {
+        throw new RuntimeException("unimplemented");
+    }
+
     /**
      * Broadcast the given intent to all interested BroadcastReceivers, allowing
      * an array of required permissions to be enforced.  This call is asynchronous; it returns
@@ -3194,9 +3202,10 @@ public abstract class Context {
     @SuppressWarnings("HiddenAbstractMethod")
     @RequiresPermission(android.Manifest.permission.INTERACT_ACROSS_USERS)
     @UnsupportedAppUsage
-    public abstract void sendOrderedBroadcastAsUser(Intent intent,
-            @CanBeALL @CanBeCURRENT UserHandle user, @Nullable String receiverPermission, int appOp,
-            @Nullable Bundle options, BroadcastReceiver resultReceiver, @Nullable Handler scheduler,
+    @SystemApi
+    public abstract void sendOrderedBroadcastAsUser(@NonNull Intent intent,
+            @NonNull @CanBeALL @CanBeCURRENT UserHandle user, @Nullable String receiverPermission, int appOp,
+            @Nullable Bundle options, @Nullable BroadcastReceiver resultReceiver, @Nullable Handler scheduler,
             int initialCode, @Nullable String initialData, @Nullable  Bundle initialExtras);
 
     /**

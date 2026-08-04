@@ -941,6 +941,7 @@ public class AppOpsManager {
 
     /** @hide No operation specified. */
     @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
+    @SystemApi
     public static final int OP_NONE = AppOpEnums.APP_OP_NONE;
     /** @hide Access to coarse location information. */
     @UnsupportedAppUsage
