@@ -923,7 +923,7 @@ public class NotificationManager {
             @CanBeALL @CanBeCURRENT UserHandle user)
     {
         if (GmsCompat.isEnabled()) {
-            if (!GmsCompat.hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
+            if (GmsCompat.isGmsCore() && !GmsCompat.hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
                 String pkg = GmsCompat.appContext().getPackageName();
                 try {
                     GmsCompatApp.iGms2Gca().showMissingPostNotifsPermissionNotification(pkg);
