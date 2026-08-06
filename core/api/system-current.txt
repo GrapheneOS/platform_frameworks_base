@@ -5822,6 +5822,7 @@ package android.ext {
   }
 
   public interface KnownSystemPackage {
+    field public static final int GMS_COMPAT = 4; // 0x4
     field public static final int SETTINGS = 0; // 0x0
     field public static final int SETUP_WIZARD = 3; // 0x3
     field public static final int SHELL = 1; // 0x1
@@ -5832,6 +5833,7 @@ package android.ext {
     method @NonNull public static android.ext.KnownSystemPackages get(@NonNull android.content.Context);
     method @NonNull public String getById(int);
     field @NonNull public final String contactsProvider;
+    field @NonNull public final String gmsCompat;
     field @NonNull public final String launcher;
     field @NonNull public final String mediaProvider;
     field @NonNull public final String permissionController;
