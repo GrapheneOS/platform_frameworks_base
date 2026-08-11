@@ -59,6 +59,7 @@ public class ParsingUtils {
 
             @Override
             public ParsingPackage startParsingPackage(
+                    int flags,
                     @NonNull String packageName,
                     @NonNull String baseApkPath,
                     @NonNull String path,

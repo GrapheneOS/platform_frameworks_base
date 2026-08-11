@@ -188,14 +188,23 @@ public class PackageParser2 implements AutoCloseable {
 
     public abstract static class Callback implements ParsingPackageUtils.Callback {
 
+        private static volatile boolean idOwnershipChecksEnabled;
+
+        public static void enableIdOwnershipChecks() {
+            idOwnershipChecksEnabled = true;
+        }
+
         @Override
-        public final ParsingPackage startParsingPackage(@NonNull String packageName,
+        public final ParsingPackage startParsingPackage(int flags, @NonNull String packageName,
                 @NonNull String baseCodePath, @NonNull String codePath,
                 @NonNull TypedArray manifestArray, boolean isCoreApp) {
-            var res = PackageImpl.forParsing(packageName, baseCodePath, codePath, manifestArray,
+            var pkg = PackageImpl.forParsing(packageName, baseCodePath, codePath, manifestArray,
                     isCoreApp, Callback.this);
-            res.initPackageParsingHooks();
-            return res;
+            if ((flags & ParsingPackageUtils.PARSE_IS_SYSTEM_DIR) == 0 && idOwnershipChecksEnabled) {
+                pkg.enableIdOwnershipChecks();
+            }
+            pkg.initPackageParsingHooks();
+            return pkg;
         }
 
         /**

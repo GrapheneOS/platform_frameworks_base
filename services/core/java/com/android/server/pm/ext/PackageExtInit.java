@@ -9,6 +9,8 @@ import android.ext.PackageId;
 import android.os.Bundle;
 import android.util.Slog;
 
+import com.android.internal.pm.parsing.PackageParserConfig;
+import com.android.internal.pm.parsing.nano.PackageInstallRequirements;
 import com.android.internal.pm.parsing.pkg.PackageImpl;
 import com.android.internal.pm.pkg.parsing.ParsingPackage;
 import com.android.internal.pm.pkg.parsing.ParsingPackageUtils;
@@ -43,8 +45,29 @@ public class PackageExtInit implements ParsingPackageUtils.PackageExtInitIface {
     public void run() {
         int packageId = getPackageId();
 
+        String pkgName = pkg.getPackageName();
         if (packageId != UNKNOWN) {
-            Slog.d(TAG, "set packageId of " +  pkg.getPackageName() + " to " + packageId);
+            Slog.d(TAG, "set packageId of " + pkgName + " to " + packageId);
+        }
+
+        if (pkg.areIdOwnershipChecksEnabled()) {
+            PackageInstallRequirements pir = PackageParserConfig.get().getPackageInstallRequirements(pkgName);
+            if (pir != null) {
+                long pkgVersion = pkg.getLongVersionCode();
+                if (pkgVersion < pir.minVersion) {
+                    pkg.recordIdOwnershipViolation("package version (" + pkgVersion
+                            + ") is lower than the minimum allowed version (" + pir.minVersion + ")");
+                }
+                // hasCertificateSha256() intentionally checks past certificates in addition to the
+                // current certificate
+                if (!hasCertificateSha256(pir.certSha256)) {
+                    pkg.recordIdOwnershipViolation("package is not signed with the " +
+                            "expected certificate (" + pir.certSha256 + ")");
+                }
+            }
+            if (PackageParserConfig.get().isInstallationBlocked(pkgName)) {
+                pkg.recordIdOwnershipViolation("package name " + pkgName + " is reserved");
+            }
         }
 
         var ext = new PackageExt(packageId, getExtFlags());
@@ -123,7 +146,14 @@ public class PackageExtInit implements ParsingPackageUtils.PackageExtInitIface {
                     " pkgVersion: " + pkg.getLongVersionCode());
             return PackageId.UNKNOWN;
         }
+        if (hasCertificateSha256(validCertificatesSha256)) {
+            return packageId;
+        }
+        Slog.w(TAG, pkg.getPackageName() + " isn't signed with any expected certificate");
+        return PackageId.UNKNOWN;
+    }
 
+    private boolean hasCertificateSha256(String... validCertificatesSha256) {
         SigningDetails signingDetails = pkg.getSigningDetails();
 
         if (signingDetails == SigningDetails.UNKNOWN) {
@@ -134,7 +164,7 @@ public class PackageExtInit implements ParsingPackageUtils.PackageExtInitIface {
                 Slog.e(TAG, "unable to parse SigningDetails for " + parsingPackage.getPackageName()
                         + "; code " + result.getErrorCode() + "; msg " + result.getErrorMessage(),
                         result.getException());
-                return PackageId.UNKNOWN;
+                return false;
             }
 
             signingDetails = result.getResult();
@@ -143,12 +173,9 @@ public class PackageExtInit implements ParsingPackageUtils.PackageExtInitIface {
         for (String certSha256String : validCertificatesSha256) {
             byte[] validCertSha256 = HexEncoding.decode(certSha256String);
             if (signingDetails.hasSha256Certificate(validCertSha256)) {
-                return packageId;
+                return true;
             }
         }
-
-        Slog.d(TAG, "SigningDetails of " + pkg.getPackageName() + " don't contain any of known certificates");
-
-        return PackageId.UNKNOWN;
+        return false;
     }
 }

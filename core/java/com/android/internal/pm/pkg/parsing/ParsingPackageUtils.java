@@ -84,6 +84,7 @@ import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
+import android.util.Log;
 import android.util.Pair;
 import android.util.Slog;
 import android.util.SparseArray;
@@ -327,6 +328,13 @@ public class ParsingPackageUtils {
         mCallback = callback;
     }
 
+    @Nullable
+    public static PackageIdOwnershipChecksIface packageIdOwnershipChecks;
+
+    public interface PackageIdOwnershipChecksIface {
+        ParseResult<ParsingPackage> run(ParseInput input, ParsingPackage pkg);
+    }
+
     /**
      * Parse the package at the given location. Automatically detects if the package is a monolithic
      * style (single APK file) or cluster style (directory of APKs).
@@ -343,11 +351,22 @@ public class ParsingPackageUtils {
      * do so.
      */
     public ParseResult<ParsingPackage> parsePackage(ParseInput input, File packageFile, int flags) {
+        ParseResult<ParsingPackage> result;
         if (packageFile.isDirectory()) {
-            return parseClusterPackage(input, packageFile,  flags);
+            result = parseClusterPackage_(input, packageFile, flags);
         } else {
-            return parseMonolithicPackage(input, packageFile, flags);
+            result = parseMonolithicPackage_(input, packageFile, flags);
         }
+        if ((flags & PARSE_IS_SYSTEM_DIR) == 0 && result.isSuccess()) {
+            PackageIdOwnershipChecksIface check = packageIdOwnershipChecks;
+            if (check != null) {
+                ParseResult<ParsingPackage> override = check.run(input, result.getResult());
+                if (override != null) {
+                    return override;
+                }
+            }
+        }
+        return result;
     }
 
     /**
@@ -359,7 +378,7 @@ public class ParsingPackageUtils {
      * Note that this <em>does not</em> perform signature verification; that must be done separately
      * in {@link #getSigningDetails(ParseInput, ParsedPackage, boolean)}.
      */
-    private ParseResult<ParsingPackage> parseClusterPackage(ParseInput input, File packageDir,
+    private ParseResult<ParsingPackage> parseClusterPackage_(ParseInput input, File packageDir,
             int flags) {
         int liteParseFlags = 0;
         if ((flags & PARSE_APK_IN_APEX) != 0) {
@@ -434,7 +453,7 @@ public class ParsingPackageUtils {
      * Note that this <em>does not</em> perform signature verification; that must be done separately
      * in {@link #getSigningDetails(ParseInput, ParsedPackage, boolean)}.
      */
-    private ParseResult<ParsingPackage> parseMonolithicPackage(ParseInput input, File apkFile,
+    private ParseResult<ParsingPackage> parseMonolithicPackage_(ParseInput input, File apkFile,
             int flags) {
         // The signature parsing will be done later in method parseBaseApk.
         int liteParseFlags = flags & ~PARSE_COLLECT_CERTIFICATES;
@@ -477,7 +496,7 @@ public class ParsingPackageUtils {
         final String pkgName = lite.getPackageName();
 
         final TypedArray manifestArray = null;
-        final ParsingPackage pkg = mCallback.startParsingPackage(pkgName,
+        final ParsingPackage pkg = mCallback.startParsingPackage(flags, pkgName,
                 lite.getBaseApkPath(), lite.getPath(), manifestArray, lite.isCoreApp());
 
         final int targetSdk = lite.getTargetSdk();
@@ -777,7 +796,7 @@ public class ParsingPackageUtils {
         try {
             final boolean isCoreApp = parser.getAttributeBooleanValue(null /*namespace*/,
                     "coreApp", false);
-            final ParsingPackage pkg = mCallback.startParsingPackage(
+            final ParsingPackage pkg = mCallback.startParsingPackage(flags,
                     pkgName, apkPath, codePath, manifestArray, isCoreApp);
             final ParseResult<ParsingPackage> result =
                     parseBaseApkTags(input, pkg, manifestArray, res, parser, flags,
@@ -1582,7 +1601,13 @@ public class ParsingPackageUtils {
 
             if (!found) {
                 var p = new ParsedUsesPermissionImpl(name, usesPermissionFlags, purposeStringResource, purposes, generalPurposes);
-                if (!pkg.getPackageParsingHooks().shouldSkipUsesPermission(p)) {
+                var config = pkg.getApcPackageConfig();
+                if (config != null && ArrayUtils.contains(config.usesPermissionsToIgnore, name)) {
+                    // ArrayUtils.contains is O(n), but this array is expected to be small
+                    Log.d(TAG, "PackageParserConfig: " + pkg.getPackageName() + ": skipped uses-permission " + name);
+                } else if (pkg.getPackageParsingHooks().shouldSkipUsesPermission(p)) {
+                    Log.d(TAG, "PackageParsingHooks: " + pkg.getPackageName() + ": skipped uses-permission " + name);
+                } else {
                     pkg.addUsesPermission(p);
                 }
             }
@@ -3756,7 +3781,7 @@ public class ParsingPackageUtils {
     public interface Callback {
         boolean hasFeature(String feature);
 
-        ParsingPackage startParsingPackage(@NonNull String packageName,
+        ParsingPackage startParsingPackage(int flags, @NonNull String packageName,
                 @NonNull String baseApkPath, @NonNull String path,
                 @NonNull TypedArray manifestArray, boolean isCoreApp);
 

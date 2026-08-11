@@ -242,6 +242,7 @@ import com.android.server.pm.dex.OdsignStatsLogger;
 import com.android.server.pm.ext.GmsCompatPkgParsingHooks;
 import com.android.server.pm.ext.PackageExtInit;
 import com.android.server.pm.ext.PackageHooksRegistry;
+import com.android.server.pm.ext.PackageIdOwnershipChecks;
 import com.android.server.pm.permission.PermissionMigrationHelper;
 import com.android.server.pm.permission.PermissionMigrationHelperImpl;
 import com.android.server.pm.verify.domain.DomainVerificationService;
@@ -736,6 +737,7 @@ public final class SystemServer implements Dumpable {
         PackageImpl.packageParsingHooksSupplier = PackageHooksRegistry::getParsingHooks;
         ParsingPackageUtils.packageExtInitSupplier = PackageExtInit::new;
         ParsingPackageUtils.gmsCompatClientServiceSupplier = GmsCompatPkgParsingHooks::maybeCreateClientService;
+        ParsingPackageUtils.packageIdOwnershipChecks = PackageIdOwnershipChecks::maybeOverridePackageParserResult;
     }
 
     public SystemServer() {
