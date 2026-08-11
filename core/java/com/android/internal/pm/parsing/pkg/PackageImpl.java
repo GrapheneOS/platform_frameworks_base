@@ -4147,6 +4147,30 @@ public class PackageImpl implements ParsedPackage, AndroidPackageInternal,
         return ext;
     }
 
+    private volatile Boolean hasPlayStoreSourceStamp;
+
+    @Override
+    public boolean hasPlayStoreSourceStamp() {
+        Boolean cache = hasPlayStoreSourceStamp;
+        if (cache != null) {
+            return cache.booleanValue();
+        }
+
+        var apkPaths = new ArrayList<String>();
+        apkPaths.add(getBaseApkPath());
+        apkPaths.addAll(Arrays.asList(getSplitCodePaths()));
+
+        byte[] playStoreSourceStampCertDigest = java.util.HexFormat.of().parseHex(
+                "3257d599a49d2c961a471ca9843f59d341a405884583fc087df4237b733bbd6d");
+        boolean result = android.util.apk.SourceStampVerifier
+                .verify(apkPaths, /* requiredSourceStamp */ playStoreSourceStampCertDigest)
+                .isVerified();
+        hasPlayStoreSourceStamp = Boolean.valueOf(result);
+        android.util.Slog.d("PlayStoreSourceStampCheck",
+                "result for " + packageName + ": " + result);
+        return result;
+    }
+
     public long cachedCompatConfigVersionCode;
     public Object cachedCompatConfig;
 }

@@ -436,6 +436,14 @@ public class PackageInfoUtils {
 
     private static void updateApplicationInfo(ApplicationInfo ai, long flags,
             PackageUserState state, AndroidPackage pkg, int userId) {
+        if ((flags & PackageManager.GET_PLAY_STORE_SOURCE_STAMP_STATE) != 0) {
+            boolean res = false;
+            if (pkg != null) {
+                res = pkg.hasPlayStoreSourceStamp();
+            }
+            ai.setPlayStoreSourceStampPresent(res);
+        }
+
         if ((flags & PackageManager.GET_META_DATA) == 0) {
             ai.metaData = null;
         }

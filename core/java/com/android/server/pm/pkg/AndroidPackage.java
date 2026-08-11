@@ -1558,6 +1558,9 @@ public interface AndroidPackage {
     int getIntentMatchingFlags();
 
     /** @hide */
+    boolean hasPlayStoreSourceStamp();
+
+    /** @hide */
     @Immutable.Ignore
     PackageExtIface ext();
 
