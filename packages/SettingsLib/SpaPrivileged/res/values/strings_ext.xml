@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_info_install_time">Installed: %1$s</string>
-    <string name="app_info_update_time">Updated: %1$s</string>
+    <string name="app_info_install_time">installed: %1$s</string>
+    <string name="app_info_update_time">updated: %1$s</string>
+    <string name="app_info_apk_cert_digest">app certificate SHA-256 digest:</string>
+    <string name="app_info_has_play_store_source_stamp">has Play Store source stamp</string>
 </resources>
