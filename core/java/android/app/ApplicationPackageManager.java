@@ -2735,7 +2735,12 @@ public class ApplicationPackageManager extends PackageManager {
     @Override
     public String getInstallerPackageName(String packageName) {
         try {
-            return mPM.getInstallerPackageName(packageName);
+            String res = mPM.getInstallerPackageName(packageName);
+            if (!android.ext.PackageId.PLAY_STORE_NAME.equals(res)
+                    && InstallSourceSpoofingHooks.shouldSpoof(mContext, this, packageName) != null) {
+                return android.ext.PackageId.PLAY_STORE_NAME;
+            }
+            return res;
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
@@ -2752,6 +2757,12 @@ public class ApplicationPackageManager extends PackageManager {
         }
         if (installSourceInfo == null) {
             throw new NameNotFoundException(packageName);
+        }
+        if (!android.ext.PackageId.PLAY_STORE_NAME.equals(installSourceInfo.getInstallingPackageName())) {
+            var res = InstallSourceSpoofingHooks.shouldSpoof(mContext, this, packageName);
+            if (res != null) {
+                return InstallSourceSpoofingHooks.getPlayStoreInstallSourceInfo(res);
+            }
         }
         return installSourceInfo;
     }
