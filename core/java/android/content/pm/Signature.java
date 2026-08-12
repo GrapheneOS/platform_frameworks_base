@@ -216,6 +216,22 @@ public class Signature implements Parcelable {
         return bytes;
     }
 
+    @Nullable
+    private volatile byte[] mSha256Digest;
+
+    /** @hide */
+    @NonNull
+    public byte[] getSha256Digest() {
+        byte[] cache = mSha256Digest;
+        if (cache != null) {
+            return cache;
+        }
+        byte[] result = android.util.PackageUtils.computeSha256DigestBytes(mSignature);
+        java.util.Objects.requireNonNull(result);
+        mSha256Digest = result;
+        return result;
+    }
+
     /**
      * Returns the public key for this signature.
      *
@@ -286,6 +302,7 @@ public class Signature implements Parcelable {
 
     public void writeToParcel(Parcel dest, int parcelableFlags) {
         dest.writeByteArray(mSignature);
+        dest.writeByteArray(mSha256Digest);
     }
 
     public static final @android.annotation.NonNull Parcelable.Creator<Signature> CREATOR
@@ -307,6 +324,7 @@ public class Signature implements Parcelable {
 
     private Signature(Parcel source) {
         mSignature = source.createByteArray();
+        mSha256Digest = source.createByteArray();
     }
 
     /**
