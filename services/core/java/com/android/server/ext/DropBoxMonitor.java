@@ -301,7 +301,7 @@ public class DropBoxMonitor {
             i.putExtra(LogViewerApp.EXTRA_ERROR_TYPE, "fsck_error");
             i.putExtra(LogViewerApp.EXTRA_SHOW_REPORT_BUTTON, true);
 
-            SystemJournalNotif.show(context, e.getTimeMillis(), context.getString(R.string.fsck_error_notif_title), i);
+            SystemJournalNotif.show(e.getTimeMillis(), context.getString(R.string.fsck_error_notif_title), i);
         }
     }
 
