@@ -22,6 +22,7 @@
 #include "Debug.h"
 #include "Diagnostics.h"
 #include "LoadedApk.h"
+#include "SdkConstants.h"
 #include "Util.h"
 #include "ValueVisitor.h"
 #include "android-base/stringprintf.h"
@@ -446,6 +447,10 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
       xml::Attribute* target_sdk = manifest_child->FindAttribute(xml::kSchemaAndroid, "targetSdkVersion");
       if (target_sdk == nullptr) {
         bpi.set_target_sdk(std::stoi(sdk_version_));
+      } else if (target_sdk->compiled_value == nullptr) {
+        const auto version = GetDevelopmentSdkCodeNameVersion(target_sdk->value);
+        CHECK(version.has_value());
+        bpi.set_target_sdk(*version);
       } else {
         bpi.set_target_sdk(GetIntAttr(*target_sdk));
       }
