@@ -285,6 +285,7 @@ public final class UserHandle implements Parcelable {
      * Whether a UID belongs to a system core component or not.
      * @hide
      */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
     public static boolean isCore(int uid) {
         if (uid >= 0) {
             final int appId = getAppId(uid);
