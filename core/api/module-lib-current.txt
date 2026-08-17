@@ -125,6 +125,8 @@ package android.content {
 
   public class Intent implements Cloneable android.os.Parcelable {
     field public static final String ACTION_SETTING_RESTORED = "android.os.action.SETTING_RESTORED";
+    field public static final String ACTION_USER_STARTED = "android.intent.action.USER_STARTED";
+    field public static final String ACTION_USER_STOPPED = "android.intent.action.USER_STOPPED";
     field public static final String EXTRA_SETTING_NAME = "setting_name";
     field public static final String EXTRA_SETTING_NEW_VALUE = "new_value";
     field public static final String EXTRA_SETTING_PREVIOUS_VALUE = "previous_value";
