@@ -160,6 +160,7 @@ package android.content.pm {
 package android.ext {
 
   public class ConnectivityUtil {
+    method public static boolean isAppStrictLeakBlockingEnabled(@NonNull android.content.Context, int, @NonNull android.content.pm.ApplicationInfo, @NonNull android.content.pm.GosPackageState);
     method public static boolean isRegularAppWithLockdownVpnEnabled(@NonNull android.content.Context, int);
     method public static boolean isSystem(@NonNull android.content.Context, int);
   }
