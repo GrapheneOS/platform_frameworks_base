@@ -175,7 +175,7 @@ public class AppSwitchNotification {
             nb.setContentTitle(ctx.getString(titleRes, appLabel));
         }
         {
-            var intent = SettingsIntents.getAppIntent(ctx, settingsIntentAction, pkgName);
+            var intent = SettingsIntents.createAppIntent(ctx, settingsIntentAction, pkgName, true);
             var pi = PendingIntent.getActivityAsUser(ctx, 0, intent,
                     PendingIntent.FLAG_IMMUTABLE, null, userHandle);
             nb.setContentIntent(pi);
