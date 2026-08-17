@@ -224,4 +224,6 @@ public interface ActivityManagerLocal {
     @FlaggedApi(Flags.FLAG_FGS_DELEGATE_SYSTEM_API)
     void stopForegroundServiceDelegate(
             @NonNull ForegroundServiceDelegationParams params);
+
+    void showAppStrictLeakBlockingNotification(int uid, int pid);
 }

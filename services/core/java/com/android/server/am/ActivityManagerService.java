@@ -525,6 +525,7 @@ import com.android.server.compat.PlatformCompat;
 import com.android.server.contentcapture.ContentCaptureManagerInternal;
 import com.android.server.crashrecovery.CrashRecoveryHelper;
 import com.android.server.criticalevents.CriticalEventLog;
+import com.android.server.ext.AppStrictLeakBlockingUtil;
 import com.android.server.ext.DynCodeLoadingUtils;
 import com.android.server.ext.PackageManagerHooks;
 import com.android.server.firewall.IntentFirewall;
@@ -19409,6 +19410,11 @@ public class ActivityManagerService extends IActivityManager.Stub
         @Override
         public ProcessRecordSnapshot getProcessRecordByPid(int pid) {
             return mProcessList.getProcessRecordByPid(pid);
+        }
+
+        @Override
+        public void showAppStrictLeakBlockingNotification(int uid, int pid) {
+            AppStrictLeakBlockingUtil.showNotification(mContext, uid, pid);
         }
     }
 

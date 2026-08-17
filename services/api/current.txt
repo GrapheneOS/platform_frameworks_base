@@ -45,6 +45,7 @@ package com.android.server.am {
     method public boolean canStartForegroundService(int, int, @NonNull String);
     method @FlaggedApi("com.android.server.am.get_package_names_for_pid_api") @NonNull public String[] getPackageNamesForPid(int, int);
     method public void killSdkSandboxClientAppProcess(@NonNull android.os.IBinder);
+    method public void showAppStrictLeakBlockingNotification(int, int);
     method @FlaggedApi("com.android.server.am.fgs_delegate_system_api") public boolean startForegroundServiceDelegate(@NonNull com.android.server.am.ForegroundServiceDelegationParams, @Nullable android.content.ServiceConnection);
     method @Nullable public android.content.ComponentName startSdkSandboxService(@NonNull android.content.Intent, int, @NonNull String, @NonNull String) throws android.os.RemoteException;
     method @FlaggedApi("com.android.server.am.fgs_delegate_system_api") public void stopForegroundServiceDelegate(@NonNull com.android.server.am.ForegroundServiceDelegationParams);
