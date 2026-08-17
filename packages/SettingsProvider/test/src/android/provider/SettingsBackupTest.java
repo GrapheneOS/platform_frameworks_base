@@ -706,6 +706,7 @@ public class SettingsBackupTest {
                  Settings.Secure.ENABLED_NOTIFICATION_LISTENERS,
                  Settings.Secure.ENABLED_NOTIFICATION_POLICY_ACCESS_PACKAGES,
                  Settings.Secure.ENABLED_PRINT_SERVICES,
+                 Settings.Secure.FORCE_SCREEN_RECORD_SECURE_WINDOWS,
                  Settings.Secure.FORCE_SCREENSHOT_SECURE_WINDOWS,
                  Settings.Secure.GLOBAL_ACTIONS_PANEL_AVAILABLE,
                  Settings.Secure.GLOBAL_ACTIONS_PANEL_DEBUG_ENABLED,
