@@ -14140,6 +14140,20 @@ public final class Settings {
                 "force_screenshot_secure_windows";
 
         /**
+         * Whether the built-in screen recorder should capture secure windows.
+         *
+         * <p>When this setting is set to a non-zero value, recordings started from the system
+         * screen recorder capture content in windows with
+         * {@link android.view.WindowManager.LayoutParams#FLAG_SECURE}. Recordings made by other
+         * apps through {@link android.media.projection.MediaProjection} are left unchanged, as is
+         * every other FLAG_SECURE behaviour.
+         *
+         * @hide
+         */
+        public static final String FORCE_SCREEN_RECORD_SECURE_WINDOWS =
+                "force_screen_record_secure_windows";
+
+        /**
          * Controls if the adaptive authentication feature should be disabled, which
          * will attempt to lock the device after a number of consecutive authentication
          * attempts fail.
