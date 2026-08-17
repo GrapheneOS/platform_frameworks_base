@@ -6,7 +6,12 @@ import android.annotation.SystemApi;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
-/** @hide */
+/**
+ * GosPackageStateFlag defines the valid flags for GosPackageState. When adding a new flag, its
+ * permissions must also be set in GosPackageStatePermissions.
+ *
+ * @hide
+ */
 @SystemApi
 public interface GosPackageStateFlag {
     /* SysApi */ int STORAGE_SCOPES_ENABLED = 0;
