@@ -17,6 +17,8 @@ import android.permission.PermissionManager;
 import android.util.Log;
 import android.util.SparseArray;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Objects;
@@ -402,11 +404,18 @@ public final class GosPackageState implements Parcelable {
         public boolean apply() {
             try {
                 return ActivityThread.getPackageManager().setGosPackageState(packageName, userId,
-                        new GosPackageState(flagStorage1, packageFlagStorage, storageScopes, contactScopes),
-                        editorFlags);
+                        toState(), editorFlags);
             } catch (RemoteException e) {
                 throw e.rethrowFromSystemServer();
             }
+        }
+
+        /** @hide */
+        @VisibleForTesting
+        @NonNull
+        public GosPackageState toState() {
+            return new GosPackageState(flagStorage1, packageFlagStorage, storageScopes,
+                    contactScopes);
         }
     }
 }
