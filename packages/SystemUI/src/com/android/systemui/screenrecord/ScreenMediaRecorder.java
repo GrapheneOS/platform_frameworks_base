@@ -49,6 +49,7 @@ import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.provider.MediaStore;
+import android.provider.Settings;
 import android.text.format.DateUtils;
 import android.util.DisplayMetrics;
 import android.util.Log;
@@ -189,12 +190,16 @@ public class ScreenMediaRecorder {
         mMediaRecorder.prepare();
         // Create surface
         mInputSurface = mMediaRecorder.getSurface();
+        int displayFlags = DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR;
+        if (shouldCaptureSecureWindows()) {
+            displayFlags |= DisplayManager.VIRTUAL_DISPLAY_FLAG_SECURE;
+        }
         mVirtualDisplay = mMediaProjection.createVirtualDisplay(
                 "Recording Display",
                 videoParameters.mWidth,
                 videoParameters.mHeight,
                 metrics.densityDpi,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
+                displayFlags,
                 mInputSurface,
                 new VirtualDisplay.Callback() {
                     @Override
@@ -213,6 +218,11 @@ public class ScreenMediaRecorder {
                     mMediaProjection, mAudioSource == MIC_AND_INTERNAL);
         }
 
+    }
+
+    private boolean shouldCaptureSecureWindows() {
+        return Settings.Secure.getInt(mContext.getContentResolver(),
+                Settings.Secure.FORCE_SCREEN_RECORD_SECURE_WINDOWS, 0) != 0;
     }
 
     /**
