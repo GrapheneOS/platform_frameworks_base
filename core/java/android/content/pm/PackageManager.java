@@ -6157,6 +6157,8 @@ public abstract class PackageManager {
     @SuppressWarnings("HiddenAbstractMethod")
     @RequiresPermission(Manifest.permission.INTERACT_ACROSS_USERS)
     @UnsupportedAppUsage
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    @NonNull
     public abstract PackageInfo getPackageInfoAsUser(@NonNull String packageName,
             int flags, @UserIdInt int userId) throws NameNotFoundException;
 

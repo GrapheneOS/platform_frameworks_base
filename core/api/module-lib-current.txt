@@ -148,6 +148,7 @@ package android.content.pm {
   }
 
   public abstract class PackageManager {
+    method @NonNull @RequiresPermission(android.Manifest.permission.INTERACT_ACROSS_USERS) public abstract android.content.pm.PackageInfo getPackageInfoAsUser(@NonNull String, int, int) throws android.content.pm.PackageManager.NameNotFoundException;
     method @NonNull public String getSdkSandboxPackageName();
     method @RequiresPermission(android.Manifest.permission.MAKE_UID_VISIBLE) public void makeUidVisible(int, int);
     field public static final String EXTRA_VERIFICATION_ROOT_HASH = "android.content.pm.extra.VERIFICATION_ROOT_HASH";
