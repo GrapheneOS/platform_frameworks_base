@@ -1433,6 +1433,7 @@ public class PackageInstaller {
             fillIn.putExtra(PackageInstaller.EXTRA_PACKAGE_NAME, archivedPackageInfo.getPackageName());
             // there's no unprivileged alternative to this API
             fillIn.putExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE);
+            fillIn.putExtra(PackageInstaller.EXTRA_STATUS_MESSAGE, "installPackageArchived() is not allowed");
             com.android.internal.os.BackgroundThread.getHandler().post(() -> {
                 try {
                     statusReceiver.sendIntent(GmsCompat.appContext(), 0, fillIn, null, null);
