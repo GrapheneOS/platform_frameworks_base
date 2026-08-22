@@ -17,7 +17,8 @@
 PRODUCT_PACKAGES := \
     AndroidClock.ttf \
     font_fallback.xml \
-    fonts.xml
+    fonts.xml \
+    GoogleSansFlex-Regular.ttf
 
 ifneq ($(RELEASE_USE_ROBOTO_MONO_FONT),true)
 PRODUCT_PACKAGES += DroidSansMono.ttf
