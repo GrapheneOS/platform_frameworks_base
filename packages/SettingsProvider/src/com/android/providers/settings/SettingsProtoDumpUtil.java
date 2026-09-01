@@ -201,6 +201,9 @@ class SettingsProtoDumpUtil {
         dumpSetting(s, p,
                 Settings.Global.AIRPLANE_MODE_TOGGLEABLE_RADIOS,
                 GlobalSettingsProto.AirplaneMode.TOGGLEABLE_RADIOS);
+        dumpSetting(s, p,
+                Settings.Global.REQUIRE_AUTHENTICATION_TO_DISABLE_AIRPLANE_MODE,
+                GlobalSettingsProto.AirplaneMode.REQUIRE_AUTHENTICATION_TO_DISABLE_AIRPLANE_MODE);
         p.end(airplaneModeToken);
 
         dumpSetting(s, p,
