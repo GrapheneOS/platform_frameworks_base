@@ -50,6 +50,8 @@
     </staging-public-group>
 
     <staging-public-group type="integer" first-id="0x018ef000">
+        <!-- @hide -->
+        <public name="setting_default_display_color_mode"/>
     </staging-public-group>
 
     <staging-public-group type="string" first-id="0x0198f000">

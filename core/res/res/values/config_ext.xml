@@ -51,4 +51,8 @@
     </string-array>
     <java-symbol type="array" name="read_additional_security_state_known_signers" />
 
+    <!-- negative value leaves DISPLAY_COLOR_MODE unset to use the framework fallback. -->
+    <integer name="setting_default_display_color_mode">-1</integer>
+    <java-symbol type="integer" name="setting_default_display_color_mode" />
+
 </resources>
