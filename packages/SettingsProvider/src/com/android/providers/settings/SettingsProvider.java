@@ -3758,6 +3758,8 @@ public class SettingsProvider extends ContentProvider {
             UpgradeController upgrader = new UpgradeController(userId, deviceId);
             upgrader.upgradeIfNeededLocked();
 
+            initializeDisplayColorModeLocked(userId, deviceId);
+
             // Init immutable settings
             int[] typesToInit = userId == UserHandle.USER_SYSTEM ?
                     new int[] { SETTINGS_TYPE_GLOBAL, SETTINGS_TYPE_SECURE, SETTINGS_TYPE_SYSTEM, } :
@@ -3785,6 +3787,27 @@ public class SettingsProvider extends ContentProvider {
                 }
             }
             return true;
+        }
+
+        private void initializeDisplayColorModeLocked(int userId, int deviceId) {
+            if (deviceId != Context.DEVICE_ID_DEFAULT) {
+                return;
+            }
+
+            final SettingsState systemSettings = getSettingsLocked(
+                    SETTINGS_TYPE_SYSTEM, userId, deviceId);
+            if (systemSettings == null || !systemSettings.getSettingLocked(
+                    Settings.System.DISPLAY_COLOR_MODE).isNull()) {
+                return;
+            }
+
+            systemSettings.insertSettingOverrideableByRestoreLocked(
+                    Settings.System.DISPLAY_COLOR_MODE,
+                    Integer.toString(
+                            android.hardware.display.ColorDisplayManager.COLOR_MODE_NATURAL),
+                    /* tag= */ null,
+                    /* makeDefault= */ true,
+                    SettingsState.SYSTEM_PACKAGE_NAME);
         }
 
         private void ensureSettingsStateLocked(long key) {
