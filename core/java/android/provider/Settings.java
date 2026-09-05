@@ -12507,6 +12507,12 @@ public final class Settings {
                 "assist_touch_gesture_enabled";
 
         /**
+         * Whether the navigation hint pill is hidden in gesture navigation mode.
+         * @hide
+         */
+        public static final String HIDE_NAVIGATION_HANDLE = "hide_navigation_handle";
+
+        /**
          * Whether the assistant can be triggered by long-pressing the home button
          *
          * @hide
