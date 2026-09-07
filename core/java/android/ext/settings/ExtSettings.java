@@ -100,6 +100,9 @@ public class ExtSettings {
     public static final BoolSetting DISALLOW_DELAYED_LOCKING_ON_USER_STOP = new BoolSetting(
             Setting.Scope.PER_USER, Settings.Secure.DISALLOW_DELAYED_LOCKING_ON_USER_STOP, false);
 
+    public static final BoolSetting HIDE_NAVIGATION_HANDLE = new BoolSetting(
+            Setting.Scope.PER_USER, Settings.Secure.HIDE_NAVIGATION_HANDLE, false);
+
     private ExtSettings() {}
 
     public static Function<Context, Boolean> defaultBool(@BoolRes int res) {
