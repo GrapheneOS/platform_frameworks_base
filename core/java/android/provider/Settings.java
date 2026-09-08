@@ -7524,7 +7524,7 @@ public final class Settings {
         public static final String DISALLOW_DELAYED_LOCKING_ON_USER_STOP = "disallow_delayed_locking_on_user_stop";
 
         /** @hide */
-        @Protected(restrictReads = false, readWrite = KnownSystemPackage.SETTINGS)
+        @Protected(read = KnownSystemPackage.LAUNCHER, readWrite = KnownSystemPackage.SETTINGS)
         public static final String HIDE_NAVIGATION_HANDLE = "hide_navigation_handle";
 
         // ExtSettings END
