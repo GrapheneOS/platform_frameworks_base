@@ -100,6 +100,10 @@ public class ExtSettings {
     public static final BoolSetting DISALLOW_DELAYED_LOCKING_ON_USER_STOP = new BoolSetting(
             Setting.Scope.PER_USER, Settings.Secure.DISALLOW_DELAYED_LOCKING_ON_USER_STOP, false);
 
+    public static final BoolSetting REQUIRE_AUTHENTICATION_TO_DISABLE_AIRPLANE_MODE =
+            new BoolSetting(Setting.Scope.GLOBAL,
+                    Settings.Global.REQUIRE_AUTHENTICATION_TO_DISABLE_AIRPLANE_MODE, false);
+
     private ExtSettings() {}
 
     public static Function<Context, Boolean> defaultBool(@BoolRes int res) {

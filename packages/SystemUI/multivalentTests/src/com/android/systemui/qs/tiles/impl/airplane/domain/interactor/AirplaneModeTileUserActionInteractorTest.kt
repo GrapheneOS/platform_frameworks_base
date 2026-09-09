@@ -26,6 +26,7 @@ import com.android.systemui.qs.tiles.base.domain.actions.QSTileIntentUserInputHa
 import com.android.systemui.qs.tiles.base.domain.model.QSTileInputTestKtx.click
 import com.android.systemui.qs.tiles.base.domain.model.QSTileInputTestKtx.longClick
 import com.android.systemui.qs.tiles.impl.airplane.domain.model.AirplaneModeTileModel
+import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.AirplaneModeAuthenticationInteractor
 import com.android.systemui.statusbar.pipeline.airplane.data.repository.airplaneModeRepository
 import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.airplaneModeInteractor
 import com.android.systemui.statusbar.pipeline.mobile.data.repository.fakeMobileConnectionsRepository
@@ -34,6 +35,10 @@ import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
@@ -42,9 +47,14 @@ class AirplaneModeTileUserActionInteractorTest : SysuiTestCase() {
 
     private val airplaneModeRepository = kosmos.airplaneModeRepository
     private val inputHandler = FakeQSTileIntentUserInputHandler()
+    private val authenticationInteractor = mock<AirplaneModeAuthenticationInteractor>()
 
     private val underTest =
-        AirplaneModeTileUserActionInteractor(kosmos.airplaneModeInteractor, inputHandler)
+        AirplaneModeTileUserActionInteractor(
+            kosmos.airplaneModeInteractor,
+            authenticationInteractor,
+            inputHandler,
+        )
 
     @Test
     fun handleClickInEcmMode() = runTest {
@@ -70,6 +80,36 @@ class AirplaneModeTileUserActionInteractorTest : SysuiTestCase() {
         underTest.handleInput(click(AirplaneModeTileModel(false)))
 
         assertThat(inputHandler).handledNoInputs()
+        assertThat(airplaneModeRepository.isAirplaneMode.value).isTrue()
+    }
+
+    @Test
+    fun handleClickToDisable_authenticationSucceeds_disablesAirplaneMode() = runTest {
+        airplaneModeRepository.setIsAirplaneMode(true)
+        whenever(authenticationInteractor.authenticateIfRequired()).thenReturn(true)
+
+        underTest.handleInput(click(AirplaneModeTileModel(true)))
+
+        assertThat(airplaneModeRepository.isAirplaneMode.value).isFalse()
+    }
+
+    @Test
+    fun handleClickToDisable_authenticationCancelled_keepsAirplaneModeEnabled() = runTest {
+        airplaneModeRepository.setIsAirplaneMode(true)
+        whenever(authenticationInteractor.authenticateIfRequired()).thenReturn(false)
+
+        underTest.handleInput(click(AirplaneModeTileModel(true)))
+
+        assertThat(airplaneModeRepository.isAirplaneMode.value).isTrue()
+    }
+
+    @Test
+    fun handleClickToEnable_doesNotAuthenticate() = runTest {
+        airplaneModeRepository.setIsAirplaneMode(false)
+
+        underTest.handleInput(click(AirplaneModeTileModel(false)))
+
+        verify(authenticationInteractor, never()).authenticateIfRequired()
         assertThat(airplaneModeRepository.isAirplaneMode.value).isTrue()
     }
 
