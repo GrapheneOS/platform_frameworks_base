@@ -144,13 +144,13 @@ public class EmergencyNumberUtilsTest {
     private void addEmergencyNumberToTelephony(String number) {
         final int subId = SubscriptionManager.getDefaultSubscriptionId();
         EmergencyNumber emergencyNumber = mock(EmergencyNumber.class);
-        when(emergencyNumber.isInEmergencyServiceCategories(EMERGENCY_SERVICE_CATEGORY_POLICE))
-                .thenReturn(true);
+        when(emergencyNumber.getEmergencyServiceCategories())
+                .thenReturn(List.of(EMERGENCY_SERVICE_CATEGORY_POLICE));
         Map<Integer, List<EmergencyNumber>> numbers = new ArrayMap<>();
         List<EmergencyNumber> numbersForSubId = new ArrayList<>();
         numbersForSubId.add(emergencyNumber);
         numbers.put(subId, numbersForSubId);
-        when(mTelephonyManager.getEmergencyNumberList(anyInt())).thenReturn(numbers);
+        when(mTelephonyManager.getEmergencyNumberList()).thenReturn(numbers);
         when(emergencyNumber.getNumber()).thenReturn(number);
     }
 }

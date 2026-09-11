@@ -17,6 +17,10 @@
 package com.android.settingslib.emergencynumber;
 
 import static android.telephony.emergency.EmergencyNumber.EMERGENCY_NUMBER_SOURCE_DATABASE;
+import static android.telephony.emergency.EmergencyNumber.EMERGENCY_NUMBER_SOURCE_NETWORK_SIGNALING;
+import static android.telephony.emergency.EmergencyNumber.EMERGENCY_NUMBER_SOURCE_SIM;
+import static android.telephony.emergency.EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_AMBULANCE;
+import static android.telephony.emergency.EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_FIRE_BRIGADE;
 import static android.telephony.emergency.EmergencyNumber.EMERGENCY_SERVICE_CATEGORY_POLICE;
 
 import android.content.ContentResolver;
@@ -36,6 +40,7 @@ import android.util.Log;
 import androidx.annotation.VisibleForTesting;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -87,14 +92,13 @@ public class EmergencyNumberUtils {
     }
 
     /**
-     * Returns the most appropriate number for police.
+     * Returns the preferred SOS number (which need not be police-only).
      */
     public String getDefaultPoliceNumber() {
         if (mTelephonyManager == null) {
             return FALL_BACK_NUMBER;
         }
-        final List<String> promotedPoliceNumber = getPromotedEmergencyNumbers(
-                EMERGENCY_SERVICE_CATEGORY_POLICE);
+        final List<String> promotedPoliceNumber = getPromotedEmergencyNumbers();
         if (promotedPoliceNumber == null || promotedPoliceNumber.isEmpty()) {
             return FALL_BACK_NUMBER;
         }
@@ -173,9 +177,8 @@ public class EmergencyNumberUtils {
         return bundle == null ? null : bundle.getString(EMERGENCY_GESTURE_CALL_NUMBER);
     }
 
-    private List<String> getPromotedEmergencyNumbers(int categories) {
-        Map<Integer, List<EmergencyNumber>> allLists = mTelephonyManager.getEmergencyNumberList(
-                categories);
+    private List<String> getPromotedEmergencyNumbers() {
+        Map<Integer, List<EmergencyNumber>> allLists = mTelephonyManager.getEmergencyNumberList();
         if (allLists == null || allLists.isEmpty()) {
             Log.w(TAG, "Unable to retrieve emergency number lists!");
             return new ArrayList<>();
@@ -189,31 +192,14 @@ public class EmergencyNumberUtils {
             List<EmergencyNumber> emergencyNumberList = entry.getValue();
             Log.d(TAG, "Emergency numbers for subscription id " + entry.getKey());
 
-            // The list of promoted emergency numbers which will be visible on shortcut view.
-            List<EmergencyNumber> promotedList = new ArrayList<>();
-            // A temporary list for non-prioritized emergency numbers.
-            List<EmergencyNumber> tempList = new ArrayList<>();
-
-            for (EmergencyNumber emergencyNumber : emergencyNumberList) {
-                // Emergency numbers in DATABASE are prioritized since they were well-categorized.
-                boolean isFromPrioritizedSource =
-                        emergencyNumber.getEmergencyNumberSources().contains(
-                                EMERGENCY_NUMBER_SOURCE_DATABASE);
-
-                Log.d(TAG, String.format("Number %s, isFromPrioritizedSource %b",
-                        emergencyNumber, isFromPrioritizedSource));
-                if (isFromPrioritizedSource) {
-                    promotedList.add(emergencyNumber);
-                } else {
-                    tempList.add(emergencyNumber);
-                }
+            for (EmergencyNumber number : emergencyNumberList) {
+                Log.d(TAG, "Number " + number);
             }
-            // Puts numbers in temp list after prioritized numbers.
-            promotedList.addAll(tempList);
 
-            if (!promotedList.isEmpty()) {
-                List<String> sanitizedNumbers = sanitizeEmergencyNumbers(promotedList, subId);
-                promotedEmergencyNumberLists.put(subId, sanitizedNumbers);
+            List<EmergencyNumber> ranked = rankEmergencyNumbers(emergencyNumberList);
+            if (!ranked.isEmpty()) {
+                promotedEmergencyNumberLists.put(subId,
+                        sanitizeEmergencyNumbers(ranked, subId));
             }
         }
 
@@ -221,6 +207,31 @@ public class EmergencyNumberUtils {
             Log.w(TAG, "No promoted emergency number found!");
         }
         return promotedEmergencyNumberLists.get(SubscriptionManager.getDefaultSubscriptionId());
+    }
+
+    private List<EmergencyNumber> rankEmergencyNumbers(
+            List<EmergencyNumber> candidates) {
+        List<EmergencyNumber> preferred = new ArrayList<>(candidates);
+        // Rank by category, then source. Routing is not a ranking/filtering criterion.
+        // Stable sorting preserves input order for ties; never mutate Telephony's list.
+        preferred.sort(Comparator
+                .comparingInt((EmergencyNumber number) -> preferenceRank(
+                        number.getEmergencyServiceCategories(),
+                        EMERGENCY_SERVICE_CATEGORY_POLICE, EMERGENCY_SERVICE_CATEGORY_AMBULANCE,
+                        EMERGENCY_SERVICE_CATEGORY_FIRE_BRIGADE))
+                .thenComparingInt(number -> preferenceRank(number.getEmergencyNumberSources(),
+                        EMERGENCY_NUMBER_SOURCE_DATABASE, EMERGENCY_NUMBER_SOURCE_NETWORK_SIGNALING,
+                        EMERGENCY_NUMBER_SOURCE_SIM)));
+        return preferred;
+    }
+
+    private static int preferenceRank(List<Integer> values, int... preferences) {
+        for (int i = 0; i < preferences.length; i++) {
+            if (values.contains(preferences[i])) {
+                return i;
+            }
+        }
+        return preferences.length;
     }
 
     private List<String> sanitizeEmergencyNumbers(
