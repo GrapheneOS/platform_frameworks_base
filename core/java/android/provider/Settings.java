@@ -14523,6 +14523,10 @@ public final class Settings {
         @Protected(restrictReads = false, readWrite = KnownSystemPackage.SETTINGS)
         public static final String CERT_TRANSPARENCY_DOWNLOADER = "cert_transparency_downloader";
 
+        /** @hide */
+        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        public static final String ALLOW_CLIPBOARD_READ_BY_DEFAULT = "allow_clipboard_read";
+
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to

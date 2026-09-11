@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration description="Runs SecurePasteTests">
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
+        <!-- Secure paste setup accesses protected settings through the shell testing allowance. -->
+        <option name="force-root" value="false" />
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
+        <option name="cleanup-apks" value="true" />
+        <option name="install-arg" value="-r" />
+        <option name="install-arg" value="-d" />
+        <option name="install-arg" value="-g" />
+        <option name="install-arg" value="-t" />
+        <option name="test-file-name" value="SecurePasteWriterApp.apk" />
+        <option name="test-file-name" value="SecurePasteReaderApp.apk" />
+        <option name="test-file-name" value="SecurePasteEditTextApp.apk" />
+        <option name="test-file-name" value="SecurePasteJetpackComposeApp.apk" />
+        <option name="test-file-name" value="SecurePasteImeApp.apk" />
+        <option name="test-file-name" value="SecurePasteCustomToolbarApp.apk" />
+        <option name="test-file-name" value="SecurePasteCacheClientApp.apk" />
+        <option name="test-file-name" value="SecurePasteSharedUidA.apk" />
+        <option name="test-file-name" value="SecurePasteSharedUidB.apk" />
+        <option name="test-file-name" value="SecurePasteTests.apk" />
+    </target_preparer>
+
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="package" value="grapheneos.securepaste" />
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
+        <option name="hidden-api-checks" value="false" />
+    </test>
+</configuration>

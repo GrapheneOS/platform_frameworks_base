@@ -1,0 +1,130 @@
+package {
+    default_applicable_licenses: ["frameworks_base_license"],
+}
+
+android_library {
+    name: "SecurePasteHelperCommon",
+    srcs: ["helper/common/src/**/*.java"],
+    manifest: "helper/common/AndroidManifest.xml",
+    sdk_version: "system_current",
+}
+
+android_test {
+    name: "SecurePasteTests",
+    srcs: ["src/**/*.java"],
+    manifest: "AndroidManifest.xml",
+    test_config: "AndroidTest.xml",
+    resource_dirs: ["res"],
+    static_libs: [
+        "SecurePasteHelperCommon",
+        "CtsVirtualDeviceCommonLib",
+        "androidx.test.ext.junit",
+        "androidx.test.runner",
+        "androidx.test.rules",
+        "androidx.test.uiautomator_uiautomator",
+        "compatibility-device-util-axt",
+        "truth",
+    ],
+    libs: ["android.test.runner.stubs"],
+    data: [
+        ":SecurePasteWriterApp",
+        ":SecurePasteReaderApp",
+        ":SecurePasteEditTextApp",
+        ":SecurePasteJetpackComposeApp",
+        ":SecurePasteImeApp",
+        ":SecurePasteCustomToolbarApp",
+        ":SecurePasteCacheClientApp",
+        ":SecurePasteSharedUidA",
+        ":SecurePasteSharedUidB",
+    ],
+    platform_apis: true,
+    certificate: "platform",
+    test_suites: ["device-tests"],
+}
+
+android_test_helper_app {
+    name: "SecurePasteWriterApp",
+    manifest: "apps/writer/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}
+
+android_test_helper_app {
+    name: "SecurePasteReaderApp",
+    manifest: "apps/reader/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}
+
+android_test_helper_app {
+    name: "SecurePasteEditTextApp",
+    manifest: "apps/edittext/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}
+
+android_test_helper_app {
+    name: "SecurePasteJetpackComposeApp",
+    srcs: ["apps/jetpackcompose/src/**/*.kt"],
+    manifest: "apps/jetpackcompose/AndroidManifest.xml",
+    static_libs: [
+        "SecurePasteHelperCommon",
+        "androidx.activity_activity-compose",
+        "androidx.compose.foundation_foundation",
+        "androidx.compose.foundation_foundation-layout",
+        "androidx.compose.runtime_runtime",
+        "androidx.compose.ui_ui",
+        "androidx.compose.ui_ui-text",
+        "androidx.compose.ui_ui-unit",
+    ],
+    kotlincflags: [
+        "-Xjvm-default=all",
+        "-P plugin:androidx.compose.compiler.plugins.kotlin:sourceInformation=true",
+    ],
+    sdk_version: "system_current",
+}
+
+android_test_helper_app {
+    name: "SecurePasteCustomToolbarApp",
+    manifest: "apps/customtoolbar/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}
+
+android_test_helper_app {
+    name: "SecurePasteCacheClientApp",
+    manifest: "apps/cacheclient/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}
+
+android_test_helper_app {
+    name: "SecurePasteSharedUidA",
+    manifest: "apps/shareduid_a/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}
+
+android_test_helper_app {
+    name: "SecurePasteSharedUidB",
+    manifest: "apps/shareduid_b/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}
+
+android_app {
+    name: "SecurePasteTestSystemApp",
+    manifest: "apps/system/AndroidManifest.xml",
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+    certificate: "platform",
+}
+
+android_test_helper_app {
+    name: "SecurePasteImeApp",
+    srcs: ["apps/ime/src/**/*.java"],
+    manifest: "apps/ime/AndroidManifest.xml",
+    resource_dirs: ["apps/ime/res"],
+    static_libs: ["SecurePasteHelperCommon"],
+    sdk_version: "system_current",
+}

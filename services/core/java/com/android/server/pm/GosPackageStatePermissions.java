@@ -22,6 +22,8 @@ import com.android.server.LocalServices;
 import java.util.Objects;
 
 import static android.content.pm.GosPackageStateFlag.ALLOW_ACCESS_TO_OBB_DIRECTORY;
+import static android.content.pm.GosPackageStateFlag.ALLOW_CLIPBOARD_READ;
+import static android.content.pm.GosPackageStateFlag.ALLOW_CLIPBOARD_READ_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_SUPPRESS_NOTIF;
@@ -41,6 +43,7 @@ import static android.content.pm.GosPackageStateFlag.RESTRICT_STORAGE_DYN_CODE_L
 import static android.content.pm.GosPackageStateFlag.RESTRICT_WEBVIEW_DYN_CODE_LOADING;
 import static android.content.pm.GosPackageStateFlag.RESTRICT_WEBVIEW_DYN_CODE_LOADING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.STORAGE_SCOPES_ENABLED;
+import static android.content.pm.GosPackageStateFlag.SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF;
 import static android.content.pm.GosPackageStateFlag.SUPPRESS_PLAY_INTEGRITY_API_NOTIF;
 import static android.content.pm.GosPackageStateFlag.USE_EXEC_SPAWNING;
 import static android.content.pm.GosPackageStateFlag.USE_EXEC_SPAWNING_NON_DEFAULT;
@@ -145,6 +148,9 @@ class GosPackageStatePermissions {
                 USE_EXEC_SPAWNING_NON_DEFAULT,
                 USE_EXEC_SPAWNING,
                 ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE,
+                ALLOW_CLIPBOARD_READ_NON_DEFAULT,
+                ALLOW_CLIPBOARD_READ,
+                SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF,
         };
         builder()
                 .readWriteFlags(settingsReadWriteFlags)

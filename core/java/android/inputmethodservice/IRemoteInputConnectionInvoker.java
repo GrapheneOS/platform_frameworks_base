@@ -178,6 +178,11 @@ final class IRemoteInputConnectionInvoker {
     }
 
     @NonNull
+    IBinder getConnectionToken() {
+        return mConnection.asBinder();
+    }
+
+    @NonNull
     InputConnectionCommandHeader createHeader() {
         return new InputConnectionCommandHeader(mSessionId);
     }

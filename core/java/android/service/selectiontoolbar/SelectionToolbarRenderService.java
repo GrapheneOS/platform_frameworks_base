@@ -156,14 +156,14 @@ public abstract class SelectionToolbarRenderService extends Service {
         }
     }
 
-    protected void onPasteAction(int uid) {
+    protected void onPasteAction(int uid, IBinder hostInputToken) {
         final ISelectionToolbarRenderServiceCallback callback = mServiceCallback;
         if (callback == null) {
             Log.e(TAG, "onPasteAction(): no server callback");
             return;
         }
         try {
-            callback.onPasteAction(uid);
+            callback.onPasteAction(uid, hostInputToken);
         } catch (RemoteException e) {
             Log.e(TAG, "Failed to notify onPasteAction", e);
         }
@@ -264,6 +264,6 @@ public abstract class SelectionToolbarRenderService extends Service {
         /**
          * Notify the service to the paste action.
          */
-        void onPasteAction(int uid);
+        void onPasteAction(int uid, IBinder hostInputToken);
     }
 }

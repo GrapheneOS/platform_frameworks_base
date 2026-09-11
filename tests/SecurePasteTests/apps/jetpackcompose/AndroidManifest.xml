@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="grapheneos.securepaste.jetpackcompose">
+    <application
+        android:debuggable="true"
+        android:label="Secure Paste Jetpack Compose"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity
+            android:name="grapheneos.securepaste.jetpackcompose.SecurePasteJetpackComposeActivity"
+            android:exported="true" />
+        <provider
+            android:name="grapheneos.securepaste.helper.SecurePasteCommandProvider"
+            android:authorities="grapheneos.securepaste.jetpackcompose.provider"
+            android:exported="true" />
+    </application>
+</manifest>

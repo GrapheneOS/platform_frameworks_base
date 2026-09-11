@@ -87,7 +87,13 @@ final class InputGestureManager {
                     KeyEvent.META_CTRL_ON | KeyEvent.META_ALT_ON),
             createKeyTrigger(KeyEvent.KEYCODE_A, KeyEvent.META_CTRL_ON),
             createKeyTrigger(KeyEvent.KEYCODE_C, KeyEvent.META_CTRL_ON),
+            // Keep paste gestures unavailable for reassignment and in sync with
+            // SecurePasteKeyEventHandler.isPasteKeyEvent(KeyEvent).
             createKeyTrigger(KeyEvent.KEYCODE_V, KeyEvent.META_CTRL_ON),
+            createKeyTrigger(KeyEvent.KEYCODE_V,
+                    KeyEvent.META_CTRL_ON | KeyEvent.META_SHIFT_ON),
+            createKeyTrigger(KeyEvent.KEYCODE_INSERT, KeyEvent.META_SHIFT_ON),
+            createKeyTrigger(KeyEvent.KEYCODE_PASTE, 0),
             createKeyTrigger(KeyEvent.KEYCODE_X, KeyEvent.META_CTRL_ON),
             createKeyTrigger(KeyEvent.KEYCODE_Z, KeyEvent.META_CTRL_ON),
             createKeyTrigger(KeyEvent.KEYCODE_Y, KeyEvent.META_CTRL_ON),

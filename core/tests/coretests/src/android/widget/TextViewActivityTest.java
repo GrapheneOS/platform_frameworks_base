@@ -1264,6 +1264,7 @@ public class TextViewActivityTest {
         setText("");
         onView(withId(R.id.textview)).perform(longClick());
 
+        mToolbar.assertFloatingToolbarIsDisplayed();
         mToolbar.assertFloatingToolbarDoesNotContainItem(
                 mActivity.getString(com.android.internal.R.string.paste_as_plain_text));
     }

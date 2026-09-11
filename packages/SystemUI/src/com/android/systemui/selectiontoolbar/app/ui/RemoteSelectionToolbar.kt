@@ -84,7 +84,7 @@ class RemoteSelectionToolbar(
     showInfo: ShowInfo,
     private val callbackWrapper: RemoteCallbackWrapper,
     transferTouchListener: TransferTouchListener,
-    onPasteActionCallback: OnPasteActionCallback,
+    private val onPasteActionCallback: OnPasteActionCallback,
 ) {
     private val context = wrapContext(baseContext, showInfo)
 
@@ -234,18 +234,22 @@ class RemoteSelectionToolbar(
     /* Menu items and click listeners */
     private val menuItemButtonOnClickListener =
         View.OnClickListener { v: View ->
-            // Post the callback to fg thread because the onPasteAction() callback
-            // needs to be synchronous but it shouldn't block the main thread.
-            handler.post {
-                val tag = v.tag
-                if (tag is ToolbarMenuItem) {
-                    if (tag.itemId == R.id.paste || tag.itemId == R.id.pasteAsPlainText) {
-                        onPasteActionCallback.onPasteAction(hostUid)
-                    }
-                    callbackWrapper.onMenuItemClicked(tag.itemIndex)
-                }
+            val tag = v.tag
+            if (tag is ToolbarMenuItem) {
+                dispatchMenuItemClick(tag)
             }
         }
+
+    private fun dispatchMenuItemClick(menuItem: ToolbarMenuItem) {
+        // Authorization is synchronous. Keep it on the renderer thread and ordered before the app
+        // callback because the app may read the clipboard as soon as it handles the click.
+        handler.post {
+            if (SecurePasteToolbar.isPasteAction(menuItem)) {
+                onPasteActionCallback.onPasteAction(hostUid, hostInputToken.token)
+            }
+            callbackWrapper.onMenuItemClicked(menuItem.itemIndex)
+        }
+    }
 
     private val viewPortOnScreen = Rect() // portion of screen we can draw in.
 
@@ -1182,7 +1186,7 @@ class RemoteSelectionToolbar(
         overflowPanel.adapter = adapter
         overflowPanel.setOnItemClickListener { _, _, position: Int, _ ->
             val menuItem = overflowPanel.adapter.getItem(position) as ToolbarMenuItem
-            callbackWrapper.onMenuItemClicked(menuItem.itemIndex)
+            dispatchMenuItemClick(menuItem)
         }
         return overflowPanel
     }
@@ -1415,7 +1419,7 @@ class RemoteSelectionToolbar(
                 val menuItem = menuItems[i]
 
                 transformedMenuItems.add(
-                    when (menuItem.itemId) {
+                    when (SecurePasteToolbar.resolvePasteActionId(context, menuItem)) {
                         android.R.id.paste -> {
                             val newMenuItem = ToolbarMenuItem()
 

@@ -21,6 +21,7 @@ import android.annotation.Nullable;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputContentInfo;
 
@@ -59,6 +60,9 @@ interface InputMethodServiceInternal {
      * MRU list for input method rotation.
      */
     default void notifyUserActionIfNecessary() {
+    }
+
+    default void onPasteAction(@NonNull IBinder inputConnectionToken) {
     }
 
     /**

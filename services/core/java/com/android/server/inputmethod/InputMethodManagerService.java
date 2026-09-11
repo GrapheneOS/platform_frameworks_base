@@ -183,6 +183,7 @@ import com.android.server.AccessibilityManagerInternal;
 import com.android.server.LocalServices;
 import com.android.server.ServiceThread;
 import com.android.server.SystemService;
+import com.android.server.clipboard.ClipboardManagerInternal;
 import com.android.server.companion.virtual.VirtualDeviceManagerInternal;
 import com.android.server.input.InputManagerInternal;
 import com.android.server.inputmethod.InputMethodManagerInternal.InputMethodListListener;
@@ -7086,6 +7087,44 @@ public final class InputMethodManagerService implements IInputMethodManagerImpl.
                 } finally {
                     Binder.restoreCallingIdentity(ident);
                 }
+            }
+        }
+
+        @BinderThread
+        @Override
+        public void onPasteAction(IBinder inputConnectionToken, AndroidFuture future /* T=Void */) {
+            @SuppressWarnings("unchecked") final AndroidFuture<Void> typedFuture = future;
+            // The caller waits for completion before dispatching Paste. Bind authorization to both
+            // the active selected IME and its exact current editor connection.
+            try {
+                synchronized (ImfLock.class) {
+                    if (inputConnectionToken == null
+                            || !calledWithValidTokenLocked(mToken, mUserData)) {
+                        typedFuture.complete(null);
+                        return;
+                    }
+                    final var bindingController = mUserData.mBindingController;
+                    final String selectedImeId = bindingController.getSelectedImeId();
+                    final ClientState currentClient = mUserData.mCurClient;
+                    final IRemoteInputConnection currentConnection =
+                            mUserData.mCurInputConnection;
+                    if (currentClient != null
+                            && currentConnection != null
+                            && Binder.getCallingUid() == bindingController.getCurImeUid()
+                            && currentConnection.asBinder() == inputConnectionToken
+                            && selectedImeId != null
+                            && selectedImeId.equals(bindingController.getCurImeId())) {
+                        final ClipboardManagerInternal cmi =
+                                LocalServices.getService(ClipboardManagerInternal.class);
+                        if (cmi != null) {
+                            cmi.createPasteGrantForDisplay(currentClient.mUid,
+                                    currentClient.mSelfReportedDisplayId);
+                        }
+                    }
+                    typedFuture.complete(null);
+                }
+            } catch (Throwable e) {
+                typedFuture.completeExceptionally(e);
             }
         }
 

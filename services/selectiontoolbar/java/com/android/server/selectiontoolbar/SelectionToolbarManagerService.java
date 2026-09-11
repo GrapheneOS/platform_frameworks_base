@@ -106,8 +106,9 @@ public class SelectionToolbarManagerService extends SystemService {
         }
 
         @Override
-        public void onPasteAction(int uid) {
-            mClipboardManagerInternal.notifyUserAuthorizedClipAccess(uid);
+        public void onPasteAction(int uid, IBinder hostInputToken) {
+            SecurePasteSelectionToolbar.onPasteAction(
+                    mClipboardManagerInternal, uid, hostInputToken);
         }
     }
 

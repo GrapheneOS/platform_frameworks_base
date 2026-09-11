@@ -1023,6 +1023,11 @@ public abstract class WindowManagerInternal {
      */
     public abstract @Nullable IBinder getTargetWindowTokenFromInputToken(IBinder inputToken);
 
+    /** Returns the owner and display for a window or embedded input target. */
+    public abstract @Nullable InputTargetInfo getInputTargetInfo(IBinder inputToken);
+
+    public record InputTargetInfo(int ownerUid, int displayId) {}
+
     /** The information of input method target when IME is requested to show or hide. */
     public static class ImeTargetInfo {
 
