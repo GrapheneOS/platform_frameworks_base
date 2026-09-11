@@ -4,7 +4,9 @@ import android.annotation.NonNull;
 import android.annotation.SystemApi;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.GosPackageState;
 import android.content.pm.PackageManager;
+import android.ext.settings.app.AswStrictLeakBlocking;
 import android.os.UserHandle;
 import android.provider.Settings;
 
@@ -42,5 +44,10 @@ public class ConnectivityUtil {
         final int lockdownVpnEnabled = Settings.Secure.getIntForUser(context.getContentResolver(),
                 Settings.Secure.ALWAYS_ON_VPN_LOCKDOWN, 0, UserHandle.getUserId(uid));
         return lockdownVpnEnabled == 1 && !isSystem(context, uid);
+    }
+
+    public static boolean isAppStrictLeakBlockingEnabled(@NonNull Context context, int uid,
+            @NonNull ApplicationInfo ai, @NonNull GosPackageState ps) {
+        return AswStrictLeakBlocking.I.get(context, uid, ai, ps);
     }
 }

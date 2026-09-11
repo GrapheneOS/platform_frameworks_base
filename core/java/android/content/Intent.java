@@ -4237,6 +4237,7 @@ public class Intent implements Parcelable, Cloneable {
      * the current state of the user.
      * @hide
      */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
     public static final String ACTION_USER_STARTED =
             "android.intent.action.USER_STARTED";
 
@@ -4302,6 +4303,7 @@ public class Intent implements Parcelable, Cloneable {
      * @hide
      */
     @TestApi
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
     public static final String ACTION_USER_STOPPED =
             "android.intent.action.USER_STOPPED";
 

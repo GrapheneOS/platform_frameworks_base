@@ -22,6 +22,9 @@ import com.android.server.LocalServices;
 import java.util.Objects;
 
 import static android.content.pm.GosPackageStateFlag.ALLOW_ACCESS_TO_OBB_DIRECTORY;
+import static android.content.pm.GosPackageStateFlag.STRICT_LEAK_BLOCKING;
+import static android.content.pm.GosPackageStateFlag.STRICT_LEAK_BLOCKING_NON_DEFAULT;
+import static android.content.pm.GosPackageStateFlag.STRICT_LEAK_BLOCKING_SUPPRESS_NOTIF;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_SUPPRESS_NOTIF;
@@ -145,6 +148,9 @@ class GosPackageStatePermissions {
                 USE_EXEC_SPAWNING_NON_DEFAULT,
                 USE_EXEC_SPAWNING,
                 ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE,
+                STRICT_LEAK_BLOCKING_NON_DEFAULT,
+                STRICT_LEAK_BLOCKING,
+                STRICT_LEAK_BLOCKING_SUPPRESS_NOTIF,
         };
         builder()
                 .readWriteFlags(settingsReadWriteFlags)

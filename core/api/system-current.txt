@@ -5867,6 +5867,17 @@ package android.ext {
     field public static final int UNKNOWN = 0; // 0x0
   }
 
+  public class SettingsIntents {
+    method @NonNull public static android.content.Intent createAppIntent(@NonNull android.content.Context, @NonNull String, @NonNull String, boolean);
+    field public static final String APP_HARDENED_MALLOC = "android.settings.OPEN_APP_HARDENED_MALLOC_SETTINGS";
+    field public static final String APP_MANAGE_PLAY_INTEGRITY_API = "android.settings.OPEN_APP_MANAGE_PLAY_INTEGRITY_API_SETTINGS";
+    field public static final String APP_MEMORY_DYN_CODE_LOADING = "android.settings.OPEN_APP_MEMORY_DYN_CODE_LOADING_SETTINGS";
+    field public static final String APP_MEMTAG = "android.settings.OPEN_APP_MEMTAG_SETTINGS";
+    field public static final String APP_NATIVE_DEBUGGING = "android.settings.OPEN_APP_NATIVE_DEBUGGING_SETTINGS";
+    field public static final String APP_STORAGE_DYN_CODE_LOADING = "android.settings.OPEN_APP_STORAGE_DYN_CODE_LOADING_SETTINGS";
+    field public static final String APP_STRICT_LEAK_BLOCKING = "android.settings.OPEN_APP_STRICT_LEAK_BLOCKING";
+  }
+
 }
 
 package android.ext.cscopes {

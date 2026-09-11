@@ -125,6 +125,8 @@ package android.content {
 
   public class Intent implements Cloneable android.os.Parcelable {
     field public static final String ACTION_SETTING_RESTORED = "android.os.action.SETTING_RESTORED";
+    field public static final String ACTION_USER_STARTED = "android.intent.action.USER_STARTED";
+    field public static final String ACTION_USER_STOPPED = "android.intent.action.USER_STOPPED";
     field public static final String EXTRA_SETTING_NAME = "setting_name";
     field public static final String EXTRA_SETTING_NEW_VALUE = "new_value";
     field public static final String EXTRA_SETTING_PREVIOUS_VALUE = "previous_value";
@@ -146,6 +148,7 @@ package android.content.pm {
   }
 
   public abstract class PackageManager {
+    method @NonNull @RequiresPermission(android.Manifest.permission.INTERACT_ACROSS_USERS) public abstract android.content.pm.PackageInfo getPackageInfoAsUser(@NonNull String, int, int) throws android.content.pm.PackageManager.NameNotFoundException;
     method @NonNull public String getSdkSandboxPackageName();
     method @RequiresPermission(android.Manifest.permission.MAKE_UID_VISIBLE) public void makeUidVisible(int, int);
     field public static final String EXTRA_VERIFICATION_ROOT_HASH = "android.content.pm.extra.VERIFICATION_ROOT_HASH";
@@ -157,6 +160,7 @@ package android.content.pm {
 package android.ext {
 
   public class ConnectivityUtil {
+    method public static boolean isAppStrictLeakBlockingEnabled(@NonNull android.content.Context, int, @NonNull android.content.pm.ApplicationInfo, @NonNull android.content.pm.GosPackageState);
     method public static boolean isRegularAppWithLockdownVpnEnabled(@NonNull android.content.Context, int);
     method public static boolean isSystem(@NonNull android.content.Context, int);
   }
@@ -629,6 +633,7 @@ package android.os {
   public final class UserHandle implements android.os.Parcelable {
     method public static int getUid(int, int);
     method public static int getUserId(int);
+    method public static boolean isCore(int);
   }
 
   public class UserManager {
