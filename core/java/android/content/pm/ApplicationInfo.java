@@ -2139,6 +2139,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
     public ApplicationInfo(ApplicationInfo orig) {
         super(orig);
         ext = orig.ext;
+        playStoreSourceStampPresence = orig.playStoreSourceStampPresence;
         taskAffinity = orig.taskAffinity;
         permission = orig.permission;
         mKnownActivityEmbeddingCerts = orig.mKnownActivityEmbeddingCerts;
@@ -2239,6 +2240,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
         final int preWriteSize = dest.dataSize();
         super.writeToParcel(dest, parcelableFlags);
         ext.writeToParcel(dest, parcelableFlags);
+        dest.writeInt(playStoreSourceStampPresence);
         dest.writeString8(taskAffinity);
         dest.writeString8(permission);
         dest.writeString8(processName);
@@ -2371,6 +2373,7 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
     private ApplicationInfo(Parcel source) {
         super(source);
         ext = AppInfoExt.CREATOR.createFromParcel(source);
+        playStoreSourceStampPresence = source.readInt();
         taskAffinity = source.readString8();
         permission = source.readString8();
         processName = source.readString8();
@@ -3222,31 +3225,26 @@ public class ApplicationInfo extends PackageItemInfo implements Parcelable {
         return ext;
     }
 
-    private static volatile Boolean hasPlayStoreSourceStamp;
+    private int playStoreSourceStampPresence;
+    private static final int PLAY_STORE_SOURCE_STAMP_NOT_PRESENT = -1;
+    private static final int PLAY_STORE_SOURCE_STAMP_PRESENCE_UNKNOWN = 0;
+    private static final int PLAY_STORE_SOURCE_STAMP_PRESENT = 1;
+
+    /** @hide */
+    public void setPlayStoreSourceStampPresent(boolean present) {
+        playStoreSourceStampPresence = present ? PLAY_STORE_SOURCE_STAMP_PRESENT : PLAY_STORE_SOURCE_STAMP_NOT_PRESENT;
+    }
 
     /** @hide */
     public boolean hasPlayStoreSourceStamp() {
-        Boolean cache = hasPlayStoreSourceStamp;
-        if (cache != null) {
-            return cache.booleanValue();
-        }
-
-        var apkPaths = new ArrayList<String>();
-        apkPaths.add(Objects.requireNonNull(sourceDir));
-        String[] splits = splitSourceDirs;
-        if (splits != null) {
-            for (String splitPath : splits) {
-                apkPaths.add(Objects.requireNonNull(splitPath));
+        if (playStoreSourceStampPresence == PLAY_STORE_SOURCE_STAMP_PRESENCE_UNKNOWN) {
+            String msg = "playStoreSourceStampPresence is unknown; check whether PackageManager.GET_PLAY_STORE_SOURCE_STAMP_STATE flag is used";
+            if (android.os.Flags.isDevBuild()) {
+                throw new RuntimeException(msg);
+            } else {
+                Log.e(TAG, msg);
             }
         }
-        byte[] playStoreSourceStampCertDigest = java.util.HexFormat.of().parseHex(
-                "3257d599a49d2c961a471ca9843f59d341a405884583fc087df4237b733bbd6d");
-        boolean result = android.util.apk.SourceStampVerifier
-                .verify(apkPaths, /* requiredSourceStamp */ playStoreSourceStampCertDigest)
-                .isVerified();
-        hasPlayStoreSourceStamp = Boolean.valueOf(result);
-        android.util.Log.d("PlayStoreSourceStampCheck",
-                "result for " + packageName + ": " + result);
-        return result;
+        return playStoreSourceStampPresence == PLAY_STORE_SOURCE_STAMP_PRESENT;
     }
 }

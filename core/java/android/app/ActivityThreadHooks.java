@@ -59,8 +59,8 @@ class ActivityThreadHooks {
         return args;
     }
 
-    // called after ActivityThread instrumentation is inited, which happens before execution of any
-    // of app's code
+    // called after ActivityThread instrumentation is inited, which happens before Application class
+    // init but after app-overridable AppComponentFactory init
     // ActivityThread.handleBindApplication
     static void onBind2(Context appContext, Bundle appBindArgs) {
         ActivityThreadHooks.appContext = appContext;

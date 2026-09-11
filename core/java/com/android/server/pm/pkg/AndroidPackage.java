@@ -48,6 +48,7 @@ import android.util.SparseArray;
 import android.util.SparseIntArray;
 
 import com.android.internal.R;
+import com.android.internal.pm.parsing.nano.ApcPackageConfig;
 import com.android.internal.pm.parsing.pkg.PackageExtIface;
 import com.android.internal.pm.pkg.component.ParsedActivity;
 import com.android.internal.pm.pkg.component.ParsedAllowComponentAccessPolicy;
@@ -1557,8 +1558,16 @@ public interface AndroidPackage {
     int getIntentMatchingFlags();
 
     /** @hide */
+    boolean hasPlayStoreSourceStamp();
+
+    /** @hide */
     @Immutable.Ignore
     PackageExtIface ext();
+
+    /** @hide */
+    @Immutable.Ignore
+    @Nullable
+    ApcPackageConfig getApcPackageConfig();
 
     /**
      * Returns true if this application has any component that should run in

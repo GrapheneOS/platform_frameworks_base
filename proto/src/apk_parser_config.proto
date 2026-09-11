@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package com.android.internal.pm.parsing;
+option java_multiple_files = true;
+
+message ApcPackageConfig { // Apc is short for "APK parser config"
+  enum Flag {
+    // enables bidirectional AppsFilter isolation from GmsCore and Finsky (Play Store)
+    FLAG_ISOLATE_FROM_GMSCORE_AND_FINSKY = 0;
+    // enables bidirectional AppsFilter isolation from all user apps
+    FLAG_ISOLATE_FROM_USER_APPS = 1;
+    // makes adevtool include priv-app packages as regular unprivileged packages
+    FLAG_INCLUDE_AS_UNTRUSTED_APP = 2;
+  }
+
+  repeated string uses_permissions_to_ignore = 1;
+  int64 flags = 2;
+}
+
+message PackageInstallRequirements {
+  string cert_sha256 = 1;
+  int64 min_version = 2;
+}
+
+message ApkParserConfig {
+  // permission name -> package name
+  map<string, string> permission_owners = 1;
+  // permission group name -> package name
+  map<string, string> permission_group_owners = 2;
+  // content provider authority -> package name
+  map<string, string> content_provider_authority_owners = 3;
+  // packages from stock OS that are not allowed to be installed
+  repeated string non_installable_packages = 4;
+  // map keys are package names
+  map<string, ApcPackageConfig> parsing_configs = 5;
+  // packages from stock OS that can be installed if requirements are met; map keys are package names
+  map<string, PackageInstallRequirements> installable_packages = 6;
+}
+

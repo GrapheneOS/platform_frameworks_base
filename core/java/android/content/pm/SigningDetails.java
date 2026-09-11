@@ -1021,8 +1021,7 @@ public final class SigningDetails implements Parcelable {
             // check all past certs, except for the last one, which automatically gets all
             // capabilities, since it is the same as the current signature, and is checked below
             for (int i = 0; i < mPastSigningCertificates.length - 1; i++) {
-                byte[] digest = PackageUtils.computeSha256DigestBytes(
-                        mPastSigningCertificates[i].toByteArray());
+                byte[] digest = mPastSigningCertificates[i].getSha256Digest();
                 if (Arrays.equals(sha256Certificate, digest)) {
                     if (flags == PAST_CERT_EXISTS
                             || (flags & mPastSigningCertificates[i].getFlags()) == flags) {
@@ -1034,7 +1033,7 @@ public final class SigningDetails implements Parcelable {
 
         // not in previous certs signing history, just check the current signer
         if (mSignatures.length == 1) {
-            byte[] digest = PackageUtils.computeSha256DigestBytes(mSignatures[0].toByteArray());
+            byte[] digest = mSignatures[0].getSha256Digest();
             return Arrays.equals(sha256Certificate, digest);
         }
         return false;

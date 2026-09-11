@@ -7523,6 +7523,11 @@ public final class Settings {
         @Protected(readWrite = KnownSystemPackage.SETTINGS)
         public static final String DISALLOW_DELAYED_LOCKING_ON_USER_STOP = "disallow_delayed_locking_on_user_stop";
 
+        /** @hide */
+        @Readable
+        @Protected(restrictReads = false, readWrite = KnownSystemPackage.SETTINGS)
+        public static final String SPOOF_INSTALL_SOURCE_FOR_PLAY_STORE_APPS = "spoof_install_source_for_play_store_apps";
+
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to

@@ -39,9 +39,10 @@ import androidx.compose.ui.unit.DpOffset
 import com.android.settingslib.spa.framework.theme.SettingsDimension
 
 @Composable
-fun CopyableBody(body: String) {
+fun CopyableBody(bodyCharSequence: CharSequence, showDropdownTitle: Boolean = true) {
     var expanded by remember { mutableStateOf(false) }
     var dpOffset by remember { mutableStateOf(DpOffset.Unspecified) }
+    val body = remember(bodyCharSequence) { bodyCharSequence.toString() }
 
     Box(modifier = Modifier
         .fillMaxWidth()
@@ -54,14 +55,16 @@ fun CopyableBody(body: String) {
             )
         }
     ) {
-        SettingsBody(body)
+        SettingsBody(bodyCharSequence)
 
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
             offset = dpOffset,
         ) {
-            DropdownMenuTitle(body)
+            if (showDropdownTitle) {
+                DropdownMenuTitle(body)
+            }
             DropdownMenuCopy(body) { expanded = false }
         }
     }

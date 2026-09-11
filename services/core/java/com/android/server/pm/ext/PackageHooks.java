@@ -3,12 +3,15 @@ package com.android.server.pm.ext;
 import android.annotation.Nullable;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManagerInternal;
+import android.ext.PackageId;
 import android.util.ArraySet;
 
+import com.android.internal.pm.parsing.nano.ApcPackageConfig;
 import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageState;
 import com.android.server.pm.pkg.PackageStateInternal;
-import com.android.server.pm.pkg.PackageUserStateInternal;
+
+import static com.android.internal.pm.parsing.PackageParserConfig.hasApcFlag;
 
 public class PackageHooks {
     static final PackageHooks DEFAULT = new PackageHooks();
@@ -75,8 +78,29 @@ public class PackageHooks {
             boolean isSelfToOther) {
         AndroidPackage pkg = pkgSetting.getPkg();
         if (pkg != null) {
-            return PackageExt.get(pkg).hooks()
-                    .shouldBlockPackageVisibility(pkgUserId, otherPkgSetting, isSelfToOther);
+            if (PackageExt.get(pkg).hooks()
+                    .shouldBlockPackageVisibility(pkgUserId, otherPkgSetting, isSelfToOther)) {
+                return true;
+            }
+
+            ApcPackageConfig config = pkg.getApcPackageConfig();
+            if (config != null) {
+                if (hasApcFlag(config, ApcPackageConfig.FLAG_ISOLATE_FROM_USER_APPS)) {
+                    if (isUserInstalledPkg(otherPkgSetting)) {
+                        return true;
+                    }
+                }
+                if (hasApcFlag(config, ApcPackageConfig.FLAG_ISOLATE_FROM_GMSCORE_AND_FINSKY)) {
+                    String otherPkgName = otherPkgSetting.getPackageName();
+                    // Finsky is the internal name of the Play Store
+                    switch (otherPkgName) {
+                        case PackageId.GSF_NAME:
+                        case PackageId.GMS_CORE_NAME:
+                        case PackageId.PLAY_STORE_NAME:
+                            return true;
+                    }
+                }
+            }
         }
 
         return false;

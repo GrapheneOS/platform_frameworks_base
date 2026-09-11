@@ -31,6 +31,7 @@ import android.util.ArraySet;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
+import com.android.internal.pm.parsing.nano.ApcPackageConfig;
 import com.android.internal.pm.parsing.pkg.PackageExtIface;
 import com.android.internal.pm.parsing.pkg.ParsedPackage;
 import com.android.internal.pm.pkg.component.ParsedActivity;
@@ -636,9 +637,18 @@ public interface ParsingPackage {
 
     void initPackageParsingHooks();
 
+    @Nullable
+    ApcPackageConfig getApcPackageConfig();
+
     default PackageParsingHooks getPackageParsingHooks() {
         return PackageParsingHooks.DEFAULT;
     }
+
+    boolean areIdOwnershipChecksEnabled();
+
+    void recordIdOwnershipViolation(String text);
+
+    String[] getIdOwnershipViolations();
 
     void setPackageExt(@Nullable PackageExtIface ext);
 

@@ -137,5 +137,7 @@
         <public name="usb_port_security_error_title"/>
         <!-- @hide -->
         <public name="deprecated_abi_message_grapheneos"/>
+        <!-- @hide -->
+        <public name="pkg_id_violation_blocked"/>
     </staging-public-group>
 </resources>

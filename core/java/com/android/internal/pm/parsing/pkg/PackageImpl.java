@@ -24,6 +24,7 @@ import android.annotation.FlaggedApi;
 import android.annotation.LongDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.ActivityThread;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
@@ -45,6 +46,7 @@ import android.os.storage.StorageManager;
 import android.text.TextUtils;
 import android.util.ArrayMap;
 import android.util.ArraySet;
+import android.util.Log;
 import android.util.Pair;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
@@ -52,6 +54,8 @@ import android.util.SparseIntArray;
 import com.android.internal.R;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.pm.parsing.AppInfoUtils;
+import com.android.internal.pm.parsing.PackageParserConfig;
+import com.android.internal.pm.parsing.nano.ApcPackageConfig;
 import com.android.internal.pm.pkg.AndroidPackageSplitImpl;
 import com.android.internal.pm.pkg.SEInfoUtil;
 import com.android.internal.pm.pkg.component.ComponentMutateUtils;
@@ -103,7 +107,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
@@ -611,13 +614,26 @@ public class PackageImpl implements ParsedPackage, AndroidPackageInternal,
     }
 
     @Override
+    public boolean areIdOwnershipChecksEnabled() {
+        return idOwnershipChecksEnabled;
+    }
+
+    @Override
     public PackageImpl addPermission(ParsedPermission permission) {
+        if (areIdOwnershipChecksEnabled()) {
+            PackageParserConfig.get().checkPermissionOwnership(this, permission);
+        }
+
         this.permissions = CollectionUtils.add(this.permissions, permission);
         return this;
     }
 
     @Override
     public PackageImpl addPermissionGroup(ParsedPermissionGroup permissionGroup) {
+        if (areIdOwnershipChecksEnabled()) {
+            PackageParserConfig.get().checkPermissionGroupOwnership(this, permissionGroup);
+        }
+
         this.permissionGroups = CollectionUtils.add(this.permissionGroups, permissionGroup);
         return this;
     }
@@ -651,7 +667,12 @@ public class PackageImpl implements ParsedPackage, AndroidPackageInternal,
     @Override
     public PackageImpl addProvider(ParsedProvider parsedProvider) {
         if (getPackageParsingHooks().shouldSkipProvider(parsedProvider)) {
+            Log.d("PackageParsingHooks", "skipped provider " + parsedProvider.getAuthority() + " in " + getPackageName());
             return this;
+        }
+
+        if (areIdOwnershipChecksEnabled()) {
+            PackageParserConfig.get().checkContentProviderAuthorityOwnership(this, parsedProvider);
         }
 
         this.providers = CollectionUtils.add(this.providers, parsedProvider);
@@ -4066,18 +4087,51 @@ public class PackageImpl implements ParsedPackage, AndroidPackageInternal,
     }
 
     private PackageParsingHooks packageParsingHooks = PackageParsingHooks.DEFAULT;
+    @Nullable
+    private ApcPackageConfig apcPackageConfig;
 
     public static Function<String, PackageParsingHooks> packageParsingHooksSupplier;
 
     @Override
     public void initPackageParsingHooks() {
         var supplier = packageParsingHooksSupplier;
-        packageParsingHooks = supplier != null ? supplier.apply(getPackageName()) : PackageParsingHooks.DEFAULT;
+        String pkgName = getPackageName();
+        packageParsingHooks = supplier != null ? supplier.apply(pkgName) : PackageParsingHooks.DEFAULT;
+        if (ActivityThread.isSystem()) {
+            apcPackageConfig = PackageParserConfig.get().getApcPackageConfig(pkgName);
+        }
+    }
+
+    @Nullable
+    @Override
+    public ApcPackageConfig getApcPackageConfig() {
+        return apcPackageConfig;
     }
 
     @Override
     public PackageParsingHooks getPackageParsingHooks() {
         return packageParsingHooks;
+    }
+
+    private boolean idOwnershipChecksEnabled;
+    private final ArrayList<String> idOwnershipViolations = new ArrayList<>();
+
+    public void enableIdOwnershipChecks() {
+        idOwnershipChecksEnabled = true;
+    }
+
+    @Override
+    public void recordIdOwnershipViolation(String text) {
+        synchronized (idOwnershipViolations) {
+            idOwnershipViolations.add(text);
+        }
+    }
+
+    @Override
+    public String[] getIdOwnershipViolations() {
+        synchronized (idOwnershipViolations) {
+            return idOwnershipViolations.toArray(String[]::new);
+        }
     }
 
     private PackageExtIface ext = PackageExtDefault.INSTANCE;
@@ -4091,6 +4145,30 @@ public class PackageImpl implements ParsedPackage, AndroidPackageInternal,
     @Override
     public PackageExtIface ext() {
         return ext;
+    }
+
+    private volatile Boolean hasPlayStoreSourceStamp;
+
+    @Override
+    public boolean hasPlayStoreSourceStamp() {
+        Boolean cache = hasPlayStoreSourceStamp;
+        if (cache != null) {
+            return cache.booleanValue();
+        }
+
+        var apkPaths = new ArrayList<String>();
+        apkPaths.add(getBaseApkPath());
+        apkPaths.addAll(Arrays.asList(getSplitCodePaths()));
+
+        byte[] playStoreSourceStampCertDigest = java.util.HexFormat.of().parseHex(
+                "3257d599a49d2c961a471ca9843f59d341a405884583fc087df4237b733bbd6d");
+        boolean result = android.util.apk.SourceStampVerifier
+                .verify(apkPaths, /* requiredSourceStamp */ playStoreSourceStampCertDigest)
+                .isVerified();
+        hasPlayStoreSourceStamp = Boolean.valueOf(result);
+        android.util.Slog.d("PlayStoreSourceStampCheck",
+                "result for " + packageName + ": " + result);
+        return result;
     }
 
     public long cachedCompatConfigVersionCode;

@@ -5,6 +5,7 @@ import android.content.ContentProvider;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.ApplicationInfoFlags;
 import android.ext.PackageId;
 import android.os.RemoteException;
 import android.provider.Settings;
@@ -55,18 +56,26 @@ public class PairipHooks {
         if (cache != null) {
             return cache.booleanValue();
         }
-
-        boolean res = context.getApplicationInfo().hasPlayStoreSourceStamp();
+        PackageManager pm = context.getPackageManager();
+        String selfPkgName = context.getPackageName();
+        ApplicationInfo selfAppInfo;
+        try {
+            selfAppInfo = pm.getApplicationInfo(selfPkgName,
+                    ApplicationInfoFlags.of(PackageManager.GET_PLAY_STORE_SOURCE_STAMP_STATE));
+        } catch (PackageManager.NameNotFoundException e) {
+            throw new IllegalStateException(e);
+        }
+        boolean res = selfAppInfo.hasPlayStoreSourceStamp();
         if (res) {
             boolean installedFromPlayStore = false;
             String installerPkg;
             try {
-                installerPkg = AppGlobals.getPackageManager().getInstallerPackageName(context.getPackageName());
+                // ApplicationPackageManager result might be spoofed, see InstallSourceSpoofingHooks
+                installerPkg = AppGlobals.getPackageManager().getInstallerPackageName(selfPkgName);
             } catch (RemoteException e) {
                 throw e.rethrowFromSystemServer();
             }
             if (PackageId.PLAY_STORE_NAME.equals(installerPkg)) {
-                PackageManager pm = context.getPackageManager();
                 try {
                     ApplicationInfo ai = pm.getApplicationInfo(PackageId.PLAY_STORE_NAME, 0);
                     installedFromPlayStore = ai.ext().getPackageId() == PackageId.PLAY_STORE;

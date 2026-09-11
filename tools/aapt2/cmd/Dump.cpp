@@ -343,7 +343,7 @@ static int32_t GetInt(BinaryPrimitive& bp) {
 
 static bool GetBool(BinaryPrimitive& bp) {
   CHECK(bp.value.dataType == android::Res_value::TYPE_INT_BOOLEAN);
-  return static_cast<bool>(bp.value.data);
+  return bp.value.data != 0u;
 }
 
 static bool GetBoolAttr(xml::Attribute& attr) {
@@ -358,11 +358,19 @@ static int32_t GetIntAttr(xml::Attribute& attr) {
   return GetInt(*attr_prim);
 }
 
+static xml::Attribute* GetName(xml::Element* element) {
+  xml::Attribute* name = element->FindAttribute(xml::kSchemaAndroid, "name");
+  CHECK(name != nullptr && !name->value.empty());
+  return name;
+}
+
 int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
   if (args.size() != 1) {
     diag_->Error(android::DiagMessage() << "should specify exactly one apk.");
     return 1;
   }
+  sdk_version_ = std::stoi(sdk_version_str_);
+  CHECK(sdk_version_ > 0);
 
   const std::string &apk_path = args[0];
   android::Source source(apk_path);
@@ -389,6 +397,7 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
     CHECK(attr != nullptr);
     CHECK(!attr->value.empty());
     bpi.set_package_name(attr->value);
+    bpi.set_target_sdk(sdk_version_);
   }
   {
     xml::Attribute* ver_code_major_attr = manifest_el->FindAttribute(xml::kSchemaAndroid, "versionCodeMajor");
@@ -399,19 +408,17 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
     xml::Attribute* ver_code_attr = manifest_el->FindAttribute(xml::kSchemaAndroid, "versionCode");
     CHECK(ver_code_attr != nullptr);
     int32_t ver_code = GetIntAttr(*ver_code_attr);
-    bpi.set_version_code((static_cast<int64_t>(ver_code_major) << 32) | ver_code);
+    bpi.set_version_code((static_cast<int64_t>(ver_code_major) << 32) | static_cast<uint32_t>(ver_code));
   }
   // initialized lazily, not needed in the vast majority of cases
   std::unique_ptr<LoadedApk> loaded_apk = nullptr;
 
   for (xml::Element* manifest_child : manifest_el->GetChildElements()) {
     if (manifest_child->name == "permission" || manifest_child->name == "permission-tree") {
-      xml::Attribute* name = manifest_child->FindAttribute(xml::kSchemaAndroid, "name");
-      CHECK(!name->value.empty());
+      xml::Attribute* name = GetName(manifest_child);
       bpi.add_permission(name->value);
     } else if (manifest_child->name == "permission-group") {
-      xml::Attribute* name = manifest_child->FindAttribute(xml::kSchemaAndroid, "name");
-      CHECK(!name->value.empty());
+      xml::Attribute* name = GetName(manifest_child);
       bpi.add_permission_group(name->value);
     } else if (manifest_child->name == "uses-permission" || manifest_child->name == "uses-permission-sdk-23" || manifest_child->name == "uses-permission-sdk-m") {
       xml::Attribute* max_sdk_attr = manifest_child->FindAttribute(xml::kSchemaAndroid, "maxSdkVersion");
@@ -425,7 +432,7 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
                 loaded_apk = LoadedApk::LoadApkFromPath(apk_path, diag_);
             }
             ConfigDescription config;
-            config.sdkVersion = std::stoi(sdk_version_);
+            config.sdkVersion = sdk_version_;
             Value* val = FindValueById(loaded_apk->GetResourceTable(), res_id, config);
             CHECK(val != nullptr);
             auto *bp = ValueCast<BinaryPrimitive>(val);
@@ -435,24 +442,27 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
           max_sdk = GetIntAttr(*max_sdk_attr);
         }
 
-        if (max_sdk < std::stoi(sdk_version_)) {
+        if (max_sdk < sdk_version_) {
           continue;
         }
       }
-      xml::Attribute* name = manifest_child->FindAttribute(xml::kSchemaAndroid, "name");
-      CHECK(!name->value.empty());
+      xml::Attribute* name = GetName(manifest_child);
       bpi.add_uses_permission(name->value);
     } else if (manifest_child->name == "uses-sdk") {
       xml::Attribute* target_sdk = manifest_child->FindAttribute(xml::kSchemaAndroid, "targetSdkVersion");
-      if (target_sdk == nullptr) {
-        bpi.set_target_sdk(std::stoi(sdk_version_));
-      } else {
+      if (target_sdk != nullptr) {
         bpi.set_target_sdk(GetIntAttr(*target_sdk));
+      } else {
+        xml::Attribute* min_sdk = manifest_child->FindAttribute(xml::kSchemaAndroid, "minSdkVersion");
+        if (min_sdk != nullptr) {
+          bpi.set_target_sdk(GetIntAttr(*min_sdk));
+        }
       }
     } else if (manifest_child->name == "application") {
       for (xml::Element* app_child : manifest_child->GetChildElements()) {
         if (app_child->name == "provider") {
           xml::Attribute* authorities = app_child->FindAttribute(xml::kSchemaAndroid, "authorities");
+          CHECK(authorities != nullptr);
           // authorities can be specified with a string resource reference
           auto* ref = ValueCast<Reference>(authorities->compiled_value.get());
           if (ref == nullptr) {
@@ -467,18 +477,18 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
                 loaded_apk = LoadedApk::LoadApkFromPath(apk_path, diag_);
             }
             ConfigDescription config;
-            config.sdkVersion = std::stoi(sdk_version_);
+            config.sdkVersion = sdk_version_;
             Value* val = FindValueById(loaded_apk->GetResourceTable(), res_id, config);
             CHECK(val != nullptr);
 
             auto str = ValueCast<String>(val);
+            CHECK(str != nullptr);
             for (std::string part : util::Split(*str->value, ';')) {
               bpi.add_content_provider_authority(part);
             }
           }
         } else if (app_child->name == "uses-library") {
-          xml::Attribute* name = app_child->FindAttribute(xml::kSchemaAndroid, "name");
-          CHECK(!name->value.empty());
+          xml::Attribute* name = GetName(app_child);
           bool required = true;
           xml::Attribute* required_attr = app_child->FindAttribute(xml::kSchemaAndroid, "required");
           if (required_attr != nullptr) {
@@ -491,15 +501,17 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
             bpi.add_optional_uses_library(name->value);
           }
         } else if (app_child->name == "library") {
-          xml::Attribute* name = app_child->FindAttribute(xml::kSchemaAndroid, "name");
-          CHECK(!name->value.empty());
+          xml::Attribute* name = GetName(app_child);
           bpi.add_library(name->value);
         }
       }
     }
   }
-  bpi.SerializeToOstream(&std::cout);
-  return 0;
+  if (!bpi.SerializeToOstream(&std::cout)) {
+    return 1;
+  }
+  std::cout.flush();
+  return std::cout.good() ? 0 : 1;
 }
 
 int DumpPackageNameCommand::Dump(LoadedApk* apk) {

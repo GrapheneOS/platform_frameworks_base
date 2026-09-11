@@ -291,7 +291,23 @@ public class PackageInfoUtils {
         if ((flags & PackageManager.GET_SIGNING_CERTIFICATES) != 0) {
             if (signingDetails != SigningDetails.UNKNOWN) {
                 // only return a valid SigningInfo if there is signing information to report
-                info.signingInfo = new SigningInfo(signingDetails);
+                var si = new SigningInfo(signingDetails);
+                info.signingInfo = si;
+                if ((flags & PackageManager.CACHE_SIGNING_CERTIFICATE_DIGESTS) != 0) {
+                    Signature[] certs = si.getApkContentsSigners();
+                    if (certs != null) {
+                        for (Signature cert : certs) {
+                            // the cached value is kept during parceling
+                            cert.getSha256Digest();
+                        }
+                    }
+                    Signature[] certHistory = si.getSigningCertificateHistory();
+                    if (certHistory != null) {
+                        for (Signature cert : certHistory) {
+                            cert.getSha256Digest();
+                        }
+                    }
+                }
             } else {
                 info.signingInfo = null;
             }
@@ -420,6 +436,14 @@ public class PackageInfoUtils {
 
     private static void updateApplicationInfo(ApplicationInfo ai, long flags,
             PackageUserState state, AndroidPackage pkg, int userId) {
+        if ((flags & PackageManager.GET_PLAY_STORE_SOURCE_STAMP_STATE) != 0) {
+            boolean res = false;
+            if (pkg != null) {
+                res = pkg.hasPlayStoreSourceStamp();
+            }
+            ai.setPlayStoreSourceStampPresent(res);
+        }
+
         if ((flags & PackageManager.GET_META_DATA) == 0) {
             ai.metaData = null;
         }

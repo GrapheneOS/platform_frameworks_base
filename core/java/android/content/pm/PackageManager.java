@@ -974,6 +974,8 @@ public abstract class PackageManager {
             MATCH_DIRECT_BOOT_AWARE,
             MATCH_DIRECT_BOOT_UNAWARE,
             GET_ATTRIBUTIONS_LONG,
+            CACHE_SIGNING_CERTIFICATE_DIGESTS,
+            GET_PLAY_STORE_SOURCE_STAMP_STATE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface PackageInfoFlagsBits {}
@@ -995,6 +997,7 @@ public abstract class PackageManager {
             MATCH_APEX,
             MATCH_ARCHIVED_PACKAGES,
             GET_APP_LOCK_INFO,
+            GET_PLAY_STORE_SOURCE_STAMP_STATE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ApplicationInfoFlagsBits {}
@@ -1466,6 +1469,11 @@ public abstract class PackageManager {
      */
     @FlaggedApi(android.security.Flags.FLAG_APP_LOCK_APIS)
     public static final long GET_APP_LOCK_INFO = 1L << 35;
+
+    /** @hide */
+    public static final long CACHE_SIGNING_CERTIFICATE_DIGESTS = 1L << 55;
+    /** @hide */
+    public static final long GET_PLAY_STORE_SOURCE_STAMP_STATE = 1L << 56;
 
     //-------------------------------------------------------------------------
     // End of GET_ and MATCH_ flags

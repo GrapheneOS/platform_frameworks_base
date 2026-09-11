@@ -234,6 +234,7 @@ import com.android.server.pm.Installer.InstallerException;
 import com.android.server.pm.Settings.VersionInfo;
 import com.android.server.pm.dex.ArtManagerService;
 import com.android.server.pm.dex.DynamicCodeLogger;
+import com.android.server.pm.ext.PackageIdOwnershipChecks;
 import com.android.server.pm.local.PackageManagerLocalImpl;
 import com.android.server.pm.parsing.PackageCacher;
 import com.android.server.pm.parsing.PackageInfoUtils;
@@ -243,7 +244,6 @@ import com.android.server.pm.permission.LegacyPermissionManagerService;
 import com.android.server.pm.permission.LegacyPermissionSettings;
 import com.android.server.pm.permission.PermissionManagerService;
 import com.android.server.pm.permission.PermissionManagerServiceInternal;
-import com.android.server.pm.permission.SpecialRuntimePermUtils;
 import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.ArchiveState;
 import com.android.server.pm.pkg.PackageStateInternal;
@@ -2358,10 +2358,13 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                     .getBoolean(R.bool.config_stopSystemPackagesByDefault);
 
             final int[] userIds = mUserManager.getUserIds();
+            com.android.internal.pm.parsing.PackageParserConfig.init();
             PackageParser2 packageParser = mInjector.getScanningCachingPackageParser();
             mOverlayConfig = mInitAppsHelper.initSystemApps(packageParser, packageSettings, userIds,
                     startTime);
+            PackageParser2.Callback.enableIdOwnershipChecks();
             mInitAppsHelper.initNonSystemApps(packageParser, userIds, startTime);
+            PackageIdOwnershipChecks.setInitialPackageScanCompleted();
             packageParser.close();
 
             mRequiredVerifierPackages = getRequiredButNotReallyRequiredVerifiersLPr(computer);

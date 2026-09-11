@@ -205,6 +205,7 @@ public class PackageParsingPerfTest {
                     override fun hasFeature(feature: String) = true
 
                     override fun startParsingPackage(
+                        flags: Int,
                         packageName: String,
                         baseApkPath: String,
                         path: String,

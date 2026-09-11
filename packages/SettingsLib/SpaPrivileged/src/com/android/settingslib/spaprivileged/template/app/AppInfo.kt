@@ -36,6 +36,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import com.android.settingslib.development.DevelopmentSettingsEnabler
 import com.android.settingslib.spa.framework.compose.rememberDrawablePainter
@@ -131,7 +136,7 @@ class AppInfoProvider(private val packageInfo: PackageInfo) {
         if (footer.isBlank()) return
         if (!isSpaExpressiveEnabled) HorizontalDivider()
         Box(modifier = Modifier.padding(SettingsDimension.footerPadding)) {
-            CopyableBody(footer)
+            CopyableBody(footer, showDropdownTitle = false)
         }
     }
 
@@ -147,7 +152,12 @@ class AppInfoProvider(private val packageInfo: PackageInfo) {
             get() = BidiFormatter.getInstance().unicodeWrap(versionName)
     }
 
-    private fun getFooterText(ctx: Context): String {
+    enum class FormattingCommand {
+        MonospaceTextStart,
+        MonospaceTextEnd,
+    }
+
+    private fun getFooterText(ctx: Context): AnnotatedString {
         val pi = packageInfo
 
         val dateFormat = android.text.format.DateFormat.getMediumDateFormat(ctx)
@@ -160,17 +170,17 @@ class AppInfoProvider(private val packageInfo: PackageInfo) {
 
         val appInfo = pi.applicationInfo
 
-        val lines = mutableListOf<String>()
+        val lines = mutableListOf<Any>()
+        lines.add(pi.packageName)
         pi.versionNameBidiWrapped?.let {
             lines.add(ctx.getString(R.string.version_text, it))
-            lines.add("")
         }
-        lines.add(pi.packageName)
         lines.add("versionCode ${pi.getLongVersionCode()}")
-        lines.add("")
         if (appInfo != null) {
-            lines.add("targetSdk ${appInfo.targetSdkVersion}")
-            lines.add("minSdk ${appInfo.minSdkVersion}")
+            lines.add("targetSdk ${appInfo.targetSdkVersion} | minSdk ${appInfo.minSdkVersion}")
+            if (appInfo.hasPlayStoreSourceStamp()) {
+                lines.add(ctx.getString(R.string.app_info_has_play_store_source_stamp))
+            }
         }
 
         // some system apps report being installed in January 2009, skip showing install time for them
@@ -188,13 +198,65 @@ class AppInfoProvider(private val packageInfo: PackageInfo) {
         if (pi.lastUpdateTime != pi.firstInstallTime) {
             if (!addedBlankLineBeforeTime) {
                 lines.add("")
-                addedBlankLineBeforeTime = true
             }
             val s = formatDate(pi.lastUpdateTime, dateFormat, timeFormat)
             lines.add(ctx.getString(R.string.app_info_update_time, s))
         }
 
-        return lines.joinToString(separator = System.lineSeparator())
+        val signingInfo = pi.signingInfo
+        if (signingInfo != null) {
+            val certs = if (signingInfo.hasMultipleSigners()) {
+                signingInfo.apkContentsSigners
+            } else {
+                val certHistory = signingInfo.signingCertificateHistory
+                if (certHistory != null) {
+                    arrayOf(certHistory.last())
+                } else {
+                    null
+                }
+            }
+            if (certs != null) {
+                lines.add("")
+                val hexFormat = HexFormat {
+                    bytes {
+                        bytesPerGroup = 2
+                        groupSeparator = " "
+                    }
+                }
+                certs.forEach {
+                    lines.add(ctx.getString(R.string.app_info_apk_cert_digest))
+                    val digest = it.sha256Digest
+                    check(digest.size == 32)
+                    lines.add(FormattingCommand.MonospaceTextStart)
+                    lines.add(digest.copyOfRange(0, 16).toHexString(hexFormat))
+                    lines.add(digest.copyOfRange(16, 32).toHexString(hexFormat))
+                    lines.add(FormattingCommand.MonospaceTextEnd)
+                }
+            }
+        }
+
+        return buildAnnotatedString {
+            var start = -1
+            lines.forEachIndexed { idx, obj ->
+                when {
+                    obj is String -> {
+                        if (length != 0) {
+                            append('\n')
+                        }
+                        append(obj)
+                    }
+                    obj == FormattingCommand.MonospaceTextStart -> {
+                        start = length
+                    }
+                    obj == FormattingCommand.MonospaceTextEnd -> {
+                        addStyle(SpanStyle(fontFamily = FontFamily.Monospace), start, length)
+                    }
+                    else -> {
+                        error("unknown command $obj")
+                    }
+                }
+            }
+        }
     }
 }
 
