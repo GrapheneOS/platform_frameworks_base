@@ -345,7 +345,8 @@ public class GosPackageStatePmHooks {
     }
 
     /** @see PackageManagerService.IPackageManagerImpl#clearApplicationUserData */
-    public static void onClearApplicationUserData(PackageManagerService pm, String packageName, int userId) {
+    static void onApplicationDataCleared(
+            PackageManagerService pm, String packageName, int userId) {
         if (packageName.equals(KnownSystemPackages.get(pm.getContext()).contactsProvider)) {
             // discard IDs that refer to entries in the contacts provider database
             clearContactScopesStorage(pm, userId);
