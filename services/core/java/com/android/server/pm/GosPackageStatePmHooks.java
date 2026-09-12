@@ -7,8 +7,9 @@ import android.app.ActivityManager;
 import android.app.ActivityManagerInternal;
 import android.content.pm.GosPackageState;
 import android.content.pm.GosPackageStateFlag;
-import android.ext.KnownSystemPackages;
 import android.ext.DerivedPackageFlag;
+import android.ext.KnownSystemPackages;
+import android.ext.PackageId;
 import android.os.Binder;
 import android.os.Process;
 import android.os.RemoteException;
@@ -20,6 +21,7 @@ import com.android.internal.pm.parsing.pkg.AndroidPackageInternal;
 import com.android.internal.pm.pkg.component.ParsedUsesPermission;
 import com.android.server.LocalServices;
 import com.android.server.pm.PackageManagerLocal.GosPackageStateChangeCallback;
+import com.android.server.pm.ext.GmsCoreHooks;
 import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageStateInternal;
 import com.android.server.pm.pkg.PackageUserStateInternal;
@@ -345,10 +347,21 @@ public class GosPackageStatePmHooks {
     }
 
     /** @see PackageManagerService.IPackageManagerImpl#clearApplicationUserData */
-    public static void onClearApplicationUserData(PackageManagerService pm, String packageName, int userId) {
+    static void onApplicationDataCleared(
+            PackageManagerService pm, String packageName, int userId) {
         if (packageName.equals(KnownSystemPackages.get(pm.getContext()).contactsProvider)) {
             // discard IDs that refer to entries in the contacts provider database
             clearContactScopesStorage(pm, userId);
+        }
+
+        if (!PackageId.GMS_CORE_NAME.equals(packageName)) {
+            return;
+        }
+        PackageStateInternal packageState =
+                pm.snapshotComputer().getPackageStateInternal(packageName);
+        if (GmsCoreHooks.isUserInstalledGmsCore(packageState)) {
+            GmsCoreHooks.removeRecoverableKeystoreState(
+                    pm.resolveUserIds(userId), packageState.getAppId());
         }
     }
 

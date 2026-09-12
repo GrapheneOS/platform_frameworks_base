@@ -23,6 +23,7 @@ import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
+import java.util.Enumeration;
 
 /**
  * Implementation of {@link KeyStoreProxy} that delegates all method calls to the {@link KeyStore}.
@@ -60,6 +61,11 @@ public class KeyStoreProxyImpl implements KeyStoreProxy {
     @Override
     public void deleteEntry(String alias) throws KeyStoreException {
         mKeyStore.deleteEntry(alias);
+    }
+
+    @Override
+    public Enumeration<String> aliases() throws KeyStoreException {
+        return mKeyStore.aliases();
     }
 
     /**

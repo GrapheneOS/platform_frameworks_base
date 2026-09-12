@@ -35,6 +35,9 @@ import com.android.server.locksettings.recoverablekeystore.KeyStoreProxyImpl;
 
 import java.security.KeyStore.SecretKeyEntry;
 import java.security.KeyStoreException;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Locale;
 
 import javax.crypto.spec.SecretKeySpec;
@@ -106,6 +109,39 @@ public class ApplicationKeyStorage {
     }
 
     /**
+     * Deletes all application keys belonging to the given recovery agent.
+     */
+    public void deleteEntriesForRecoveryAgent(int userId, int uid) {
+        String aliasPrefix = getInternalAliasPrefix(userId, uid);
+        List<String> aliasesToDelete = new ArrayList<>();
+        try {
+            Enumeration<String> aliases = mKeyStore.aliases();
+            while (aliases.hasMoreElements()) {
+                String alias = aliases.nextElement();
+                if (alias.startsWith(aliasPrefix)) {
+                    aliasesToDelete.add(alias);
+                }
+            }
+        } catch (KeyStoreException e) {
+            throw new ServiceSpecificException(ERROR_SERVICE_INTERNAL_ERROR, e.getMessage());
+        }
+
+        KeyStoreException deletionException = null;
+        for (String alias : aliasesToDelete) {
+            try {
+                mKeyStore.deleteEntry(alias);
+            } catch (KeyStoreException e) {
+                Log.e(TAG, "Failed to delete recoverable application key " + alias, e);
+                deletionException = e;
+            }
+        }
+        if (deletionException != null) {
+            throw new ServiceSpecificException(
+                    ERROR_SERVICE_INTERNAL_ERROR, deletionException.getMessage());
+        }
+    }
+
+    /**
      * Returns the alias in locksettins service's KeyStore namespace used for given application key.
      *
      * <p>These IDs look as follows:
@@ -117,7 +153,11 @@ public class ApplicationKeyStorage {
      * @return The alias.
      */
     private String getInternalAlias(int userId, int uid, String alias) {
-        return APPLICATION_KEY_ALIAS_PREFIX + userId + "/" + uid + "/" + alias;
+        return getInternalAliasPrefix(userId, uid) + alias;
+    }
+
+    private String getInternalAliasPrefix(int userId, int uid) {
+        return APPLICATION_KEY_ALIAS_PREFIX + userId + "/" + uid + "/";
     }
 
     private String makeKeystoreEngineGrantString(int uid, String alias) {

@@ -65,6 +65,14 @@ public class RecoverySnapshotListenersStorage {
     }
 
     /**
+     * Removes the listener and pending snapshot state for the recovery agent.
+     */
+    public synchronized void remove(int recoveryAgentUid) {
+        mAgentIntents.remove(recoveryAgentUid);
+        mAgentsWithPendingSnapshots.remove(recoveryAgentUid);
+    }
+
+    /**
      * Notifies recovery agent that new snapshot is available. If a recovery agent has not yet
      * registered a {@link PendingIntent}, remembers that a snapshot is pending for it, so that
      * when it does register, that intent is immediately triggered.

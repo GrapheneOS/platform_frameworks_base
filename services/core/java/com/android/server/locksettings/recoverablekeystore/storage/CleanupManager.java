@@ -155,6 +155,16 @@ public class CleanupManager {
     }
 
     /**
+     * Removes all data belonging to the given recovery agent.
+     */
+    public synchronized void removeDataForRecoveryAgent(int userId, int uid) {
+        Log.d(TAG, "Removing data for recovery agent " + uid + " for user " + userId + ".");
+        mSnapshotStorage.remove(uid);
+        removeAllKeysForRecoveryAgentByPrefix(userId, uid);
+        mDatabase.removeRecoveryAgentFromAllTables(userId, uid);
+    }
+
+    /**
      * Removes keys from Android KeyStore for the recovery agent;
      * Doesn't remove encrypted key material from the database.
      */
@@ -169,6 +179,15 @@ public class CleanupManager {
                 // Ignore errors during key removal.
                 Log.e(TAG, "Error while removing recoverable key " + alias + " : " + e);
             }
+        }
+    }
+
+    private void removeAllKeysForRecoveryAgentByPrefix(int userId, int uid) {
+        try {
+            mApplicationKeyStorage.deleteEntriesForRecoveryAgent(userId, uid);
+        } catch (ServiceSpecificException e) {
+            // Ignore errors during key removal.
+            Log.e(TAG, "Error while removing recoverable keys for uid " + uid, e);
         }
     }
 }
