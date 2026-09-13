@@ -95,6 +95,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 
 import javax.crypto.KeyGenerator;
@@ -172,6 +173,7 @@ public class RecoverableKeyStoreManagerTest {
     @Mock private ApplicationKeyStorage mApplicationKeyStorage;
     @Mock private CleanupManager mCleanupManager;
     @Mock private ScheduledExecutorService mExecutorService;
+    @Mock private Future<?> mFuture;
     @Mock private LockSettingsService mLockSettingsService;
     @Spy private TestOnlyInsecureCertificateHelper mTestOnlyInsecureCertificateHelper;
 
@@ -764,9 +766,8 @@ public class RecoverableKeyStoreManagerTest {
                 TEST_VAULT_CHALLENGE,
                 ImmutableList.of(TEST_PROTECTION_PARAMS));
 
-        verify(mMockContext, times(1))
-                .enforceCallingOrSelfPermission(
-                        eq(Manifest.permission.RECOVER_KEYSTORE), any());
+        verify(mMockContext, times(1)).checkCallingOrSelfPermission(
+                eq(Manifest.permission.RECOVER_KEYSTORE));
     }
 
     @Ignore("Causing breakages so ignoring to resolve, b/281583079")
@@ -1131,6 +1132,42 @@ public class RecoverableKeyStoreManagerTest {
                 /*flags=*/ PendingIntent.FLAG_MUTABLE);
         mRecoverableKeyStoreManager.setSnapshotCreatedPendingIntent(intent);
         verify(mMockListenersStorage).setSnapshotListener(eq(uid), any(PendingIntent.class));
+    }
+
+    @Test
+    public void removeRecoverableKeystoreStateForRecoveryAgent_removesOnlyTargetAgentState()
+            throws Exception {
+        int uid = 1234;
+        int otherUid = 5678;
+        mRecoverySessionStorage.add(
+                uid,
+                new RecoverySessionStorage.Entry(
+                        TEST_SESSION_ID,
+                        TEST_SECRET.clone(),
+                        TEST_SALT.clone(),
+                        TEST_VAULT_PARAMS.clone()));
+        mRecoverySessionStorage.add(
+                otherUid,
+                new RecoverySessionStorage.Entry(
+                        TEST_SESSION_ID,
+                        TEST_SECRET.clone(),
+                        TEST_SALT.clone(),
+                        TEST_VAULT_PARAMS.clone()));
+        when(mExecutorService.submit(any(Runnable.class)))
+                .thenAnswer(
+                        invocation -> {
+                            invocation.<Runnable>getArgument(0).run();
+                            return mFuture;
+                        });
+
+        mRecoverableKeyStoreManager.removeRecoverableKeystoreStateForRecoveryAgent(
+                TEST_USER_ID, uid);
+
+        verify(mFuture).get();
+        assertThat(mRecoverySessionStorage.get(uid, TEST_SESSION_ID)).isNull();
+        assertThat(mRecoverySessionStorage.get(otherUid, TEST_SESSION_ID)).isNotNull();
+        verify(mMockListenersStorage).remove(uid);
+        verify(mCleanupManager).removeDataForRecoveryAgent(TEST_USER_ID, uid);
     }
 
     @Test

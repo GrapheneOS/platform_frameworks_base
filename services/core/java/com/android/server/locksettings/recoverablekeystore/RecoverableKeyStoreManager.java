@@ -34,6 +34,7 @@ import android.app.PendingIntent;
 import android.app.RemoteLockscreenValidationResult;
 import android.app.RemoteLockscreenValidationSession;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
@@ -89,6 +90,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -219,7 +221,7 @@ public class RecoverableKeyStoreManager {
     void initRecoveryService(
             @NonNull String rootCertificateAlias, @NonNull byte[] recoveryServiceCertFile)
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         int userId = UserHandle.getCallingUserId();
         int uid = Binder.getCallingUid();
 
@@ -334,7 +336,7 @@ public class RecoverableKeyStoreManager {
             @NonNull String rootCertificateAlias, @NonNull byte[] recoveryServiceCertFile,
             @NonNull byte[] recoveryServiceSigFile)
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         rootCertificateAlias =
                 mTestCertHelper.getDefaultCertificateAliasIfEmpty(rootCertificateAlias);
         Objects.requireNonNull(recoveryServiceCertFile, "recoveryServiceCertFile is null");
@@ -373,7 +375,7 @@ public class RecoverableKeyStoreManager {
      */
     public @NonNull KeyChainSnapshot getKeyChainSnapshot()
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         int uid = Binder.getCallingUid();
         KeyChainSnapshot snapshot = mSnapshotStorage.get(uid);
         if (snapshot == null) {
@@ -384,7 +386,7 @@ public class RecoverableKeyStoreManager {
 
     public void setSnapshotCreatedPendingIntent(@Nullable PendingIntent intent)
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         int uid = Binder.getCallingUid();
         mListenersStorage.setSnapshotListener(uid, intent);
     }
@@ -394,7 +396,7 @@ public class RecoverableKeyStoreManager {
      * chain. Along with the counter ID, it is used to uniquely identify an instance of a vault.
      */
     public void setServerParams(@NonNull byte[] serverParams) throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         int userId = UserHandle.getCallingUserId();
         int uid = Binder.getCallingUid();
 
@@ -428,7 +430,7 @@ public class RecoverableKeyStoreManager {
      * Sets the recovery status of key with {@code alias} to {@code status}.
      */
     public void setRecoveryStatus(@NonNull String alias, int status) throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         Objects.requireNonNull(alias, "alias is null");
         long updatedRows = mDatabase.setRecoveryStatus(Binder.getCallingUid(), alias, status);
         if (updatedRows < 0) {
@@ -447,7 +449,7 @@ public class RecoverableKeyStoreManager {
      *     {@link RecoveryController#RECOVERY_STATUS_PERMANENT_FAILURE}.
      */
     public @NonNull Map<String, Integer> getRecoveryStatus() throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         return mDatabase.getStatusForAllKeys(Binder.getCallingUid());
     }
 
@@ -459,7 +461,7 @@ public class RecoverableKeyStoreManager {
     public void setRecoverySecretTypes(
             @NonNull @KeyChainProtectionParams.UserSecretType int[] secretTypes)
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         Objects.requireNonNull(secretTypes, "secretTypes is null");
         int userId = UserHandle.getCallingUserId();
         int uid = Binder.getCallingUid();
@@ -497,7 +499,7 @@ public class RecoverableKeyStoreManager {
      * @hide
      */
     public @NonNull int[] getRecoverySecretTypes() throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         return mDatabase.getRecoverySecretTypes(UserHandle.getCallingUserId(),
             Binder.getCallingUid());
     }
@@ -524,7 +526,7 @@ public class RecoverableKeyStoreManager {
             @NonNull byte[] vaultChallenge,
             @NonNull List<KeyChainProtectionParams> secrets)
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         int uid = Binder.getCallingUid();
 
         if (secrets.size() != 1) {
@@ -589,7 +591,7 @@ public class RecoverableKeyStoreManager {
             @NonNull byte[] vaultChallenge,
             @NonNull List<KeyChainProtectionParams> secrets)
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         rootCertificateAlias =
                 mTestCertHelper.getDefaultCertificateAliasIfEmpty(rootCertificateAlias);
         Objects.requireNonNull(sessionId, "invalid session");
@@ -640,7 +642,7 @@ public class RecoverableKeyStoreManager {
             @NonNull String sessionId,
             @NonNull byte[] encryptedRecoveryKey,
             @NonNull List<WrappedApplicationKey> applicationKeys) throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         int userId = UserHandle.getCallingUserId();
         int uid = Binder.getCallingUid();
         RecoverySessionStorage.Entry sessionEntry = mRecoverySessionStorage.get(uid, sessionId);
@@ -702,13 +704,13 @@ public class RecoverableKeyStoreManager {
      * Destroys the session with the given {@code sessionId}.
      */
     public void closeSession(@NonNull String sessionId) throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         Objects.requireNonNull(sessionId, "invalid session");
         mRecoverySessionStorage.remove(Binder.getCallingUid(), sessionId);
     }
 
     public void removeKey(@NonNull String alias) throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         Objects.requireNonNull(alias, "alias is null");
         int uid = Binder.getCallingUid();
         int userId = UserHandle.getCallingUserId();
@@ -747,7 +749,7 @@ public class RecoverableKeyStoreManager {
      */
     public String generateKeyWithMetadata(@NonNull String alias, @Nullable byte[] metadata)
             throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         Objects.requireNonNull(alias, "alias is null");
         int uid = Binder.getCallingUid();
         int userId = UserHandle.getCallingUserId();
@@ -852,7 +854,7 @@ public class RecoverableKeyStoreManager {
      * @return grant alias, which caller can use to access the key.
      */
     public @Nullable String getKey(@NonNull String alias) throws RemoteException {
-        checkRecoverKeyStorePermission();
+        checkRecoverKeyStoreGmsCorePermission();
         Objects.requireNonNull(alias, "alias is null");
         int uid = Binder.getCallingUid();
         int userId = UserHandle.getCallingUserId();
@@ -995,6 +997,27 @@ public class RecoverableKeyStoreManager {
             Log.e(TAG, "Key store error encountered during recoverable key sync", e);
         } catch (InsecureUserException e) {
             Log.e(TAG, "InsecureUserException during lock screen secret update", e);
+        }
+    }
+
+    /**
+     * Removes recoverable keystore state for a recovery agent.
+     *
+     * <p>Run the cleanup on the key sync executor so it cannot race a previously scheduled key
+     * sync task.
+     */
+    public void removeRecoverableKeystoreStateForRecoveryAgent(int userId, int uid) {
+        try {
+            mExecutorService.submit(() -> {
+                mRecoverySessionStorage.remove(uid);
+                mListenersStorage.remove(uid);
+                mCleanupManager.removeDataForRecoveryAgent(userId, uid);
+            }).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.e(TAG, "Interrupted while removing recoverable keystore state for uid " + uid, e);
+        } catch (ExecutionException e) {
+            Log.e(TAG, "Failed to remove recoverable keystore state for uid " + uid, e.getCause());
         }
     }
 
@@ -1154,9 +1177,25 @@ public class RecoverableKeyStoreManager {
     }
 
     private void checkRecoverKeyStorePermission() {
-        mContext.enforceCallingOrSelfPermission(
-                Manifest.permission.RECOVER_KEYSTORE,
-                "Caller " + Binder.getCallingUid() + " doesn't have RecoverKeyStore permission.");
+        checkRecoverKeyStorePermission(/*allowGmsCorePermission=*/ false);
+    }
+
+    private void checkRecoverKeyStoreGmsCorePermission() {
+        checkRecoverKeyStorePermission(/*allowGmsCorePermission=*/ true);
+    }
+
+    private void checkRecoverKeyStorePermission(boolean allowGmsCorePermission) {
+        boolean permissionGranted = mContext.checkCallingOrSelfPermission(
+                Manifest.permission.RECOVER_KEYSTORE) == PackageManager.PERMISSION_GRANTED;
+        if (!permissionGranted && allowGmsCorePermission) {
+            permissionGranted = mContext.checkCallingOrSelfPermission(
+                    Manifest.permission.RECOVER_KEYSTORE_GMSCORE)
+                    == PackageManager.PERMISSION_GRANTED;
+        }
+        if (!permissionGranted) {
+            throw new SecurityException("Caller " + Binder.getCallingUid()
+                    + " doesn't have RecoverKeyStore permission.");
+        }
         int userId = UserHandle.getCallingUserId();
         int uid = Binder.getCallingUid();
         mCleanupManager.registerRecoveryAgent(userId, uid);
