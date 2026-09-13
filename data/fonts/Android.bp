@@ -77,6 +77,15 @@ filegroup {
     ],
 }
 
+filegroup {
+    name: "GoogleSansFlex",
+    srcs: ["google_sans_flex_font_config.json"],
+    required: [
+        "GoogleSansFlex-Regular.ttf",
+        "Roboto-Regular.ttf",
+    ],
+}
+
 genrule {
     name: "generate_font_fallback",
     tools: [":generate_fonts_xml"],
@@ -89,8 +98,7 @@ genrule {
         ":ComingSoon",
         ":CutiveMono",
         ":DancingScript",
-        ":Roboto",
-        ":RobotoFlex",
+        ":GoogleSansFlex",
         ":SourceSansPro",
         ":noto-fonts",
     ] + select(release_flag("RELEASE_USE_ROBOTO_MONO_FONT"), {

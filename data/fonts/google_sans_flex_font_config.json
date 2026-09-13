@@ -1,0 +1,84 @@
+[
+    {
+        "name": "sans-serif",
+        "fonts": [
+            {
+                "file": "GoogleSansFlex-Regular.ttf",
+                "style": "normal",
+                "supportedAxes": "wght",
+                "axes": {
+                    "slnt": 0,
+                    "wdth": 100
+                }
+            },
+            {
+                "file": "GoogleSansFlex-Regular.ttf",
+                "style": "italic",
+                "supportedAxes": "wght",
+                "axes": {
+                    "slnt": -10,
+                    "wdth": 100
+                }
+            }
+        ]
+    },
+    {
+        "name": "sans-serif-condensed",
+        "fonts": [
+            {
+                "file": "Roboto-Regular.ttf",
+                "supportedAxes": "wght,ital",
+                "axes": {
+                    "wdth": 75
+                }
+            }
+        ]
+    },
+    {
+        "name": "roboto",
+        "fonts": [
+            {
+                "file": "Roboto-Regular.ttf",
+                "supportedAxes": "wght,ital",
+                "axes": {
+                    "wdth": 100
+                }
+            }
+        ]
+    },
+    {
+        "name": "google-sans-flex",
+        "fonts": [
+            {
+                "file": "GoogleSansFlex-Regular.ttf",
+                "style": "normal",
+                "supportedAxes": "wght",
+                "axes": {
+                    "slnt": 0,
+                    "wdth": 100
+                }
+            },
+            {
+                "file": "GoogleSansFlex-Regular.ttf",
+                "style": "italic",
+                "supportedAxes": "wght",
+                "axes": {
+                    "slnt": -10,
+                    "wdth": 100
+                }
+            }
+        ]
+    },
+    {
+        "id": "RobotoFallback",
+        "fonts": [
+            {
+                "file": "Roboto-Regular.ttf",
+                "supportedAxes": "wght,ital",
+                "axes": {
+                    "wdth": 100
+                }
+            }
+        ]
+    }
+]
