@@ -105,7 +105,6 @@ import com.android.server.LocalServices;
 import com.android.server.location.LocationPermissions;
 import com.android.server.location.LocationPermissions.PermissionLevel;
 import com.android.server.location.fudger.LocationFudger;
-import com.android.server.location.fudger.LocationFudgerCache;
 import com.android.server.location.injector.AlarmHelper;
 import com.android.server.location.injector.AppForegroundHelper;
 import com.android.server.location.injector.AppForegroundHelper.AppForegroundListener;
@@ -127,6 +126,7 @@ import com.android.server.location.injector.UserInfoHelper;
 import com.android.server.location.injector.UserInfoHelper.UserListener;
 import com.android.server.location.listeners.ListenerMultiplexer;
 import com.android.server.location.listeners.RemovableListenerRegistration;
+import com.android.server.location.provider.proxy.ProxyPopulationDensityProvider;
 import com.android.server.location.settings.LocationSettings;
 import com.android.server.location.settings.LocationUserSettings;
 
@@ -948,8 +948,13 @@ public class LocationProviderManager extends
                 return null;
             }
 
-            LocationResult permittedLocationResult = Objects.requireNonNull(
-                    getPermittedLocationResult(fineLocationResult, getPermissionLevel()));
+            LocationResult permittedLocationResult =
+                    getPermittedLocationResult(fineLocationResult, getPermissionLevel());
+            if (permittedLocationResult == null) {
+                // Suppress the delivery when coarsening fails.
+                EVENT_LOG.logProviderCoarseningSuppressed(mName, getIdentity());
+                return null;
+            }
 
             LocationResult locationResult = permittedLocationResult.filter(
                     new Predicate<Location>() {
@@ -1360,8 +1365,21 @@ public class LocationProviderManager extends
                 fineLocationResult = null;
             }
 
-            // lastly - note app ops
             if (fineLocationResult != null) {
+                // Coarsen only the last location retained by this one-shot request.
+                fineLocationResult = fineLocationResult.asLastLocationResult();
+            }
+
+            LocationResult permittedLocationResult = getPermittedLocationResult(
+                    fineLocationResult, getPermissionLevel());
+            if (fineLocationResult != null && permittedLocationResult == null) {
+                // Keep the one-shot registration for a later fix when coarsening fails.
+                EVENT_LOG.logProviderCoarseningSuppressed(mName, getIdentity());
+                return null;
+            }
+
+            // Note app ops only for a location that can be delivered.
+            if (permittedLocationResult != null) {
                 int op =
                         isOnlyBypassPermitted()
                                 ? AppOpsManager.OP_EMERGENCY_LOCATION
@@ -1370,16 +1388,11 @@ public class LocationProviderManager extends
                     if (D) {
                         Log.w(TAG, "noteOp denied for " + getIdentity());
                     }
-                    fineLocationResult = null;
+                    permittedLocationResult = null;
                 }
             }
 
-            if (fineLocationResult != null) {
-                fineLocationResult = fineLocationResult.asLastLocationResult();
-            }
-
-            LocationResult locationResult = getPermittedLocationResult(fineLocationResult,
-                    getPermissionLevel());
+            LocationResult locationResult = permittedLocationResult;
 
             // deliver location
             return new ListenerOperation<LocationTransport>() {
@@ -1656,11 +1669,9 @@ public class LocationProviderManager extends
         }
     }
 
-    /**
-     * Provides the optional {@link LocationFudgerCache} for coarsening based on population density.
-     */
-    public void setLocationFudgerCache(LocationFudgerCache cache) {
-        mLocationFudger.setLocationFudgerCache(cache);
+    /** Sets the population density provider used for coarse locations. */
+    public void setPopulationDensityProvider(@Nullable ProxyPopulationDensityProvider provider) {
+        mLocationFudger.setPopulationDensityProvider(provider);
     }
 
     /**
@@ -1802,6 +1813,7 @@ public class LocationProviderManager extends
             return null;
         }
 
+        // Return null when the cached fix cannot be coarsened.
         Location location = getPermittedLocation(
                 getLastLocationUnsafe(
                         identity.getUserId(),
@@ -2819,6 +2831,11 @@ public class LocationProviderManager extends
         updateRegistrations(registration -> registration.getIdentity().getUserId() == userId);
     }
 
+    /**
+     * Returns a deliverable location, or null when none can be produced.
+     *
+     * <p>Coarse requests fail closed when population density coarsening fails.
+     */
     @Nullable Location getPermittedLocation(@Nullable Location fineLocation,
             @PermissionLevel int permissionLevel) {
         switch (permissionLevel) {
@@ -2832,6 +2849,11 @@ public class LocationProviderManager extends
         }
     }
 
+    /**
+     * Returns a deliverable location result, or null when none can be produced.
+     *
+     * <p>Coarse requests fail closed and may return a deadline-limited prefix.
+     */
     @Nullable LocationResult getPermittedLocationResult(
             @Nullable LocationResult fineLocationResult, @PermissionLevel int permissionLevel) {
         switch (permissionLevel) {
