@@ -190,6 +190,7 @@ import android.content.pm.TestUtilityService;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
 import android.database.ContentObserver;
+import android.ext.settings.ExtSettings;
 import android.graphics.Bitmap;
 import android.graphics.Matrix;
 import android.graphics.Point;
@@ -11167,7 +11168,12 @@ public class WindowManagerService extends IWindowManager.Stub
                 "notifyScreenshotListeners()")) {
             throw new SecurityException("Requires STATUS_BAR_SERVICE permission");
         }
+        final boolean blockScreenshotDetection =
+                ExtSettings.BLOCK_SCREENSHOT_DETECTION.get(mContext, mCurrentUserId);
         synchronized (mGlobalLock) {
+            if (blockScreenshotDetection) {
+                return new ArrayList<>();
+            }
             final DisplayContent displayContent = mRoot.getDisplayContent(displayId);
             if (displayContent == null) {
                 return new ArrayList<>();
