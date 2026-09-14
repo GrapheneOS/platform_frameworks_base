@@ -38,6 +38,9 @@ public interface GosPackageStateFlag {
     /** @hide */ int BLOCK_PLAY_INTEGRITY_API = 28;
     /** @hide */ int USE_EXEC_SPAWNING_NON_DEFAULT = 29;
     /** @hide */ int USE_EXEC_SPAWNING = 30;
+    /** @hide */ int ALLOW_CLIPBOARD_READ_NON_DEFAULT = 31;
+    /** @hide */ int ALLOW_CLIPBOARD_READ = 32;
+    /** @hide */ int SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF = 33;
 
     /** @hide */
     @IntDef(value = {
@@ -68,6 +71,9 @@ public interface GosPackageStateFlag {
             BLOCK_PLAY_INTEGRITY_API,
             USE_EXEC_SPAWNING_NON_DEFAULT,
             USE_EXEC_SPAWNING,
+            ALLOW_CLIPBOARD_READ_NON_DEFAULT,
+            ALLOW_CLIPBOARD_READ,
+            SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface Enum {}

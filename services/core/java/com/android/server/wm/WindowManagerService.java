@@ -9456,6 +9456,16 @@ public class WindowManagerService extends IWindowManager.Stub
         }
 
         @Override
+        public @Nullable InputTargetInfo getInputTargetInfo(IBinder inputToken) {
+            synchronized (mGlobalLock) {
+                final InputTarget inputTarget =
+                        WindowManagerService.this.getInputTargetFromToken(inputToken);
+                return inputTarget == null ? null : new InputTargetInfo(
+                        inputTarget.getUid(), inputTarget.getDisplayId());
+            }
+        }
+
+        @Override
         public void setBlockScreenCaptureForAppsSessionId(long sessionId) {
             synchronized (mGlobalLock) {
                 if (sensitiveContentMetricsBugfix()

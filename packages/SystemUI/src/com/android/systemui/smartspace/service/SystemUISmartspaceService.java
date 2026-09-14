@@ -42,6 +42,7 @@ import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.policy.NextAlarmController;
 import com.android.systemui.statusbar.policy.ZenModeController;
 import com.android.systemui.util.Assert;
+import com.android.systemui.util.settings.SecureSettings;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -74,6 +75,7 @@ public class SystemUISmartspaceService extends SmartspaceService implements
     private final StatusBarStateController mStatusBarStateController;
     private final NotificationMediaManager mNotificationMediaManager;
     private final UserTracker mUserTracker;
+    private final SecureSettings mSecureSettings;
 
     // Stores the sessions that are associated with a surface.
     private Map<String, Set<SmartspaceSessionId>> mSurfaceSessions;
@@ -129,13 +131,15 @@ public class SystemUISmartspaceService extends SmartspaceService implements
             ZenModeController zenModeController,
             StatusBarStateController statusBarStateController,
             NotificationMediaManager notificationMediaManager,
-            UserTracker userTracker) {
+            UserTracker userTracker,
+            SecureSettings secureSettings) {
         mKeyguardUpdateMonitor = keyguardUpdateMonitor;
         mNextAlarmController = nextAlarmController;
         mZenModeController = zenModeController;
         mStatusBarStateController = statusBarStateController;
         mNotificationMediaManager = notificationMediaManager;
         mUserTracker = userTracker;
+        mSecureSettings = secureSettings;
     }
 
     @Override
@@ -404,7 +408,9 @@ public class SystemUISmartspaceService extends SmartspaceService implements
     }
 
     private boolean shouldDisplayMedia() {
-        return !TextUtils.isEmpty(mMediaTitle) && mMediaIsVisible && mDozing;
+        return !TextUtils.isEmpty(mMediaTitle) && mMediaIsVisible && mDozing
+                && mSecureSettings.getBoolForUser(
+                        Settings.Secure.MEDIA_CONTROLS_LOCK_SCREEN, true, mUserTracker.getUserId());
     }
 
     @Override

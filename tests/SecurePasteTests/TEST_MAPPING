@@ -1,0 +1,179 @@
+{
+  "gos-postsubmit": [
+    {
+      "name": "SecurePasteTests"
+    },
+    {
+      "name": "InputTests",
+      "options": [
+        {
+          "include-filter": "com.android.server.input.KeyGestureControllerTests#testSecurePasteShortcuts_passThroughBeforeDispatch"
+        },
+        {
+          "include-filter": "com.android.server.input.KeyGestureControllerTests#testSecurePasteShortcuts_notInterceptedWhenUnhandled"
+        },
+        {
+          "include-filter": "com.android.server.input.KeyGestureControllerTests#testSecurePasteGrant_onlyForTrustedInitialDown"
+        },
+        {
+          "include-filter": "com.android.server.input.KeyGestureControllerTests#testSecurePasteGrant_notCreatedWhenWmConsumes"
+        }
+      ]
+    }
+  ],
+  "secure-paste-compat-default-allow": [
+    {
+      "name": "FrameworksCoreTests",
+      "options": [
+        {
+          "include-filter": "android.widget.TextViewActivityTest#testPastePlainText_menuAction"
+        },
+        {
+          "include-filter": "android.widget.TextViewActivityTest#testPastePlainText_noMenuItemForPlainText"
+        },
+        {
+          "include-filter": "com.android.internal.app.ChooserActivityTest#copyTextToClipboard"
+        },
+        {
+          "include-filter": "android.widget.TextViewContextMenuTest#testContextMenuPasteAddedWhenAvailable"
+        },
+        {
+          "include-filter": "android.widget.TextViewContextMenuTest#testContextMenuPasteAsPlaintextAddedWhenAvailable"
+        },
+        {
+          "include-filter": "android.widget.TextViewReceiveContentTest"
+        }
+      ]
+    },
+    {
+      "name": "IntentResolver-tests-activity",
+      "options": [
+        {
+          "include-filter": "com.android.intentresolver.ChooserActivityTest#copyTextToClipboard"
+        }
+      ]
+    },
+    {
+      "name": "TextClassifierNotificationTests",
+      "options": [
+        {
+          "include-filter": "com.android.textclassifier.notification.CopyCodeActivityTest"
+        }
+      ]
+    },
+    {
+      "name": "FrameworksServicesTests_accessibility",
+      "options": [
+        {
+          "include-filter": "com.android.server.accessibility.AbstractAccessibilityServiceConnectionTest#performAccessibilityAction_withPipWindow_invokeGetPipReplacingConnection"
+        },
+        {
+          "include-filter": "com.android.server.accessibility.AbstractAccessibilityServiceConnectionTest#performAccessibilityAction_withClick_shouldNotifyOutsideTouch"
+        }
+      ]
+    },
+    {
+      "name": "FrameworksServicesTests_android_server_uri",
+      "options": [
+        {
+          "include-filter": "com.android.server.uri.UriGrantsManagerServiceTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsContentTestCases",
+      "options": [
+        {
+          "include-filter": "android.content.cts.ClipboardManagerTest"
+        },
+        {
+          "include-filter": "android.content.cts.ClipDescriptionTest"
+        },
+        {
+          "include-filter": "android.content.cts.ClipboardManagerListenerTest"
+        },
+        {
+          "include-filter": "android.content.cts.ClipboardAutoClearTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsTextTestCases",
+      "options": [
+        {
+          "include-filter": "android.text.cts.ClipboardManagerTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsWidgetTestCases",
+      "options": [
+        {
+          "include-filter": "android.widget.cts.TextViewTest"
+        },
+        {
+          "include-filter": "android.widget.cts.TextViewReceiveContentTest"
+        },
+        {
+          "include-filter": "android.widget.cts.TextViewMouseInteractionTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsAccessibilityServiceTestCases",
+      "options": [
+        {
+          "include-filter": "android.accessibilityservice.cts.AccessibilityTextTraversalTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsInputMethodTestCases",
+      "options": [
+        {
+          "include-filter": "android.view.inputmethod.cts.InputConnectionEndToEndTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsVirtualDevicesAppLaunchTestCases",
+      "options": [
+        {
+          "include-filter": "android.virtualdevice.cts.applaunch.StreamedAppClipboardTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsContentCaptureServiceTestCases",
+      "options": [
+        {
+          "include-filter": "android.contentcaptureservice.cts.ClipboardAccessTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsAutoFillServiceTestCases",
+      "options": [
+        {
+          "include-filter": "android.autofillservice.cts.augmented.ClipboardAccessTest"
+        }
+      ]
+    },
+    {
+      "name": "CtsDevicePolicyManagerTestCases",
+      "options": [
+        {
+          "include-filter": "com.android.cts.devicepolicy.ManagedProfileCrossProfileTest#testCrossProfileCopyPaste"
+        }
+      ]
+    },
+    {
+      "name": "CtsAppSecurityHostTestCases",
+      "options": [
+        {
+          "include-filter": "android.appsecurity.cts.AppSecurityTests#testPermissionDiffCert"
+        }
+      ]
+    }
+  ]
+}

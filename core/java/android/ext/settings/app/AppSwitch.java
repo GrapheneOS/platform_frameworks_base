@@ -32,6 +32,7 @@ public abstract class AppSwitch {
     public static final int IR_EXPLOIT_PROTECTION_COMPAT_MODE = 6;
     public static final int IR_REQUIRED_BY_HARDENED_MALLOC = 7;
     public static final int IR_REQUIRED_BY_ZYGOTE_SPAWNING = 8;
+    public static final int IR_IS_DEFAULT_IME = 9;
 
     // default value reasons
     public static final int DVR_UNKNOWN = 0;
@@ -127,10 +128,7 @@ public abstract class AppSwitch {
             si.isUsingDefaultValue = true;
             res = getDefaultValue(ctx, userId, appInfo, ps, si);
         } else {
-            res = ps.hasFlag(gosPsFlag);
-            if (gosPsFlagInverted) {
-                res = !res;
-            }
+            res = getNonDefaultValue(ps);
         }
 
         return res;
@@ -148,8 +146,13 @@ public abstract class AppSwitch {
         }
     }
 
-    private boolean isUsingDefaultValue(GosPackageState ps) {
+    protected final boolean isUsingDefaultValue(GosPackageState ps) {
         return gosPsFlagNonDefault != 0 && !ps.hasFlag(gosPsFlagNonDefault);
+    }
+
+    protected final boolean getNonDefaultValue(GosPackageState ps) {
+        final boolean value = ps.hasFlag(gosPsFlag);
+        return gosPsFlagInverted ? !value : value;
     }
 
     public final void setUseDefaultValue(GosPackageState.Editor ed) {

@@ -22,10 +22,25 @@ package com.android.server.clipboard;
 public interface ClipboardManagerInternal {
 
     /**
-     * Notify that there was a recent action taken by the user that the system trusts was an
-     * intentional authorization of clip data.
+     * Records a trusted user action for clipboard access notification bookkeeping.
+     *
+     * <p>This suppresses a redundant user-visible access notification and marks subsequent access
+     * logging as user initiated. It does not grant permission to read clipboard data.</p>
      *
      * @param uid The uid expected to access clip data.
      */
     void notifyUserAuthorizedClipAccess(int uid);
+
+    /**
+     * Creates a short-lived clipboard read grant for the UID targeted on {@code displayId}.
+     *
+     * <p>The caller must validate both an approved trusted paste trigger and its exact target, and
+     * must create the grant synchronously before dispatching the paste action to that target. The
+     * grant is bound to the resolved clipboard device and current primary clip generation. It does
+     * not bypass the normal clipboard package identity, focus, AppOps, or device lock checks. The
+     * resulting authorization is UID scoped rather than tied to the route-specific input
+     * connection or window used to validate the action.</p>
+     *
+     */
+    void createPasteGrantForDisplay(int uid, int displayId);
 }

@@ -27,6 +27,7 @@ import static android.view.Display.DEFAULT_DISPLAY;
 import static android.view.WindowManager.ScreenshotSource.SCREENSHOT_KEY_CHORD;
 import static android.view.WindowManager.ScreenshotSource.SCREENSHOT_KEY_OTHER;
 import static android.view.WindowManagerPolicyConstants.FLAG_INTERACTIVE;
+import static android.view.WindowManagerPolicyConstants.FLAG_TRUSTED;
 
 import static com.android.hardware.input.Flags.enablePartialScreenshotKeyboardShortcut;
 import static com.android.hardware.input.Flags.enableNew26q2Keycodes;
@@ -609,6 +610,17 @@ final class KeyGestureController {
             return result;
         }
 
+        // Paste chords are ordinary app key events. Apply policy interception first; on initial
+        // key down, create the grant immediately before returning the event to the focused app.
+        if ((policyFlags & FLAG_TRUSTED) != 0
+                && SecurePasteKeyEventHandler.isPasteKeyEvent(event)) {
+            if (mWindowManagerCallbacks.interceptKeyBeforeDispatching(focus, event)) {
+                return KEY_INTERCEPT_RESULT_CONSUMED;
+            }
+            SecurePasteKeyEventHandler.maybeGrantAccess(mWindowManagerInternal, focus, event);
+            return KEY_INTERCEPT_RESULT_NOT_CONSUMED;
+        }
+
         // TODO(b/358569822) Remove below once we have nicer API for listening to shortcuts
         if ((event.isMetaPressed() || KeyEvent.isMetaKey(event.getKeyCode()))
                 && shouldInterceptShortcuts(focus)) {
@@ -1168,6 +1180,10 @@ final class KeyGestureController {
     }
 
     boolean interceptUnhandledKey(@NonNull KeyEvent event, @Nullable IBinder focus) {
+        // A paste chord must not become a global or custom shortcut after the app declines it.
+        if (SecurePasteKeyEventHandler.isPasteKeyEvent(event)) {
+            return false;
+        }
         return mInterceptStages.get(INTERCEPT_STAGE_UNHANDLED_SHORTCUTS).interceptKey(focus, event);
     }
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="grapheneos.securepaste.ime">
+    <application
+        android:debuggable="true"
+        android:label="Secure Paste IME"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <service
+            android:name=".SecurePasteImeService"
+            android:exported="true"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+        <provider
+            android:name="grapheneos.securepaste.helper.SecurePasteCommandProvider"
+            android:authorities="grapheneos.securepaste.ime.provider"
+            android:exported="true" />
+    </application>
+</manifest>

@@ -29,6 +29,7 @@ import android.hardware.input.IKeyGestureHandler
 import android.hardware.input.InputGestureData
 import android.hardware.input.InputManager
 import android.hardware.input.KeyGestureEvent
+import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
 import android.os.Process
@@ -45,27 +46,32 @@ import android.provider.DeviceConfig
 import android.testing.TestableContext
 import android.testing.TestableResources
 import android.view.Display.DEFAULT_DISPLAY
+import android.view.Display.INVALID_DISPLAY
 import android.view.InputDevice
 import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.WindowManager
 import android.view.WindowManagerPolicyConstants.FLAG_INTERACTIVE
+import android.view.WindowManagerPolicyConstants.FLAG_TRUSTED
 import androidx.test.core.app.ApplicationProvider
 import com.android.dx.mockito.inline.extended.ExtendedMockito
 import com.android.internal.R
 import com.android.internal.accessibility.AccessibilityShortcutController
 import com.android.internal.annotations.Keep
 import com.android.internal.config.sysui.SystemUiDeviceConfigFlags
+import com.android.internal.policy.IShortcutService
 import com.android.internal.policy.KeyInterceptionInfo
 import com.android.internal.util.FrameworkStatsLog
 import com.android.internal.util.ScreenshotHelper
 import com.android.internal.util.ScreenshotRequest
 import com.android.modules.utils.testing.ExtendedMockitoRule
 import com.android.server.LocalServices
+import com.android.server.clipboard.ClipboardManagerInternal
 import com.android.server.input.InputManagerService.WindowManagerCallbacks
 import com.android.server.input.InputManagerServiceTests.Companion.ACTION_KEY_EVENTS
 import com.android.server.input.data.TestDataStore
 import com.android.server.wm.WindowManagerInternal
+import com.android.server.wm.WindowManagerInternal.InputTargetInfo
 import junitparams.JUnitParamsRunner
 import junitparams.Parameters
 import org.junit.Assert.assertArrayEquals
@@ -104,11 +110,8 @@ import org.mockito.kotlin.times
     com.android.hardware.input.Flags.FLAG_ENABLE_TALKBACK_KEY_GESTURES,
     com.android.hardware.input.Flags.FLAG_ENABLE_NEW_26Q2_KEYCODES,
     com.android.hardware.input.Flags.FLAG_ENABLE_QUICK_SETTINGS_PANEL_SHORTCUT,
-    com.android.hardware.input.Flags.FLAG_KEYBOARD_BACKLIGHT_SHORTCUTS,
     com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_SEARCH_DESKTOP_ENTRYPOINTS,
     com.android.hardware.input.Flags.FLAG_ENABLE_NOTE_TAKING_KEYBOARD_SHORTCUT,
-    com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_INPUT_TRIGGER,
-    com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_CURSOR_DESKTOP_ENTRYPOINTS,
 )
 @DisabledOnRavenwood(reason = "Static mocking in bivalent tests is tricky", bug = 310268946)
 class KeyGestureControllerTests {
@@ -150,6 +153,7 @@ class KeyGestureControllerTests {
         const val RANDOM_PID1 = 11
         const val RANDOM_PID2 = 12
         const val RANDOM_DISPLAY_ID = 123
+        const val TEST_UID = 12345
         const val SCREENSHOT_CHORD_DELAY: Long = 1000
         // Current default multi-key press timeout used in KeyCombinationManager
         const val COMBINE_KEY_DELAY_MILLIS: Long = 150
@@ -183,6 +187,7 @@ class KeyGestureControllerTests {
     @Mock private lateinit var accessibilityShortcutController: AccessibilityShortcutController
     @Mock private lateinit var screenshotHelper: ScreenshotHelper
     @Mock private lateinit var windowManagerInternal: WindowManagerInternal
+    @Mock private lateinit var clipboardManagerInternal: ClipboardManagerInternal
     @Mock private lateinit var userManager: UserManager
     @Mock private lateinit var roleManager: RoleManager
 
@@ -349,7 +354,12 @@ class KeyGestureControllerTests {
 
     @Test
     @Parameters(method = "systemGesturesTestArguments")
-    @EnableFlags(com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT)
+    @EnableFlags(
+        com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT,
+        com.android.hardware.input.Flags.FLAG_KEYBOARD_BACKLIGHT_SHORTCUTS,
+        com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_INPUT_TRIGGER,
+        com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_CURSOR_DESKTOP_ENTRYPOINTS,
+    )
     fun testKeyGestures(test: KeyGestureData) {
         setupKeyGestureController()
         testKeyGestureProduced(test, PASS_THROUGH_APP)
@@ -368,7 +378,12 @@ class KeyGestureControllerTests {
     }
 
     @Test
-    @EnableFlags(com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT)
+    @EnableFlags(
+        com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT,
+        com.android.hardware.input.Flags.FLAG_KEYBOARD_BACKLIGHT_SHORTCUTS,
+        com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_INPUT_TRIGGER,
+        com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_CURSOR_DESKTOP_ENTRYPOINTS,
+    )
     fun testCustomKeyGesturesNotAllowedForSystemGestures() {
         setupKeyGestureController()
         for (systemGesture in systemGesturesTestArguments()) {
@@ -451,7 +466,11 @@ class KeyGestureControllerTests {
 
     @Test
     @Parameters(method = "nonCapturableKeyGestures")
-    @EnableFlags(com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT)
+    @EnableFlags(
+        com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT,
+        com.android.hardware.input.Flags.FLAG_KEYBOARD_BACKLIGHT_SHORTCUTS,
+        com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_INPUT_TRIGGER,
+    )
     fun testKeyGestures_withKeyCapture_nonCapturableGestures(test: KeyGestureData) {
         setupKeyGestureController()
         enableKeyCaptureForFocussedWindow()
@@ -466,7 +485,10 @@ class KeyGestureControllerTests {
 
     @Test
     @Parameters(method = "capturableKeyGestures")
-    @EnableFlags(com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT)
+    @EnableFlags(
+        com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT,
+        com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_CURSOR_DESKTOP_ENTRYPOINTS,
+    )
     fun testKeyGestures_withKeyCapture_capturableGestures(test: KeyGestureData) {
         setupKeyGestureController()
         enableKeyCaptureForFocussedWindow()
@@ -480,7 +502,10 @@ class KeyGestureControllerTests {
 
     @Test
     @Parameters(method = "capturableKeyGestures_handledAsFallback")
-    @EnableFlags(com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT)
+    @EnableFlags(
+        com.android.hardware.input.Flags.FLAG_ENABLE_PARTIAL_SCREENSHOT_KEYBOARD_SHORTCUT,
+        com.android.hardware.input.Flags.FLAG_ENABLE_CONTEXTUAL_CURSOR_DESKTOP_ENTRYPOINTS,
+    )
     fun testKeyGestures_withKeyCapture_capturableGesturesHandledAsFallback(test: KeyGestureData) {
         setupKeyGestureController()
         enableKeyCaptureForFocussedWindow()
@@ -1486,6 +1511,122 @@ class KeyGestureControllerTests {
     }
 
     @Test
+    fun testSecurePasteShortcuts_passThroughBeforeDispatch() {
+        setupKeyGestureController()
+        val focus = Binder()
+        configureSecurePasteGrant(focus)
+        Mockito.`when`(wmCallbacks.interceptKeyBeforeDispatching(any(), any())).thenReturn(false)
+
+        var shortcutCallCount = 0
+        val shortcutService =
+            object : IShortcutService.Stub() {
+                override fun notifyShortcutKeyPressed(shortcutCode: Long) {
+                    shortcutCallCount++
+                }
+            }
+        registerPasteShortcutServices(shortcutService)
+
+        for (event in createPasteShortcutEvents()) {
+            assertEquals(
+                0,
+                keyGestureController.interceptKeyBeforeDispatching(focus, event, FLAG_TRUSTED),
+            )
+            Mockito.verify(wmCallbacks).interceptKeyBeforeDispatching(focus, event)
+        }
+        assertEquals(0, shortcutCallCount)
+    }
+
+    @Test
+    fun testSecurePasteShortcuts_notInterceptedWhenUnhandled() {
+        setupKeyGestureController()
+        val focus = Binder()
+
+        var shortcutCallCount = 0
+        val shortcutService =
+            object : IShortcutService.Stub() {
+                override fun notifyShortcutKeyPressed(shortcutCode: Long) {
+                    shortcutCallCount++
+                }
+            }
+        registerPasteShortcutServices(shortcutService)
+
+        for (event in createPasteShortcutEvents()) {
+            assertFalse(keyGestureController.interceptUnhandledKey(event, focus))
+        }
+        assertEquals(0, shortcutCallCount)
+    }
+
+    @Test
+    fun testSecurePasteGrant_onlyForTrustedInitialDown() {
+        setupKeyGestureController()
+        val focus = Binder()
+        configureSecurePasteGrant(focus)
+        Mockito.`when`(wmCallbacks.interceptKeyBeforeDispatching(any(), any())).thenReturn(false)
+
+        val initialDown = createPasteKeyEvent(KeyEvent.ACTION_DOWN)
+        val repeatDown = createPasteKeyEvent(KeyEvent.ACTION_DOWN, repeatCount = 1)
+        val up = createPasteKeyEvent(KeyEvent.ACTION_UP)
+        val canceledDown =
+            createPasteKeyEvent(KeyEvent.ACTION_DOWN, eventFlags = KeyEvent.FLAG_CANCELED)
+
+        assertEquals(
+            0,
+            keyGestureController.interceptKeyBeforeDispatching(focus, initialDown, FLAG_TRUSTED),
+        )
+        assertEquals(
+            0,
+            keyGestureController.interceptKeyBeforeDispatching(focus, repeatDown, FLAG_TRUSTED),
+        )
+        assertEquals(
+            0,
+            keyGestureController.interceptKeyBeforeDispatching(focus, up, FLAG_TRUSTED),
+        )
+        assertEquals(
+            0,
+            keyGestureController.interceptKeyBeforeDispatching(focus, canceledDown, FLAG_TRUSTED),
+        )
+        assertEquals(
+            0,
+            keyGestureController.interceptKeyBeforeDispatching(
+                focus,
+                createPasteKeyEvent(KeyEvent.ACTION_DOWN),
+                /* policyFlags = */ 0,
+            ),
+        )
+        Mockito.`when`(windowManagerInternal.getInputTargetInfo(focus))
+            .thenReturn(InputTargetInfo(TEST_UID, INVALID_DISPLAY))
+        assertEquals(
+            0,
+            keyGestureController.interceptKeyBeforeDispatching(
+                focus,
+                createPasteKeyEvent(KeyEvent.ACTION_DOWN),
+                FLAG_TRUSTED,
+            ),
+        )
+
+        Mockito.verify(clipboardManagerInternal, times(1))
+            .createPasteGrantForDisplay(TEST_UID, DEFAULT_DISPLAY)
+        Mockito.verifyNoMoreInteractions(clipboardManagerInternal)
+    }
+
+    @Test
+    fun testSecurePasteGrant_notCreatedWhenWmConsumes() {
+        setupKeyGestureController()
+        val focus = Binder()
+        configureSecurePasteGrant(focus)
+        Mockito.`when`(wmCallbacks.interceptKeyBeforeDispatching(Mockito.eq(focus), any()))
+            .thenReturn(true)
+        val event = createPasteKeyEvent(KeyEvent.ACTION_DOWN)
+
+        assertEquals(
+            -1,
+            keyGestureController.interceptKeyBeforeDispatching(focus, event, FLAG_TRUSTED),
+        )
+        Mockito.verify(clipboardManagerInternal, never())
+            .createPasteGrantForDisplay(anyInt(), anyInt())
+    }
+
+    @Test
     fun testLongPressEscape_withKeyCapture_exitGestureCompleted() {
         setupKeyGestureController()
         enableKeyCaptureForFocussedWindow()
@@ -1715,6 +1856,63 @@ class KeyGestureControllerTests {
         }
         return false
     }
+
+    private fun configureSecurePasteGrant(focus: IBinder) {
+        Mockito.`when`(windowManagerInternal.getInputTargetInfo(focus))
+            .thenReturn(InputTargetInfo(TEST_UID, DEFAULT_DISPLAY))
+        ExtendedMockito.doReturn(clipboardManagerInternal).`when` {
+            LocalServices.getService(
+                ArgumentMatchers.eq(ClipboardManagerInternal::class.java)
+            )
+        }
+    }
+
+    private fun registerPasteShortcutServices(shortcutService: IShortcutService) {
+        for (event in createPasteShortcutEvents()) {
+            val shortcutCode =
+                event.keyCode.toLong() or (event.metaState.toLong() shl Integer.SIZE)
+            keyGestureController.registerShortcutKey(shortcutCode, shortcutService)
+        }
+    }
+
+    private fun createPasteShortcutEvents(): List<KeyEvent> =
+        listOf(
+            createPasteKeyEvent(KeyEvent.ACTION_DOWN),
+            createPasteKeyEvent(
+                KeyEvent.ACTION_DOWN,
+                metaState = KeyEvent.META_CTRL_ON or KeyEvent.META_SHIFT_ON,
+            ),
+            createPasteKeyEvent(
+                KeyEvent.ACTION_DOWN,
+                keyCode = KeyEvent.KEYCODE_INSERT,
+                metaState = KeyEvent.META_SHIFT_ON,
+            ),
+            createPasteKeyEvent(
+                KeyEvent.ACTION_DOWN,
+                keyCode = KeyEvent.KEYCODE_PASTE,
+                metaState = 0,
+            ),
+        )
+
+    private fun createPasteKeyEvent(
+        action: Int,
+        keyCode: Int = KeyEvent.KEYCODE_V,
+        metaState: Int = KeyEvent.META_CTRL_ON,
+        repeatCount: Int = 0,
+        eventFlags: Int = 0,
+    ): KeyEvent =
+        KeyEvent(
+            /* downTime = */ 0,
+            /* eventTime = */ 0,
+            action,
+            keyCode,
+            repeatCount,
+            metaState,
+            DEVICE_ID,
+            /* scanCode = */ 0,
+            eventFlags,
+            InputDevice.SOURCE_KEYBOARD,
+        )
 
     fun overrideSendActionKeyEventsToFocusedWindow(
         hasPermission: Boolean,
