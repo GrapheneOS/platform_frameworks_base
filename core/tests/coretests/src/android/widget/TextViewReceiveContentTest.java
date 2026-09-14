@@ -36,6 +36,7 @@ import static org.mockito.Mockito.verifyNoMoreInteractions;
 
 import android.app.Activity;
 import android.app.Instrumentation;
+import android.compat.testing.PlatformCompatChangeRule;
 import android.content.ClipData;
 import android.content.ClipDescription;
 import android.net.Uri;
@@ -52,9 +53,12 @@ import androidx.test.rule.ActivityTestRule;
 
 import com.android.frameworks.coretests.R;
 
+import libcore.junit.util.compat.CoreCompatChangeRule.DisableCompatChanges;
+
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
 
@@ -66,11 +70,14 @@ import org.mockito.Mockito;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class TextViewReceiveContentTest {
+    private static final long AUTOFILL_NON_TEXT_REQUIRES_ON_RECEIVE_CONTENT_LISTENER = 163400105L;
     private static final Uri SAMPLE_CONTENT_URI = Uri.parse("content://com.example/path");
 
     @Rule
     public ActivityTestRule<CustomInputConnectionEditTextActivity> mActivityRule =
             new ActivityTestRule<>(CustomInputConnectionEditTextActivity.class);
+    @Rule
+    public TestRule compatChangeRule = new PlatformCompatChangeRule();
 
     private Instrumentation mInstrumentation;
     private Activity mActivity;
@@ -86,6 +93,7 @@ public class TextViewReceiveContentTest {
     }
 
     @Test
+    @DisableCompatChanges(AUTOFILL_NON_TEXT_REQUIRES_ON_RECEIVE_CONTENT_LISTENER)
     public void testGetFallbackMimeTypesForAutofill() throws Throwable {
         // Configure the EditText with an EditorInfo/InputConnection that supports some image MIME
         // types.
@@ -103,6 +111,7 @@ public class TextViewReceiveContentTest {
     }
 
     @Test
+    @DisableCompatChanges(AUTOFILL_NON_TEXT_REQUIRES_ON_RECEIVE_CONTENT_LISTENER)
     public void testGetFallbackMimeTypesForAutofill_noMimeTypesInEditorInfo()
             throws Throwable {
         // Configure the EditText with an EditorInfo/InputConnection that doesn't declare any MIME
@@ -119,6 +128,7 @@ public class TextViewReceiveContentTest {
     }
 
     @Test
+    @DisableCompatChanges(AUTOFILL_NON_TEXT_REQUIRES_ON_RECEIVE_CONTENT_LISTENER)
     public void testOnReceive_fallbackToCommitContent() throws Throwable {
         // Configure the EditText with an EditorInfo/InputConnection that supports some image MIME
         // types.
@@ -142,6 +152,7 @@ public class TextViewReceiveContentTest {
     }
 
     @Test
+    @DisableCompatChanges(AUTOFILL_NON_TEXT_REQUIRES_ON_RECEIVE_CONTENT_LISTENER)
     public void testOnReceive_fallbackToCommitContent_noMimeTypesInEditorInfo() throws Throwable {
         // Configure the EditText with an EditorInfo/InputConnection that doesn't declare any MIME
         // types.
@@ -162,6 +173,7 @@ public class TextViewReceiveContentTest {
     }
 
     @Test
+    @DisableCompatChanges(AUTOFILL_NON_TEXT_REQUIRES_ON_RECEIVE_CONTENT_LISTENER)
     public void testOnReceive_fallbackToCommitContent_sourceOtherThanAutofill() throws Throwable {
         // Configure the EditText with an EditorInfo/InputConnection that supports some image MIME
         // types.

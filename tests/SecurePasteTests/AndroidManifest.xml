@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="grapheneos.securepaste">
+
+    <queries>
+        <package android:name="grapheneos.securepaste.writer" />
+        <package android:name="grapheneos.securepaste.reader" />
+        <package android:name="grapheneos.securepaste.edittext" />
+        <package android:name="grapheneos.securepaste.jetpackcompose" />
+        <package android:name="grapheneos.securepaste.ime" />
+        <package android:name="grapheneos.securepaste.customtoolbar" />
+        <package android:name="grapheneos.securepaste.cacheclient" />
+        <package android:name="grapheneos.securepaste.shareduid.a" />
+        <package android:name="grapheneos.securepaste.shareduid.b" />
+        <package android:name="grapheneos.securepaste.system" />
+        <provider android:authorities="grapheneos.securepaste.provider" />
+        <provider android:authorities="grapheneos.securepaste.writer.provider" />
+        <provider android:authorities="grapheneos.securepaste.reader.provider" />
+        <provider android:authorities="grapheneos.securepaste.edittext.provider" />
+        <provider android:authorities="grapheneos.securepaste.jetpackcompose.provider" />
+        <provider android:authorities="grapheneos.securepaste.ime.provider" />
+        <provider android:authorities="grapheneos.securepaste.customtoolbar.provider" />
+        <provider android:authorities="grapheneos.securepaste.cacheclient.provider" />
+        <provider android:authorities="grapheneos.securepaste.shareduid.a.provider" />
+        <provider android:authorities="grapheneos.securepaste.shareduid.b.provider" />
+        <provider android:authorities="grapheneos.securepaste.system.provider" />
+    </queries>
+
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.MANAGE_KEY_GESTURES" />
+    <uses-permission android:name="grapheneos.securepaste.system.permission.COMMAND" />
+
+    <application
+        android:debuggable="true"
+        android:label="Secure Paste Tests"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity
+            android:name="grapheneos.securepaste.helper.SecurePasteKeyEventActivity"
+            android:exported="false" />
+        <provider
+            android:name="grapheneos.securepaste.helper.SecurePasteCommandProvider"
+            android:authorities="grapheneos.securepaste.provider"
+            android:exported="true" />
+        <service
+            android:name=".SecurePasteAccessibilityService"
+            android:configChanges="locale"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service" />
+        </service>
+    </application>
+
+    <instrumentation
+        android:name="androidx.test.runner.AndroidJUnitRunner"
+        android:targetPackage="grapheneos.securepaste" />
+</manifest>

@@ -55,4 +55,7 @@
     <integer name="setting_default_display_color_mode">-1</integer>
     <java-symbol type="integer" name="setting_default_display_color_mode" />
 
+    <bool name="setting_default_allow_clipboard_read">true</bool>
+    <java-symbol type="bool" name="setting_default_allow_clipboard_read" />
+
 </resources>

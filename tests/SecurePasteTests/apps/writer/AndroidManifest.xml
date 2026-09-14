@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="grapheneos.securepaste.writer">
+    <application
+        android:debuggable="true"
+        android:label="Secure Paste Writer"
+        android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity
+            android:name="grapheneos.securepaste.helper.SecurePasteActivity"
+            android:exported="true" />
+        <activity
+            android:name="grapheneos.securepaste.helper.SecurePasteKeyEventActivity"
+            android:exported="true" />
+        <provider
+            android:name="grapheneos.securepaste.helper.SecurePasteCommandProvider"
+            android:authorities="grapheneos.securepaste.writer.provider"
+            android:exported="true" />
+        <provider
+            android:name="grapheneos.securepaste.helper.SecurePasteUriProvider"
+            android:authorities="grapheneos.securepaste.writer.uri"
+            android:exported="false"
+            android:grantUriPermissions="true" />
+    </application>
+</manifest>
