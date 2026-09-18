@@ -27,6 +27,7 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -48,6 +49,7 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -84,6 +86,7 @@ import com.android.systemui.flags.Flags;
 import com.android.systemui.kosmos.KosmosJavaAdapter;
 import com.android.systemui.plugins.ActivityStarter;
 import com.android.systemui.res.R;
+import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.AirplaneModeAuthenticationInteractor;
 import com.android.systemui.statusbar.connectivity.AccessPointController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.LocationController;
@@ -123,6 +126,7 @@ public class InternetDetailsContentControllerTest extends SysuiTestCase {
     private static final int SUB_ID2 = 2;
 
     private MockitoSession mStaticMockSession;
+    @Mock private AirplaneModeAuthenticationInteractor mAirplaneModeAuthenticationInteractor;
 
     //SystemUIToast
     private static final int GRAVITY_FLAGS = Gravity.FILL_HORIZONTAL | Gravity.FILL_VERTICAL;
@@ -266,7 +270,8 @@ public class InternetDetailsContentControllerTest extends SysuiTestCase {
                 mock(KeyguardUpdateMonitor.class), mGlobalSettings, mKeyguardStateController,
                 mWindowManager, mToastFactory, mWorkerHandler, mCarrierConfigTracker,
             mLocationController, mDialogTransitionAnimator, mWifiStateWorker, mFlags,
-            mKosmos.getShadeDialogContextInteractor(), mUserRepository);
+            mKosmos.getShadeDialogContextInteractor(), mUserRepository,
+            mAirplaneModeAuthenticationInteractor);
         mSubscriptionManager.addOnSubscriptionsChangedListener(mExecutor,
                 mInternetDetailsContentController.mOnSubscriptionsChangedListener);
         mInternetDetailsContentController.onStart(
@@ -287,6 +292,41 @@ public class InternetDetailsContentControllerTest extends SysuiTestCase {
     public void tearDown() {
         mStaticMockSession.finishMocking();
         mContext.getResources().updateConfiguration(mConfig, null);
+    }
+
+    @Test
+    public void setAirplaneModeDisabled_authenticationSucceeds_disablesAirplaneMode() {
+        when(mGlobalSettings.getInt(AIRPLANE_MODE_ON, 0)).thenReturn(1);
+        doAnswer(invocation -> {
+            ((Runnable) invocation.getArgument(0)).run();
+            return null;
+        }).when(mAirplaneModeAuthenticationInteractor).runAfterAuthentication(any());
+
+        mInternetDetailsContentController.setAirplaneModeDisabled();
+
+        verify(mAirplaneModeAuthenticationInteractor).runAfterAuthentication(any());
+        verify(mConnectivityManager).setAirplaneMode(false);
+    }
+
+    @Test
+    public void setAirplaneModeDisabled_authenticatedAfterAlreadyDisabled_doesNotWriteAgain() {
+        when(mGlobalSettings.getInt(AIRPLANE_MODE_ON, 0)).thenReturn(0);
+        doAnswer(invocation -> {
+            ((Runnable) invocation.getArgument(0)).run();
+            return null;
+        }).when(mAirplaneModeAuthenticationInteractor).runAfterAuthentication(any());
+
+        mInternetDetailsContentController.setAirplaneModeDisabled();
+
+        verify(mConnectivityManager, never()).setAirplaneMode(false);
+    }
+
+    @Test
+    public void setAirplaneModeDisabled_authenticationCancelled_keepsAirplaneModeEnabled() {
+        mInternetDetailsContentController.setAirplaneModeDisabled();
+
+        verify(mAirplaneModeAuthenticationInteractor).runAfterAuthentication(any());
+        verify(mConnectivityManager, never()).setAirplaneMode(false);
     }
 
     @Test
@@ -1329,6 +1369,11 @@ public class InternetDetailsContentControllerTest extends SysuiTestCase {
 
     @Test
     public void onStop_cleanUp() {
+        CancellationSignal signal = mock(CancellationSignal.class);
+        when(mAirplaneModeAuthenticationInteractor.runAfterAuthentication(any()))
+                .thenReturn(signal, null);
+        mInternetDetailsContentController.setAirplaneModeDisabled();
+        mInternetDetailsContentController.setAirplaneModeDisabled();
         doReturn(SUB_ID).when(mTelephonyManager).getSubscriptionId();
         assertThat(
                 mInternetDetailsContentController.mSubIdTelephonyManagerMap.get(SUB_ID)).isEqualTo(
@@ -1350,6 +1395,7 @@ public class InternetDetailsContentControllerTest extends SysuiTestCase {
         verify(mAccessPointController).removeAccessPointCallback(mInternetDetailsContentController);
         verify(mConnectivityManager).unregisterNetworkCallback(
                 any(ConnectivityManager.NetworkCallback.class));
+        verify(mAirplaneModeAuthenticationInteractor).cancelAuthentication(signal);
         assertThat(mInternetDetailsContentController.mCallback).isNull();
     }
 
