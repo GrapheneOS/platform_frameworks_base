@@ -17,6 +17,7 @@
 package com.android.internal.gmscompat;
 
 import android.Manifest;
+import android.accounts.AccountManager;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -34,11 +35,13 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.credentials.CredentialOption;
 import android.database.Cursor;
 import android.database.MatrixCursor;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.ext.PackageId;
 import android.net.Uri;
+import android.os.BadParcelableException;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.DeadSystemRuntimeException;
@@ -51,6 +54,9 @@ import android.os.SystemClock;
 import android.os.UserHandle;
 import android.provider.Downloads;
 import android.provider.Settings;
+import android.service.credentials.CreateCredentialRequest;
+import android.service.credentials.CredentialProviderService;
+import android.service.credentials.GetCredentialRequest;
 import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.util.Log;
@@ -488,6 +494,140 @@ public final class GmsHooks {
         if (GmsCompat.isGmsCore() && activity.getClass().getName().contains(".fido.")) {
             Log.i(TAG, "calling setTranslucent(false) for " + activity.getClass().getName());
             activity.setTranslucent(false);
+        }
+
+        maybeShowRecoverableKeystorePermissionNotification(activity.getIntent());
+    }
+
+    private static void maybeShowRecoverableKeystorePermissionNotification(
+            @Nullable Intent intent) {
+        if (!GmsCompat.isGmsCore()
+                || GmsCompat.hasPermission(Manifest.permission.RECOVER_KEYSTORE_GMSCORE)) {
+            return;
+        }
+
+        if (isPublicKeyCredentialRequest(intent)) {
+            if (!hasGoogleAccount()) {
+                return;
+            }
+            try {
+                GmsCompatApp.iGms2Gca()
+                        .maybeShowGmsCoreMissingRecoverableKeystorePermissionNotification();
+            } catch (RemoteException e) {
+                Log.w(TAG, "failed to show passkey account keychain notification", e);
+            }
+            return;
+        }
+
+        if (!isFindHubProvisioningIntent(intent)) {
+            return;
+        }
+
+        try {
+            GmsCompatApp.iGms2Gca()
+                    .maybeShowGmsCoreMissingFindHubAccountKeychainPermissionNotification();
+        } catch (RemoteException e) {
+            Log.w(TAG, "failed to show Find Hub account keychain notification", e);
+        }
+    }
+
+    private static final String TYPE_PUBLIC_KEY_CREDENTIAL =
+            "androidx.credentials.TYPE_PUBLIC_KEY_CREDENTIAL";
+    private static final String ACTION_FIDO_REGISTRATION =
+            "com.google.android.gms.auth.api.credentials.FIDO_REGISTRATION";
+    private static final String ACTION_FIDO_AUTHENTICATION =
+            "com.google.android.gms.auth.api.credentials.FIDO_AUTHENTICATION";
+    private static final String GOOGLE_ACCOUNT_TYPE = "com.google";
+    private static final String FIND_HUB_PROVISION_ACTIVITY =
+            "com.google.android.gms.findmydevice.spot.fastpair.halfsheet.ProvisionActivity";
+    private static final String FAST_PAIR_HALF_SHEET_ACTIVITY =
+            "com.google.android.gms.nearby.discovery.fastpair.HalfSheetActivity";
+    private static final String EXTRA_HALF_SHEET_TYPE =
+            "com.google.android.gms.nearby.discovery.fastpair.EXTRA_HALF_SHEET_TYPE";
+    private static final String HALF_SHEET_TYPE_SPOT = "SPOT";
+
+    private static boolean hasGoogleAccount() {
+        try {
+            return AccountManager.get(GmsCompat.appContext())
+                    .getAccountsByType(GOOGLE_ACCOUNT_TYPE).length != 0;
+        } catch (RuntimeException e) {
+            // Skip the optional notification if the account query fails.
+            Log.w(TAG, "failed to query Google accounts", e);
+            return false;
+        }
+    }
+
+    private static boolean isPublicKeyCredentialRequest(@Nullable Intent intent) {
+        if (intent == null) {
+            return false;
+        }
+
+        if (isGmsCoreFidoIntent(intent)) {
+            return true;
+        }
+
+        try {
+            CreateCredentialRequest createRequest = intent.getParcelableExtra(
+                    CredentialProviderService.EXTRA_CREATE_CREDENTIAL_REQUEST,
+                    CreateCredentialRequest.class);
+            if (createRequest != null
+                    && TYPE_PUBLIC_KEY_CREDENTIAL.equals(createRequest.getType())) {
+                return true;
+            }
+
+            GetCredentialRequest getRequest = intent.getParcelableExtra(
+                    CredentialProviderService.EXTRA_GET_CREDENTIAL_REQUEST,
+                    GetCredentialRequest.class);
+            if (getRequest != null) {
+                for (CredentialOption option : getRequest.getCredentialOptions()) {
+                    if (option != null
+                            && TYPE_PUBLIC_KEY_CREDENTIAL.equals(option.getType())) {
+                        return true;
+                    }
+                }
+            }
+        } catch (BadParcelableException e) {
+            Log.w(TAG, "failed to inspect Credential Manager request", e);
+        }
+
+        return false;
+    }
+
+    private static boolean isGmsCoreFidoIntent(Intent intent) {
+        ComponentName component = intent.getComponent();
+        if (component == null || !PACKAGE_GMS_CORE.equals(component.getPackageName())) {
+            return false;
+        }
+
+        String action = intent.getAction();
+        return ACTION_FIDO_REGISTRATION.equals(action)
+                || ACTION_FIDO_AUTHENTICATION.equals(action);
+    }
+
+    private static boolean isFindHubProvisioningIntent(@Nullable Intent intent) {
+        if (intent == null) {
+            return false;
+        }
+
+        ComponentName component = intent.getComponent();
+        if (component == null || !PACKAGE_GMS_CORE.equals(component.getPackageName())) {
+            return false;
+        }
+
+        String className = component.getClassName();
+        if (FIND_HUB_PROVISION_ACTIVITY.equals(className)) {
+            return true;
+        }
+
+        if (!FAST_PAIR_HALF_SHEET_ACTIVITY.equals(className)) {
+            return false;
+        }
+
+        try {
+            return HALF_SHEET_TYPE_SPOT.equals(intent.getStringExtra(EXTRA_HALF_SHEET_TYPE));
+        } catch (BadParcelableException e) {
+            Log.w(TAG, "failed to inspect Fast Pair half sheet type", e);
+            return false;
         }
     }
 

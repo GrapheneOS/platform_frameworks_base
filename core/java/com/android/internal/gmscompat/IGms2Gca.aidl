@@ -30,6 +30,10 @@ interface IGms2Gca {
 
     oneway void showGmsCoreMissingNearbyDevicesPermissionGeneric();
 
+    oneway void maybeShowGmsCoreMissingRecoverableKeystorePermissionNotification();
+
+    oneway void maybeShowGmsCoreMissingFindHubAccountKeychainPermissionNotification();
+
     oneway void showMissingPostNotifsPermissionNotification(String callerPkg);
 
     oneway void maybeShowContactsSyncNotification();
