@@ -9055,8 +9055,12 @@ public final class Settings {
                 "location_time_zone_detection_enabled";
 
         /**
-         * The accuracy in meters used for coarsening location for clients with only the coarse
-         * location permission.
+         * The nominal accuracy in meters used to scale the random offset applied before population
+         * density coarsening.
+         *
+         * <p>The provider directly selects the S2 coarsening level. This value can indirectly
+         * change that level when the offset crosses a population density boundary. The offset's
+         * standard deviation is one quarter of this value, subject to a minimum scale.
          *
          * @hide
          */
