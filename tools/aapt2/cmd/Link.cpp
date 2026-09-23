@@ -709,9 +709,25 @@ bool ResourceFileFlattener::Flatten(ResourceTable* table, IArchiveWriter* archiv
   return !error;
 }
 
-static bool WriteStableIdMapToPath(android::IDiagnostics* diag,
+void CollectIds(const ResourceTable& table, const bool include_staging, std::unordered_map<ResourceName, ResourceId>& out_map) {
+
+  for (auto& package : table.packages) {
+    for (auto& type : package->types) {
+      for (auto& entry : type->entries) {
+        if (entry->visibility.staged_api && !include_staging) {
+          continue;
+        }
+        ResourceName name(package->name, type->named_type, entry->name);
+        CHECK(entry->id.has_value());
+        out_map[std::move(name)] = entry->id.value();
+      }
+    }
+  }
+}
+
+bool WriteStableIdMapToPath(android::IDiagnostics* diag,
                                    const std::unordered_map<ResourceName, ResourceId>& id_map,
-                                   const std::string& id_map_path) {
+                                   const std::string& id_map_path, const bool sort) {
   android::FileOutputStream fout(id_map_path);
   if (fout.HadError()) {
     diag->Error(android::DiagMessage(id_map_path) << "failed to open: " << fout.GetError());
@@ -719,7 +735,12 @@ static bool WriteStableIdMapToPath(android::IDiagnostics* diag,
   }
 
   text::Printer printer(&fout);
-  for (const auto& entry : id_map) {
+  std::vector<std::pair<ResourceName, ResourceId>> vec(id_map.begin(), id_map.end());
+  if (sort) {
+    std::sort(vec.begin(), vec.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+  }
+
+  for (const auto& entry : vec) {
     const ResourceName& name = entry.first;
     const ResourceId& id = entry.second;
     printer.Print(name.to_string());
@@ -2145,18 +2166,10 @@ class Linker {
 
       // Now grab each ID and emit it as a file.
       if (options_.resource_id_map_path) {
-        for (auto& package : final_table_.packages) {
-          for (auto& type : package->types) {
-            for (auto& entry : type->entries) {
-              ResourceName name(package->name, type->named_type, entry->name);
-              // The IDs are guaranteed to exist.
-              options_.stable_id_map[std::move(name)] = entry->id.value();
-            }
-          }
-        }
+        CollectIds(final_table_, true, options_.stable_id_map);
 
         if (!WriteStableIdMapToPath(context_->GetDiagnostics(), options_.stable_id_map,
-                                    options_.resource_id_map_path.value())) {
+                                    options_.resource_id_map_path.value(), false)) {
           return 1;
         }
       }
