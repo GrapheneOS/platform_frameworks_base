@@ -30,7 +30,6 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
-import android.telephony.SubscriptionManager;
 import android.telephony.TelephonyManager;
 import android.telephony.emergency.EmergencyNumber;
 import android.text.TextUtils;
@@ -184,7 +183,13 @@ public class EmergencyNumberUtils {
         }
         // Country preferences must see all categories: e.g. the database labels TR 112
         // ambulance-only, even though it is the country's preferred SOS number.
-        Map<Integer, List<EmergencyNumber>> allLists = mTelephonyManager.getEmergencyNumberList();
+        Map<Integer, List<EmergencyNumber>> allLists;
+        try {
+            allLists = mTelephonyManager.getEmergencyNumberList();
+        } catch (IllegalStateException | UnsupportedOperationException e) {
+            Log.w(TAG, "Emergency number lists unavailable", e);
+            return new ArrayList<>();
+        }
         if (allLists == null || allLists.isEmpty()) {
             Log.w(TAG, "Unable to retrieve emergency number lists!");
             return new ArrayList<>();
@@ -205,8 +210,7 @@ public class EmergencyNumberUtils {
         if (candidates.isEmpty()) {
             Log.w(TAG, "No promoted emergency number found!");
         }
-        String country = mTelephonyManager.createForSubscriptionId(
-                SubscriptionManager.getDefaultSubscriptionId()).getNetworkCountryIso();
+        String country = new EmergencyCountryResolver(mTelephonyManager).resolve();
         return rankEmergencyNumbers(candidates, country);
     }
 
