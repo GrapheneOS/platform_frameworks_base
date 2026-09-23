@@ -186,6 +186,21 @@ class DumpBriefPackageInfo : public Command {
     android::IDiagnostics* diag_;
 };
 
+class DumpIds : public DumpApkCommand {
+  public:
+    explicit DumpIds(text::Printer* printer, android::IDiagnostics* diag)
+        : DumpApkCommand("ids", printer, diag) {
+      SetDescription("Print resource IDs in the format that is used by --emit-ids and --stable-ids link options'.");
+      AddRequiredFlag("--out",
+          "Output file.", &out_path_);
+    }
+
+  int Dump(LoadedApk* apk) override;
+
+  private:
+    std::string out_path_;
+};
+
 class DumpPermissionsCommand : public DumpApkCommand {
  public:
   explicit DumpPermissionsCommand(text::Printer* printer, android::IDiagnostics* diag)
@@ -299,6 +314,7 @@ class DumpCommand : public Command {
     AddOptionalSubcommand(util::make_unique<DumpAPCCommand>(printer, diag_));
     AddOptionalSubcommand(util::make_unique<DumpBadgingCommand>(printer, diag_));
     AddOptionalSubcommand(util::make_unique<DumpBriefPackageInfo>(diag_));
+    AddOptionalSubcommand(util::make_unique<DumpIds>(printer, diag_));
     AddOptionalSubcommand(util::make_unique<DumpConfigsCommand>(printer, diag_));
     AddOptionalSubcommand(util::make_unique<DumpPackageNameCommand>(printer, diag_));
     AddOptionalSubcommand(util::make_unique<DumpPermissionsCommand>(printer, diag_));

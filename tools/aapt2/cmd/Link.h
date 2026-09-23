@@ -36,6 +36,11 @@
 
 namespace aapt {
 
+void CollectIds(const ResourceTable& table, const bool include_staging, std::unordered_map<ResourceName, ResourceId>& out_map);
+bool WriteStableIdMapToPath(android::IDiagnostics* diag,
+                                   const std::unordered_map<ResourceName, ResourceId>& id_map,
+                                   const std::string& id_map_path, const bool sort);
+
 enum class OutputFormat {
   kApk,
   kProto,

@@ -21,6 +21,7 @@
 
 #include "Debug.h"
 #include "Diagnostics.h"
+#include "Link.h"
 #include "LoadedApk.h"
 #include "Util.h"
 #include "ValueVisitor.h"
@@ -499,6 +500,21 @@ int DumpBriefPackageInfo::Action(const std::vector<std::string>& args) {
     }
   }
   bpi.SerializeToOstream(&std::cout);
+  return 0;
+}
+
+int DumpIds::Dump(LoadedApk* apk) {
+  ResourceTable* table = apk->GetResourceTable();
+  if (!table) {
+    GetDiagnostics()->Error(android::DiagMessage() << "Failed to retrieve resource table");
+    return 1;
+  }
+
+  std::unordered_map<ResourceName, ResourceId> ids;
+  CollectIds(*table, false, ids);
+  if (!WriteStableIdMapToPath(GetDiagnostics(), ids, out_path_, true)) {
+    return 1;
+  }
   return 0;
 }
 
