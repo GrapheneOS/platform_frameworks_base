@@ -125,6 +125,7 @@ android_app {
     // Generate private symbols into the com.android.internal.R class
     // so they are not accessible to 3rd party apps.
     aaptflags: [
+        "--stable-ids", "frameworks/base/core/res/framework-res-stable-ids.txt",
         "--private-symbols",
         "com.android.internal",
 
