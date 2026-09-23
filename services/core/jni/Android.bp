@@ -194,7 +194,7 @@ cc_defaults {
         "android.hidl.token@1.0-utils",
         "android.frameworks.sensorservice@1.0",
         "android.frameworks.sensorservice-V1-ndk",
-        "android.frameworks.stats-V2-ndk",
+        "android.frameworks.stats-V3-ndk",
         "android.os.vibrator.flags-aconfig-cc",
         "aconfig_libgui_flags_c_lib",
         "android.system.suspend.control-V1-cpp",
