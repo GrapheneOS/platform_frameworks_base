@@ -5,6 +5,7 @@ import android.annotation.Nullable;
 import android.content.Context;
 
 import java.io.FileDescriptor;
+import java.util.concurrent.Executor;
 
 /** @hide */
 public class BinderWrapper implements IBinder {
@@ -67,6 +68,7 @@ public class BinderWrapper implements IBinder {
     }
 
     @Nullable
+    @Override
     public IBinder getExtension() throws RemoteException {
         return base.getExtension();
     }
@@ -74,6 +76,12 @@ public class BinderWrapper implements IBinder {
     @Override
     public void addFrozenStateChangeCallback(@NonNull FrozenStateChangeCallback callback) throws RemoteException {
         base.addFrozenStateChangeCallback(callback);
+    }
+
+    @Override
+    public void addFrozenStateChangeCallback(@NonNull Executor executor,
+            @NonNull FrozenStateChangeCallback callback) throws RemoteException {
+        base.addFrozenStateChangeCallback(executor, callback);
     }
 
     @Override
