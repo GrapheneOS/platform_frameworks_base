@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Global constant definitions et cetera related to the full-backup-to-fd binary format. Nothing in
@@ -294,7 +295,7 @@ public class FullBackup {
             } catch (ErrnoException e) {
                 e.rethrowAsIOException();
             }
-            outFile.setLastModified(mtime);
+            outFile.setLastModified(TimeUnit.SECONDS.toMillis(mtime));
         }
     }
 

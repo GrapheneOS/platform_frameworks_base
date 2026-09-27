@@ -31,6 +31,7 @@ import static org.junit.Assume.assumeTrue;
 import android.app.backup.FullBackup.BackupScheme.PathWithRequiredFlags;
 import android.app.backup.FullBackup.BackupScheme.PlatformSpecificParams;
 import android.content.Context;
+import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.DisableFlags;
 import android.platform.test.annotations.EnableFlags;
 import android.platform.test.flag.junit.SetFlagsRule;
@@ -706,5 +707,21 @@ public class FullBackupTest {
                                 excludesSet,
                                 includeMap,
                                 mPlatformSpecificParamsMap));
+    }
+
+    @Test
+    public void testRestoreFile_setsMtimeFromUnixSeconds() throws Exception {
+        File outFile = new File(mContext.getCacheDir(), "restoreFileMtime");
+        ParcelFileDescriptor[] pipe = ParcelFileDescriptor.createPipe();
+        pipe[1].close();
+        try {
+            FullBackup.restoreFile(
+                    pipe[0], 0, BackupAgent.TYPE_FILE, 0600, 1_700_000_000L, outFile);
+
+            assertEquals(1_700_000_000_000L, outFile.lastModified());
+        } finally {
+            pipe[0].close();
+            outFile.delete();
+        }
     }
 }
