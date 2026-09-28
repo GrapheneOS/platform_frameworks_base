@@ -14,6 +14,7 @@ import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Process;
+import android.os.RemoteException;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.util.ArraySet;
@@ -135,7 +136,8 @@ public class UsbPortSecurityHooks {
     private ArraySet<String> halDisabledPorts = new ArraySet<>();
 
     // implementation of the standard android.hardware.usb.IUsb.enableUsbDataSignal() API
-    public static boolean onHalEnableUsbDataSignal(String portName, boolean enable) {
+    public static boolean onHalEnableUsbDataSignal(String portName, boolean enable,
+            android.hardware.usb.IUsbOperationInternal callback) {
         if (!isSupported()) {
             return false;
         }
@@ -145,7 +147,14 @@ public class UsbPortSecurityHooks {
             throw new IllegalStateException("UsbPortSecurityHooks is not initialized");
         }
 
-        INSTANCE.handler.post(() -> INSTANCE.onHalEnableUsbDataSignalInner(portName, enable));
+        INSTANCE.handler.post(() -> {
+            INSTANCE.onHalEnableUsbDataSignalInner(portName, enable);
+            try {
+                callback.onOperationComplete(android.hardware.usb.UsbOperationInternal.USB_OPERATION_SUCCESS);
+            } catch (RemoteException e) {
+                Slog.w(TAG, "onHalEnableUsbDataSignal", e);
+            }
+        });
         return true;
     }
 
