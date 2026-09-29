@@ -32,6 +32,13 @@
     <string name="notif_ch_system_journal">System journal</string>
     <java-symbol type="string" name="notif_ch_system_journal" />
 
+    <string name="notif_ch_legacy_vpn_warning">Legacy VPN warning</string>
+    <java-symbol type="string" name="notif_ch_legacy_vpn_warning" />
+    <string name="legacy_vpn_warning_notif_title">Legacy VPN</string>
+    <java-symbol type="string" name="legacy_vpn_warning_notif_title" />
+    <string name="legacy_vpn_warning_notif_text">%1$s started a legacy VPN</string>
+    <java-symbol type="string" name="legacy_vpn_warning_notif_text" />
+
     <string name="process_crash_notif_title">%1$s has crashed</string>
     <java-symbol type="string" name="process_crash_notif_title" />
 
