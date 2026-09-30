@@ -32,6 +32,11 @@ data class NotificationChipModel(
     val componentName: ComponentName?,
     val statusBarChipIconView: StatusBarIconView?,
     val promotedContent: PromotedNotificationContentModels,
+    /**
+     * True if the notification's content is sensitive right now, so the chip must not show
+     * [PromotedNotificationContentModels.privateVersion].
+     */
+    val isSensitive: Boolean,
     /** The time when the notification first appeared as promoted. */
     val creationTime: Long,
     /** True if the app managing this notification is currently visible to the user. */
