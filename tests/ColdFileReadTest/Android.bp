@@ -1,0 +1,23 @@
+package {
+    default_applicable_licenses: ["frameworks_base_license"],
+}
+
+cc_test {
+    name: "cold_file_read_runner",
+    auto_gen_config: false,
+    srcs: ["native/cold_file_read.cpp"],
+    compile_multilib: "64",
+    cpp_std: "c++17",
+    cflags: ["-D_GNU_SOURCE", "-Wall", "-Wextra", "-Werror"],
+    ldflags: ["-Wl,-z,max-page-size=16384"],
+    shared_libs: ["libbase", "liblog"],
+}
+
+java_test_host {
+    name: "ColdFileReadBenchmark",
+    srcs: ["host/src/**/*.java"],
+    libs: ["tradefed"],
+    device_first_data: [":cold_file_read_runner"],
+    test_config: "HostAndroidTest.xml",
+    test_suites: ["general-tests", "performance-tests"],
+}
