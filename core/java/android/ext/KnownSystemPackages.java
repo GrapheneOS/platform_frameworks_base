@@ -22,6 +22,7 @@ public final class KnownSystemPackages {
     }
 
     @NonNull public final String contactsProvider;
+    @NonNull public final String gmsCompat;
     @NonNull public final String launcher;
     @NonNull public final String mediaProvider;
     @NonNull public final String permissionController;
@@ -33,6 +34,7 @@ public final class KnownSystemPackages {
     private KnownSystemPackages(Context ctx) {
         Resources res = ctx.getResources();
         contactsProvider = "com.android.providers.contacts";
+        gmsCompat = "app.grapheneos.gmscompat";
         launcher = "com.android.launcher3";
         mediaProvider = "com.android.providers.media.module";
         permissionController = "com.android.permissioncontroller";
@@ -49,6 +51,7 @@ public final class KnownSystemPackages {
             case KnownSystemPackage.SHELL -> shell;
             case KnownSystemPackage.SYSTEM_UI -> systemUi;
             case KnownSystemPackage.SETUP_WIZARD -> setupWizard;
+            case KnownSystemPackage.GMS_COMPAT -> gmsCompat;
             default -> throw new IllegalArgumentException();
         };
     }
