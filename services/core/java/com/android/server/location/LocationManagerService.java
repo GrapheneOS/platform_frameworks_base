@@ -112,7 +112,6 @@ import com.android.server.FgThread;
 import com.android.server.LocalServices;
 import com.android.server.SystemService;
 import com.android.server.location.eventlog.LocationEventLog;
-import com.android.server.location.fudger.LocationFudgerCache;
 import com.android.server.location.geofence.GeofenceManager;
 import com.android.server.location.geofence.GeofenceProxy;
 import com.android.server.location.gnss.GnssConfiguration;
@@ -266,10 +265,7 @@ public class LocationManagerService extends ILocationManager.Stub implements
     private volatile @Nullable GnssManagerService mGnssManagerService = null;
     private ProxyGeocodeProvider mGeocodeProvider;
 
-    private @Nullable ProxyPopulationDensityProvider mPopulationDensityProvider = null;
-
-    // A cache for population density lookups. Used if density-based coarse locations are enabled.
-    private @Nullable LocationFudgerCache mLocationFudgerCache = null;
+    private volatile @Nullable ProxyPopulationDensityProvider mPopulationDensityProvider = null;
 
     private final Object mDeprecatedGnssBatchingLock = new Object();
     @GuardedBy("mDeprecatedGnssBatchingLock")
@@ -404,6 +400,13 @@ public class LocationManagerService extends ILocationManager.Stub implements
                 manager.setRealProvider(realProvider);
             }
             mProviderManagers.add(manager);
+
+            // Managers added after onSystemThirdPartyAppsCanStart has wired the boot-time
+            // managers must also receive the population density provider; otherwise their
+            // fudger fails closed and suppresses every coarse fix.
+            if (mPopulationDensityProvider != null) {
+                manager.setPopulationDensityProvider(mPopulationDensityProvider);
+            }
         }
     }
 
@@ -413,10 +416,10 @@ public class LocationManagerService extends ILocationManager.Stub implements
     }
 
     @VisibleForTesting
-    protected void setLocationFudgerCache(LocationFudgerCache cache) {
-        mLocationFudgerCache = cache;
+    protected void setPopulationDensityProviderOnFudgers(
+            @Nullable ProxyPopulationDensityProvider provider) {
         for (LocationProviderManager manager : mProviderManagers) {
-            manager.setLocationFudgerCache(cache);
+            manager.setPopulationDensityProvider(provider);
         }
     }
 
@@ -575,18 +578,16 @@ public class LocationManagerService extends ILocationManager.Stub implements
         }
 
         long startTime = System.currentTimeMillis();
-        setProxyPopulationDensityProvider(
-                ProxyPopulationDensityProvider.createAndRegister(mContext));
+        ProxyPopulationDensityProvider populationDensityProvider =
+                ProxyPopulationDensityProvider.createAndRegister(mContext);
+        setProxyPopulationDensityProvider(populationDensityProvider);
         int duration = (int) (System.currentTimeMillis() - startTime);
-        if (mPopulationDensityProvider == null) {
-            Log.e(TAG, "no population density provider found");
-        }
+        // The proxy registers its watcher even when no provider currently resolves (it binds one
+        // that appears later), so resolution state at boot is diagnostic only.
         FrameworkStatsLog.write(FrameworkStatsLog.POPULATION_DENSITY_PROVIDER_LOADING_REPORTED,
-            /* provider_null= */ (mPopulationDensityProvider == null),
+            /* provider_null= */ !populationDensityProvider.isServiceResolved(),
             /* provider_start_time_millis= */ duration);
-        if (mPopulationDensityProvider != null) {
-            setLocationFudgerCache(new LocationFudgerCache(mPopulationDensityProvider));
-        }
+        setPopulationDensityProviderOnFudgers(populationDensityProvider);
 
         if (!Flags.disableHardwareAr()) {
             // bind to hardware activity recognition

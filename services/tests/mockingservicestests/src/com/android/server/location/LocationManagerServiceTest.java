@@ -45,7 +45,6 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.server.LocalServices;
-import com.android.server.location.fudger.LocationFudgerCache;
 import com.android.server.location.injector.FakeUserInfoHelper;
 import com.android.server.location.injector.TestInjector;
 import com.android.server.location.provider.AbstractLocationProvider;
@@ -182,15 +181,26 @@ public class LocationManagerServiceTest {
     }
 
     @Test
-    public void testSetLocationFudgerCache_isCalled() {
+    public void testSetPopulationDensityProviderOnFudgers_isForwardedToManagers() {
         LocationProviderManager manager = mock(LocationProviderManager.class);
         ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
         mLocationManagerService.addLocationProviderManager(manager, /* provider = */ null);
-        LocationFudgerCache cache = new LocationFudgerCache(provider);
 
-        mLocationManagerService.setLocationFudgerCache(cache);
+        mLocationManagerService.setPopulationDensityProviderOnFudgers(provider);
 
-        verify(manager).setLocationFudgerCache(cache);
+        verify(manager).setPopulationDensityProvider(provider);
+    }
+
+    @Test
+    public void testAddLocationProviderManager_wiresLateManagerWithExistingProvider() {
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        mLocationManagerService.setProxyPopulationDensityProvider(provider);
+
+        LocationProviderManager manager = mock(LocationProviderManager.class);
+        mLocationManagerService.addLocationProviderManager(manager, /* realProvider = */ null);
+
+        // A manager added after the provider was wired at boot is wired inline.
+        verify(manager).setPopulationDensityProvider(provider);
     }
 
     @Test

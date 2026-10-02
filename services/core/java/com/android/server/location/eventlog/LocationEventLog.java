@@ -237,6 +237,13 @@ public class LocationEventLog extends LocalEventLog<Object> {
         getAggregateStats(provider, identity).markLocationDelivered();
     }
 
+    /** Logs a suppressed delivery to a client whose location could not be coarsened. */
+    public void logProviderCoarseningSuppressed(String provider, CallerIdentity identity) {
+        synchronized (this) {
+            mLocationsLog.logProviderCoarseningSuppressed(provider, identity);
+        }
+    }
+
     /** Logs that a provider has entered or exited stationary throttling. */
     public void logProviderStationaryThrottled(String provider, boolean throttled,
             ProviderRequest request) {
@@ -460,6 +467,22 @@ public class LocationEventLog extends LocalEventLog<Object> {
         }
     }
 
+    private static final class ProviderCoarseningSuppressedEvent extends ProviderEvent {
+
+        private final CallerIdentity mIdentity;
+
+        ProviderCoarseningSuppressedEvent(String provider, CallerIdentity identity) {
+            super(provider);
+            mIdentity = identity;
+        }
+
+        @Override
+        public String toString() {
+            return mProvider + " provider delivery suppressed (coarsening failed) for "
+                    + mIdentity;
+        }
+    }
+
     private static final class ProviderStationaryThrottledEvent extends ProviderEvent {
 
         private final boolean mStationaryThrottled;
@@ -641,6 +664,10 @@ public class LocationEventLog extends LocalEventLog<Object> {
         public void logProviderDeliveredLocations(String provider, int numLocations,
                 CallerIdentity identity) {
             addLog(new ProviderDeliverLocationEvent(provider, numLocations, identity));
+        }
+
+        public void logProviderCoarseningSuppressed(String provider, CallerIdentity identity) {
+            addLog(new ProviderCoarseningSuppressedEvent(provider, identity));
         }
 
         private void addLog(Object logEvent) {
