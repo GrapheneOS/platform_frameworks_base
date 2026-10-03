@@ -136,7 +136,8 @@ constructor(
     }
 
     private fun NotificationChipModel.toPrunedModel(): PrunedNotificationChipModel {
-        // Chips are never shown when locked, so it's safe to use the version with sensitive content
+        // Chips can show while the device is locked (for example over an app shown on top of the
+        // lock screen), so only use the private version if the content isn't sensitive right now.
         val content = promotedContent.privateVersion
 
         val chipTextVariants: List<String>?
@@ -145,7 +146,18 @@ constructor(
         val chipChronometerFormat: OngoingActivityChipModel.Content.Timer.Format?
         val chipSemanticStyle: Int?
 
-        if (NotificationChipFromCompactContent.isEnabled) {
+        if (isSensitive) {
+            // Show only the short critical text of the app's public version, or else just the
+            // icon: never private text or time. The public version is the private one itself if
+            // the notification didn't need redaction when its content was last extracted.
+            val publicVersion =
+                promotedContent.publicVersion.takeIf { it !== promotedContent.privateVersion }
+            chipTextVariants = publicVersion?.shortCriticalText?.let { listOf(it) }
+            chipTime = null
+            chipChronometer = null
+            chipChronometerFormat = null
+            chipSemanticStyle = null
+        } else if (NotificationChipFromCompactContent.isEnabled) {
             if (content.compactContent is ResolvedBasicCompactContent) {
                 val contentText = content.compactContent.text
                 chipTextVariants =

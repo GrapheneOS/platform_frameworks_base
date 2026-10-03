@@ -136,6 +136,7 @@ constructor(
             isScreenShareNotification = this.isScreenShareNotification,
             statusBarChipIconView = statusBarChipIconView,
             promotedContent = promotedContent,
+            isSensitive = isSensitive,
             creationTime = creationTime,
             isAppVisible = appVisibility.isAppCurrentlyVisible,
             lastAppVisibleTime = appVisibility.lastAppVisibleTime,

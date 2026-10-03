@@ -221,6 +221,7 @@ private class ActiveNotificationsStoreBuilder(
             bucket = bucket,
             callType = sbn.toCallType(),
             promotedContent = promotedNotificationContentModels,
+            isSensitive = isSensitive.value,
             requestedPromotion = sbn.notification.isRequestPromotedOngoing,
             isScreenShareNotification = sbn.notification.isScreenShareNotification(),
             notifStyle = notifStyle(sbn.notification),
@@ -257,6 +258,7 @@ private fun ActiveNotificationsStore.createOrReuseNotif(
     bucket: Int,
     callType: CallType,
     promotedContent: PromotedNotificationContentModels?,
+    isSensitive: Boolean,
     requestedPromotion: Boolean,
     isScreenShareNotification: Boolean,
     notifStyle: NotifStyle?,
@@ -287,6 +289,7 @@ private fun ActiveNotificationsStore.createOrReuseNotif(
             bucket = bucket,
             callType = callType,
             promotedContent = promotedContent,
+            isSensitive = isSensitive,
             requestedPromotion = requestedPromotion,
             isScreenShareNotification = isScreenShareNotification,
             style = notifStyle,
@@ -317,6 +320,7 @@ private fun ActiveNotificationsStore.createOrReuseNotif(
             bucket = bucket,
             callType = callType,
             promotedContent = promotedContent,
+            isSensitive = isSensitive,
             requestedPromotion = requestedPromotion,
             isScreenShareNotification = isScreenShareNotification,
             style = notifStyle,
@@ -348,6 +352,7 @@ private fun ActiveNotificationModel.isCurrent(
     bucket: Int,
     callType: CallType,
     promotedContent: PromotedNotificationContentModels?,
+    isSensitive: Boolean,
     requestedPromotion: Boolean,
     isScreenShareNotification: Boolean,
     style: NotifStyle?,
@@ -379,6 +384,7 @@ private fun ActiveNotificationModel.isCurrent(
         // QQQ: Do we need to do the same `isCurrent` thing within the content model to avoid
         // recreating the active notification model constantly?
         promotedContent != this.promotedContent -> false
+        isSensitive != this.isSensitive -> false
         requestedPromotion != this.requestedPromotion -> false
         isScreenShareNotification != this.isScreenShareNotification -> false
         style != this.style -> false
