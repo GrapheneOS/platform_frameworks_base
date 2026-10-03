@@ -46,7 +46,6 @@ prebuilt_media {
         "alarms/ogg/Osmium.ogg",
         "alarms/ogg/Oxygen.ogg",
         "alarms/ogg/Platinum.ogg",
-        "alarms/ogg/Promethium.ogg",
         "alarms/ogg/Scandium.ogg",
     ],
     relative_install_path: "audio/alarms",
