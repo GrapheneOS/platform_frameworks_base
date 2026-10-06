@@ -164,6 +164,14 @@ interface IActivityManager {
     void unregisterProcessObserver(in IProcessObserver observer);
     @UnsupportedAppUsage
     List<ActivityManager.RunningAppProcessInfo> getRunningAppProcesses();
+
+    /**
+     * Checks access to the MediaDrm device unique ID and reports denied attempts.
+     * The implementation derives the caller identity from Binder and treats
+     * {@code packageName} only as an identity claim to validate.
+     * @hide
+     */
+    boolean isMediaDrmDeviceUniqueIdAccessAllowed(String packageName);
     // =============== End of transactions used on native side as well ============================
 
     // Special low-level communication with activity manager.

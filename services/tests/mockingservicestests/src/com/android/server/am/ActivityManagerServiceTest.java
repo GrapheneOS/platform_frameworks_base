@@ -153,6 +153,7 @@ import androidx.test.filters.SmallTest;
 import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.internal.os.BackgroundThread;
 import com.android.internal.os.SomeArgs;
 import com.android.sdksandbox.flags.Flags;
 import com.android.server.LocalServices;
@@ -162,9 +163,12 @@ import com.android.server.am.ProcessList.IsolatedUidRange;
 import com.android.server.am.ProcessList.IsolatedUidRangeAllocator;
 import com.android.server.am.UidObserverController.ChangeRecord;
 import com.android.server.appop.AppOpsService;
+import com.android.server.ext.MediaDrmIdAccess;
 import com.android.server.job.JobSchedulerInternal;
 import com.android.server.notification.NotificationManagerInternal;
 import com.android.server.pm.pkg.AndroidPackage;
+import com.android.server.pm.pkg.PackageStateInternal;
+import com.android.server.pm.pkg.PackageUserStateInternal;
 import com.android.server.privatecompute.PccSandboxManagerInternal;
 import com.android.server.privatecompute.PrivateComputeStatsLogUtil;
 import com.android.server.wm.ActivityTaskManagerInternal;
@@ -277,6 +281,106 @@ public class ActivityManagerServiceTest {
 
     private static ProcessList.ProcessListSettingsListener sProcessListSettingsListener;
 
+    @Test
+    public void mediaDrmDeviceUniqueId_thirdPartyAppDenied() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, uid, false);
+
+        assertFalse(mAms.isMediaDrmDeviceUniqueIdAccessAllowed(TEST_PACKAGE, uid, pid));
+        waitForMediaDrmCallback();
+        ExtendedMockito.verify(() -> MediaDrmIdAccess.onAccessBlocked(
+                uid, pid, uid, TEST_USER, TEST_PACKAGE));
+    }
+
+    @Test
+    public void mediaDrmDeviceUniqueId_systemAppAllowed() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        mockMediaDrmPackage(TEST_PACKAGE, uid, true);
+
+        assertTrue(mAms.isMediaDrmDeviceUniqueIdAccessAllowed(TEST_PACKAGE, uid, 54321));
+    }
+
+    @Test
+    public void mediaDrmDeviceUniqueId_spoofedPackageDenied() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, uid, true);
+
+        assertFalse(mAms.isMediaDrmDeviceUniqueIdAccessAllowed(TEST_OTHER_PACKAGE, uid, pid));
+        waitForMediaDrmCallback();
+        ExtendedMockito.verify(() -> MediaDrmIdAccess.onAccessBlocked(
+                uid, pid, uid, TEST_USER, null));
+    }
+
+    @Test
+    public void mediaDrmDeviceUniqueId_coreUidAllowedWithoutPackageLookup() {
+        assertTrue(mAms.isMediaDrmDeviceUniqueIdAccessAllowed(
+                TEST_PACKAGE, Process.SYSTEM_UID, 54321));
+        verify(mPackageManagerInternal, never()).getPackageStateInternal(anyString());
+    }
+
+    @Test
+    public void mediaDrmDeviceUniqueId_sdkSandboxDeniedAndAttributedToOwner() {
+        final int sandboxUid = UserHandle.getUid(TEST_USER, Process.FIRST_SDK_SANDBOX_UID);
+        final int ownerUid = Process.getAppUidForSdkSandboxUid(sandboxUid);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, ownerUid, false);
+
+        assertFalse(mAms.isMediaDrmDeviceUniqueIdAccessAllowed(TEST_PACKAGE, sandboxUid, pid));
+        waitForMediaDrmCallback();
+        ExtendedMockito.verify(() -> MediaDrmIdAccess.onAccessBlocked(
+                sandboxUid, pid, ownerUid, TEST_USER, TEST_PACKAGE));
+    }
+
+    @Test
+    public void mediaDrmDeviceUniqueId_usesTrustedProcessAttribution() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, uid, true);
+        final ApplicationInfo info = new ApplicationInfo();
+        info.uid = uid;
+        info.packageName = TEST_PACKAGE;
+        info.processName = TEST_PACKAGE + ":remote";
+        final ProcessRecord process = new ProcessRecord(mAms, info, info.processName, uid);
+        process.setPid(pid);
+        synchronized (mAms.mPidsSelfLocked) {
+            mAms.mPidsSelfLocked.doAddInternal(pid, process);
+        }
+
+        try {
+            assertTrue(mAms.isMediaDrmDeviceUniqueIdAccessAllowed(
+                    TEST_OTHER_PACKAGE, uid, pid));
+        } finally {
+            synchronized (mAms.mPidsSelfLocked) {
+                mAms.mPidsSelfLocked.doRemoveInternal(pid, process);
+            }
+        }
+    }
+
+    @Test
+    public void mediaDrmDeviceUniqueId_isolatedCallerDenied() {
+        final int uid = UserHandle.getUid(TEST_USER, Process.FIRST_ISOLATED_UID);
+
+        assertFalse(mAms.isMediaDrmDeviceUniqueIdAccessAllowed(TEST_PACKAGE, uid, 54321));
+        waitForMediaDrmCallback();
+    }
+
+    private void mockMediaDrmPackage(String packageName, int uid, boolean isSystem) {
+        final PackageStateInternal state = mock(PackageStateInternal.class);
+        final PackageUserStateInternal userState = mock(PackageUserStateInternal.class);
+        doReturn(UserHandle.getAppId(uid)).when(state).getAppId();
+        doReturn(userState).when(state).getUserStateOrDefault(UserHandle.getUserId(uid));
+        doReturn(true).when(userState).isInstalled();
+        doReturn(isSystem).when(state).isSystem();
+        doReturn(state).when(mPackageManagerInternal).getPackageStateInternal(packageName);
+        mAms.mPackageManagerInt = mPackageManagerInternal;
+    }
+
+    private static void waitForMediaDrmCallback() {
+        assertTrue(BackgroundThread.getHandler().runWithScissors(() -> { }, 5_000));
+    }
+
     @Rule
     public final ApplicationExitInfoTest.ServiceThreadRule
             mServiceThreadRule = new ApplicationExitInfoTest.ServiceThreadRule();
@@ -311,6 +415,7 @@ public class ActivityManagerServiceTest {
         mMockingSession = mockitoSession()
                 .initMocks(this)
                 .mockStatic(AppGlobals.class)
+                .mockStatic(MediaDrmIdAccess.class)
                 .spyStatic(ServiceManager.class)
                 .spyStatic(PrivateComputeStatsLogUtil.class)
                 .strictness(Strictness.LENIENT)
