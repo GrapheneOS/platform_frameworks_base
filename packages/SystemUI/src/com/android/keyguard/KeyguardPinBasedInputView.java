@@ -248,7 +248,8 @@ public abstract class KeyguardPinBasedInputView extends KeyguardAbsKeyInputView 
             button.setRoot(this);
         }
 
-        mPasswordEntry.requestFocus();
+        // Preloaded PIN views must not take focus before their controller resumes.
+        mPasswordEntry.setFocusable(false);
         super.onFinishInflate();
         reloadColors();
     }
