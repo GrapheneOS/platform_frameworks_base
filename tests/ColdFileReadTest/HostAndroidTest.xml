@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<configuration description="Measures cold mmap file reads with low free swap">
+    <option name="config-descriptor:metadata" key="test-type" value="performance" />
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
+    <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
+        <option name="cleanup" value="true" />
+        <option name="push" value="cold_file_read_runner->/data/local/tmp/cold_file_read_runner" />
+    </target_preparer>
+    <test class="com.android.tradefed.testtype.HostTest">
+        <option name="jar" value="ColdFileReadBenchmark.jar" />
+    </test>
+</configuration>

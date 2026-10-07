@@ -365,8 +365,9 @@ public final class UsbPortAidl implements UsbPortHal {
         synchronized (mLock) {
             try {
                 if (com.android.server.policy.keyguard.UsbPortSecurityHooks
-                        .onHalEnableUsbDataSignal(portName, enable)) {
-                    callback.onOperationComplete(USB_OPERATION_SUCCESS);
+                        .onHalEnableUsbDataSignal(portName, enable, callback)) {
+                    // returning true signifies that the caller has to call
+                    // callback.waitForOperationComplete() before calling callback.getStatus()
                     return true;
                 }
 

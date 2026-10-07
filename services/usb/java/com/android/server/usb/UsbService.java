@@ -2099,29 +2099,22 @@ public class UsbService extends IUsbManager.Stub {
                 UsbOperationInternal opCallback =
                         mUsbOperationInternalProvider.getUsbOperationInternal(
                                 operationId, port.getId());
-                boolean success =
-                        enableUsbDataInternal(
+                boolean wait = enableUsbDataInternal(
                                 port.getId(), enable, operationId, opCallback, disableReason, true);
-                if (!success) {
-                    Slog.e(
-                            TAG,
-                            "enableUsbDataInternal failed to change USB port "
-                                    + port.getId()
-                                    + "state to "
-                                    + enable);
-                    // We continue to the next port even if the current port fails to change.
-                    result = false;
-                } else {
+                if (wait) {
                     opCallback.waitForOperationComplete();
-                    int callbackStatus = opCallback.getStatus();
-                    Slog.i(
-                            TAG,
-                            "enableUsbDataInternal change for portId: "
-                                    + port.getId()
-                                    + " result: "
-                                    + Integer.toString(callbackStatus));
-                    result &= callbackStatus == UsbOperationInternal.USB_OPERATION_SUCCESS;
                 }
+                int callbackStatus = opCallback.getStatus();
+                String logMsg = "enableUsbDataInternal change for portId: "
+                                + port.getId()
+                                + " result: "
+                                + Integer.toString(callbackStatus);
+                if (callbackStatus == UsbOperationInternal.USB_OPERATION_SUCCESS) {
+                    Slog.i(TAG, logMsg);
+                } else {
+                    Slog.e(TAG, logMsg);
+                }
+                result &= callbackStatus == UsbOperationInternal.USB_OPERATION_SUCCESS;
             }
             return result;
         }

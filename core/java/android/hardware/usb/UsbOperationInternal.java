@@ -142,6 +142,9 @@ public final class UsbOperationInternal extends IUsbOperationInternal.Stub {
     public void waitForOperationComplete() {
         mLock.lock();
         try {
+            if (mOperationComplete) {
+                return;
+            }
             long now = System.currentTimeMillis();
             long deadline = now + USB_OPERATION_TIMEOUT_MSECS;
             // Wait in loop to overcome spurious wakeups.
