@@ -388,6 +388,7 @@ import android.os.FileUtils;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.IDeviceIdentifiersPolicyService;
+import android.os.IMediaDrmIdAccessService;
 import android.os.IPermissionController;
 import android.os.IProcessInfoService;
 import android.os.IProgressListener;
@@ -526,7 +527,6 @@ import com.android.server.contentcapture.ContentCaptureManagerInternal;
 import com.android.server.crashrecovery.CrashRecoveryHelper;
 import com.android.server.criticalevents.CriticalEventLog;
 import com.android.server.ext.DynCodeLoadingUtils;
-import com.android.server.ext.MediaDrmIdAccess;
 import com.android.server.ext.PackageManagerHooks;
 import com.android.server.firewall.IntentFirewall;
 import com.android.server.graphics.fonts.FontManagerInternal;
@@ -538,7 +538,6 @@ import com.android.server.pm.SaferIntentUtils;
 import com.android.server.pm.UserManagerInternal;
 import com.android.server.pm.permission.PermissionManagerServiceInternal;
 import com.android.server.pm.pkg.AndroidPackage;
-import com.android.server.pm.pkg.PackageStateInternal;
 import com.android.server.pm.pkg.SELinuxUtil;
 import com.android.server.power.stats.BatteryStatsImpl;
 import com.android.server.privatecompute.PccSandboxManagerInternal;
@@ -2144,6 +2143,8 @@ public class ActivityManagerService extends IActivityManager.Stub
             ServiceManager.addService("permission", new PermissionController(this));
             ServiceManager.addService("processinfo", new ProcessInfoService(this));
             ServiceManager.addService("cacheinfo", new CacheBinder(this));
+            ServiceManager.addService(IMediaDrmIdAccessService.SERVICE_NAME,
+                    new MediaDrmIdAccessService(this), /* allowIsolated= */ true);
             if (Flags.enableActivityManagerStructuredService()) {
                 ServiceManager.addService(
                         "activity_structured",
@@ -21329,55 +21330,6 @@ public class ActivityManagerService extends IActivityManager.Stub
         } finally {
             Binder.restoreCallingIdentity(token);
         }
-    }
-
-    @Override
-    public boolean isMediaDrmDeviceUniqueIdAccessAllowed(String packageName) {
-        return isMediaDrmDeviceUniqueIdAccessAllowed(
-                packageName, Binder.getCallingUid(), Binder.getCallingPid());
-    }
-
-    @VisibleForTesting
-    boolean isMediaDrmDeviceUniqueIdAccessAllowed(
-            String packageName, int callingUid, int callingPid) {
-        if (Process.isCoreUid(callingUid)) {
-            return true;
-        }
-
-        final boolean isIsolated = Process.isIsolatedUid(callingUid);
-        final boolean isSdkSandbox = Process.isSdkSandboxUid(callingUid);
-        final int appUid = isSdkSandbox
-                ? Process.getAppUidForSdkSandboxUid(callingUid) : callingUid;
-
-        String attributedPackage = null;
-        ProcessRecord process;
-        synchronized (mPidsSelfLocked) {
-            process = mPidsSelfLocked.get(callingPid);
-        }
-        if (process != null && process.uid == callingUid) {
-            packageName = isSdkSandbox
-                    ? process.sdkSandboxClientAppPackage : process.info.packageName;
-        }
-
-        if (!TextUtils.isEmpty(packageName)) {
-            final PackageStateInternal state =
-                    getPackageManagerInternal().getPackageStateInternal(packageName);
-            final int userId = UserHandle.getUserId(appUid);
-            if (state != null && state.getAppId() == UserHandle.getAppId(appUid)
-                    && state.getUserStateOrDefault(userId).isInstalled()) {
-                attributedPackage = packageName;
-                if (!isIsolated && !isSdkSandbox && state.isSystem()) {
-                    return true;
-                }
-            }
-        }
-
-        // The policy decision has to be synchronous, but future user-facing handling must not
-        // block the caller's Binder thread.
-        final String blockedPackage = attributedPackage;
-        BackgroundThread.getHandler().post(() -> MediaDrmIdAccess.onAccessBlocked(
-                callingUid, callingPid, appUid, UserHandle.getUserId(appUid), blockedPackage));
-        return false;
     }
 
     @Override
