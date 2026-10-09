@@ -413,6 +413,8 @@ public interface ParsingPackage {
 
     ParsingPackage setVersionCodeMajor(int vesionCodeMajor);
 
+    long getLongVersionCode();
+
     ParsingPackage setVersionName(String versionName);
 
     ParsingPackage setCompileSdkVersion(int compileSdkVersion);
