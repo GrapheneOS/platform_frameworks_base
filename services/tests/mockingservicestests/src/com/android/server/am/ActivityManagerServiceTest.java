@@ -165,6 +165,8 @@ import com.android.server.appop.AppOpsService;
 import com.android.server.job.JobSchedulerInternal;
 import com.android.server.notification.NotificationManagerInternal;
 import com.android.server.pm.pkg.AndroidPackage;
+import com.android.server.pm.pkg.PackageStateInternal;
+import com.android.server.pm.pkg.PackageUserStateInternal;
 import com.android.server.privatecompute.PccSandboxManagerInternal;
 import com.android.server.privatecompute.PrivateComputeStatsLogUtil;
 import com.android.server.wm.ActivityTaskManagerInternal;
@@ -174,6 +176,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -369,6 +372,139 @@ public class ActivityManagerServiceTest {
                 mAms.mConstants.USAGE_STATS_INTERACTION_INTERVAL_POST_S);
         assertEquals(SERVICE_USAGE_INTERACTION,
                 mAms.mConstants.SERVICE_USAGE_INTERACTION_TIME_POST_S);
+    }
+
+    @Test
+    public void mediaDrmIdAccess_thirdPartyDeniedAndAttributed() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, uid, false);
+        addMediaDrmProcess(TEST_PACKAGE, uid, uid, pid, null);
+        final MediaDrmIdAccessService service = spy(new MediaDrmIdAccessService(mAms));
+
+        assertFalse(service.checkAccess(uid, pid));
+        verify(service, timeout(5_000)).onAccessBlocked(
+                uid, pid, uid, TEST_USER, TEST_PACKAGE);
+    }
+
+    @Test
+    public void mediaDrmIdAccess_callbackIsDispatchedAsynchronously() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, uid, false);
+        addMediaDrmProcess(TEST_PACKAGE, uid, uid, pid, null);
+        final Handler callbackHandler = mock(Handler.class);
+        doReturn(true).when(callbackHandler).post(any());
+        final MediaDrmIdAccessService service =
+                spy(new MediaDrmIdAccessService(mAms, callbackHandler));
+
+        assertFalse(service.checkAccess(uid, pid));
+        final ArgumentCaptor<Runnable> callback = ArgumentCaptor.forClass(Runnable.class);
+        verify(callbackHandler).post(callback.capture());
+        verify(service, never()).onAccessBlocked(
+                anyInt(), anyInt(), anyInt(), anyInt(), nullable(String.class));
+
+        callback.getValue().run();
+        verify(service).onAccessBlocked(uid, pid, uid, TEST_USER, TEST_PACKAGE);
+    }
+
+    @Test
+    public void mediaDrmIdAccess_systemPackageAllowed() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, uid, true);
+        addMediaDrmProcess(TEST_PACKAGE, uid, uid, pid, null);
+        final MediaDrmIdAccessService service = spy(new MediaDrmIdAccessService(mAms));
+
+        assertTrue(service.checkAccess(uid, pid));
+        verify(service, after(100).never()).onAccessBlocked(
+                anyInt(), anyInt(), anyInt(), anyInt(), nullable(String.class));
+    }
+
+    @Test
+    public void mediaDrmIdAccess_mismatchedPidDeniedWithoutPackageAttribution() {
+        final int uid = UserHandle.getUid(TEST_USER, 12345);
+        final int otherUid = UserHandle.getUid(TEST_USER, 12346);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, otherUid, true);
+        addMediaDrmProcess(TEST_PACKAGE, otherUid, otherUid, pid, null);
+        final MediaDrmIdAccessService service = spy(new MediaDrmIdAccessService(mAms));
+
+        assertFalse(service.checkAccess(uid, pid));
+        verify(service, timeout(5_000)).onAccessBlocked(
+                uid, pid, uid, TEST_USER, null);
+    }
+
+    @Test
+    public void mediaDrmIdAccess_coreUidAllowedWithoutProcessLookup() {
+        final MediaDrmIdAccessService service = spy(new MediaDrmIdAccessService(mAms));
+
+        assertTrue(service.checkAccess(Process.SYSTEM_UID, 54321));
+        verify(service, after(100).never()).onAccessBlocked(
+                anyInt(), anyInt(), anyInt(), anyInt(), nullable(String.class));
+    }
+
+    @Test
+    public void mediaDrmIdAccess_untrustedTransportCannotSubmitUidClaim() {
+        final MediaDrmIdAccessService service = spy(new MediaDrmIdAccessService(mAms));
+
+        assertFalse(service.isAllowedFromDrmHalTransport(
+                Process.SYSTEM_UID, 54321, Process.SYSTEM_UID));
+        assertTrue(service.isAllowedFromDrmHalTransport(
+                Process.SYSTEM_UID, 54321, Process.MEDIA_UID));
+    }
+
+    @Test
+    public void mediaDrmIdAccess_sdkSandboxDeniedAndAttributedToOwner() {
+        final int sandboxUid = UserHandle.getUid(TEST_USER, Process.FIRST_SDK_SANDBOX_UID);
+        final int appUid = Process.getAppUidForSdkSandboxUid(sandboxUid);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, appUid, true);
+        addMediaDrmProcess(TEST_PACKAGE, appUid, sandboxUid, pid, TEST_PACKAGE);
+        final MediaDrmIdAccessService service = spy(new MediaDrmIdAccessService(mAms));
+
+        assertFalse(service.checkAccess(sandboxUid, pid));
+        verify(service, timeout(5_000)).onAccessBlocked(
+                sandboxUid, pid, appUid, TEST_USER, TEST_PACKAGE);
+    }
+
+    @Test
+    public void mediaDrmIdAccess_isolatedProcessDeniedAndAttributedToOwner() {
+        final int appUid = UserHandle.getUid(TEST_USER, 12345);
+        final int isolatedUid = UserHandle.getUid(TEST_USER, Process.FIRST_ISOLATED_UID);
+        final int pid = 54321;
+        mockMediaDrmPackage(TEST_PACKAGE, appUid, true);
+        addMediaDrmProcess(TEST_PACKAGE, appUid, isolatedUid, pid, null);
+        final MediaDrmIdAccessService service = spy(new MediaDrmIdAccessService(mAms));
+
+        assertFalse(service.checkAccess(isolatedUid, pid));
+        verify(service, timeout(5_000)).onAccessBlocked(
+                isolatedUid, pid, appUid, TEST_USER, TEST_PACKAGE);
+    }
+
+    private void mockMediaDrmPackage(String packageName, int uid, boolean isSystem) {
+        final PackageStateInternal state = mock(PackageStateInternal.class);
+        final PackageUserStateInternal userState = mock(PackageUserStateInternal.class);
+        doReturn(UserHandle.getAppId(uid)).when(state).getAppId();
+        doReturn(userState).when(state).getUserStateOrDefault(UserHandle.getUserId(uid));
+        doReturn(true).when(userState).isInstalled();
+        doReturn(isSystem).when(state).isSystem();
+        doReturn(state).when(mPackageManagerInternal).getPackageStateInternal(packageName);
+        mAms.mPackageManagerInt = mPackageManagerInternal;
+    }
+
+    private void addMediaDrmProcess(String packageName, int appUid, int processUid, int pid,
+            String sdkSandboxClientPackage) {
+        final ApplicationInfo info = new ApplicationInfo();
+        info.uid = appUid;
+        info.packageName = packageName;
+        info.processName = packageName;
+        final ProcessRecord process = new ProcessRecord(mAms, info, info.processName, processUid,
+                sdkSandboxClientPackage, -1, null);
+        process.setPid(pid);
+        synchronized (mAms.mPidsSelfLocked) {
+            mAms.mPidsSelfLocked.doAddInternal(pid, process);
+        }
     }
 
     @Test

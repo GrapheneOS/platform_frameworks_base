@@ -39,6 +39,7 @@ android_test {
         "src/**/*.java",
         "src/**/*.kt",
         ":framework-internal-display-sources",
+        ":media_drm_id_access_aidl",
     ],
 
     static_libs: [

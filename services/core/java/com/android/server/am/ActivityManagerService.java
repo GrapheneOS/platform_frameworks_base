@@ -388,6 +388,7 @@ import android.os.FileUtils;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.IDeviceIdentifiersPolicyService;
+import android.os.IMediaDrmIdAccessService;
 import android.os.IPermissionController;
 import android.os.IProcessInfoService;
 import android.os.IProgressListener;
@@ -2142,6 +2143,8 @@ public class ActivityManagerService extends IActivityManager.Stub
             ServiceManager.addService("permission", new PermissionController(this));
             ServiceManager.addService("processinfo", new ProcessInfoService(this));
             ServiceManager.addService("cacheinfo", new CacheBinder(this));
+            ServiceManager.addService(IMediaDrmIdAccessService.SERVICE_NAME,
+                    new MediaDrmIdAccessService(this), /* allowIsolated= */ true);
             if (Flags.enableActivityManagerStructuredService()) {
                 ServiceManager.addService(
                         "activity_structured",
