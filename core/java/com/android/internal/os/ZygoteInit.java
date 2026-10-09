@@ -146,7 +146,9 @@ public class ZygoteInit {
             Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
         }
         Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadGraphicsDriver");
-        maybePreloadGraphicsDriver();
+        if (fullPreload) {
+            maybePreloadGraphicsDriver();
+        }
         Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
         preloadSharedLibraries();
         preloadTextResources();
