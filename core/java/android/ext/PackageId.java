@@ -56,4 +56,9 @@ public interface PackageId {
     /** @hide */ int BUGLE = 14;
 
     /** @hide */ String SYSTEM_KEYBOARD = "com.android.inputmethod.latin";
+
+    // These ids are used for GmsCompat testing on dev builds
+    /** @hide */ int GMSCOMPAT_TEST_PACKAGE_1 = 15;
+    /** @hide */ int GMSCOMPAT_TEST_PACKAGE_2 = 16;
+    /** @hide */ int GMSCOMPAT_TEST_PACKAGE_3 = 17;
 }

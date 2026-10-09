@@ -41,10 +41,18 @@ public class PackageExtInit implements ParsingPackageUtils.PackageExtInitIface {
     }
 
     public void run() {
+        String packageName = pkg.getPackageName();
         int packageId = getPackageId();
 
+        if (packageId == UNKNOWN) {
+            int testPackageId = android.app.compat.gms.GmsCompat.maybeGetTestPackageId(packageName);
+            if (testPackageId >= GMSCOMPAT_TEST_PACKAGE_1 && testPackageId <= GMSCOMPAT_TEST_PACKAGE_3) {
+                packageId = testPackageId;
+            }
+        }
+
         if (packageId != UNKNOWN) {
-            Slog.d(TAG, "set packageId of " +  pkg.getPackageName() + " to " + packageId);
+            Slog.d(TAG, "set packageId of " + packageName + " to " + packageId);
         }
 
         var ext = new PackageExt(packageId, getExtFlags());

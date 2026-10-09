@@ -25,7 +25,6 @@ import com.android.internal.gmscompat.GmsCompatLib;
 import com.android.internal.gmscompat.GmsHooks;
 import com.android.internal.gmscompat.GmsInfo;
 import com.android.internal.gmscompat.fileservice.GmsCoreFileServerClientHooks;
-import com.android.internal.util.ArrayUtils;
 
 /**
  * This class provides helpers for GMS ("Google Mobile Services") compatibility.
@@ -144,39 +143,35 @@ public final class GmsCompat {
     }
 
     public static boolean isEnabledFor(@NonNull ApplicationInfo app) {
-        return isEnabledFor(app.ext().getPackageId(), app.packageName, app.isPrivilegedApp());
+        return isEnabledFor(app.ext().getPackageId(), app.isPrivilegedApp());
     }
 
     /** @hide */
-    public static boolean isEnabledFor(int packageId, String packageName, boolean isPrivileged) {
-        if (isDevBuild()) {
-            if (isTestPackage(packageName)) {
-                return true;
-            }
-        }
-
+    public static boolean isEnabledFor(int packageId, boolean isPrivileged) {
         if (isPrivileged) {
             // don't enable GmsCompat for privileged GMS
             return false;
         }
 
-        return switch (packageId) {
-            case
-                PackageId.GMS_CORE,
-                PackageId.PLAY_STORE,
-                PackageId.G_SEARCH_APP,
-                PackageId.ANDROID_AUTO,
-                PackageId.G_CARRIER_SETTINGS ->
-                    true;
-            default ->
-                    false;
-        };
+        switch (packageId) {
+            case PackageId.GMS_CORE:
+            case PackageId.PLAY_STORE:
+            case PackageId.G_SEARCH_APP:
+            case PackageId.ANDROID_AUTO:
+            case PackageId.G_CARRIER_SETTINGS:
+            case PackageId.GMSCOMPAT_TEST_PACKAGE_1:
+            case PackageId.GMSCOMPAT_TEST_PACKAGE_2:
+            case PackageId.GMSCOMPAT_TEST_PACKAGE_3:
+                return true;
+            default:
+                return false;
+        }
     }
 
     /** @hide */
     public static boolean canBeEnabledFor(String pkgName) {
         if (isDevBuild()) {
-            if (isTestPackage(pkgName)) {
+            if (maybeGetTestPackageId(pkgName) != PackageId.UNKNOWN) {
                 return true;
             }
         }
@@ -220,12 +215,6 @@ public final class GmsCompat {
 
     /** @hide */
     public static boolean isEnabledFor(@NonNull String packageName, int userId, boolean matchDisabledApp) {
-        if (isDevBuild()) {
-            if (isTestPackage(packageName, userId, matchDisabledApp)) {
-                return true;
-            }
-        }
-
         if (!canBeEnabledFor(packageName)) {
             return false;
         }
@@ -311,38 +300,6 @@ public final class GmsCompat {
         return ctx.checkSelfPermission(perm) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private static boolean isTestPackage(String packageName) {
-        String testPkgs = SystemProperties.get("persist.gmscompat_test_pkgs");
-        return ArrayUtils.contains(testPkgs.split(","), packageName);
-    }
-
-    /** @hide */
-    public static boolean isTestPackage(String packageName, int userId, boolean matchDisabledApp) {
-        if (!isDevBuild()) {
-            return false;
-        }
-        if (!isTestPackage(packageName)) {
-            return false;
-        }
-
-        IPackageManager pm = ActivityThread.getPackageManager();
-        ApplicationInfo ai;
-
-        long token = Binder.clearCallingIdentity();
-        try {
-            ai = pm.getApplicationInfo(packageName, 0, userId);
-        } catch (RemoteException e) {
-            throw e.rethrowFromSystemServer();
-        } finally {
-            Binder.restoreCallingIdentity(token);
-        }
-
-        if (ai == null) {
-            return false;
-        }
-        return ai.enabled || matchDisabledApp;
-    }
-
     public static void catchOrRethrow(@NonNull SecurityException se) {
         if (isEnabled()) {
             Log.d("GmsCompat", "caught SecurityException", se);
@@ -370,5 +327,33 @@ public final class GmsCompat {
         // [com.google.android.gms.chimera.container.intentoperation.GmsIntentOperationChimeraService-Executor] processing com.google.android.gms.constellation.EventManager for action com.google.android.gms.constellation.eventmanager.SYNC_VERIFICATION
         return tName != null &&
                 tName.endsWith("processing com.google.android.gms.constellation.EventManager for action com.google.android.gms.constellation.eventmanager.SYNC_VERIFICATION");
+    }
+
+    /** @hide */
+    public static int maybeGetTestPackageId(String packageName) {
+        if (!isDevBuild()) {
+            return PackageId.UNKNOWN;
+        }
+        String testPkgsStr = SystemProperties.get("persist.gmscompat_test_pkgs");
+        if (testPkgsStr.isEmpty()) {
+            return PackageId.UNKNOWN;
+        }
+
+        String[] testPkgs = testPkgsStr.split(",");
+        if (testPkgs.length > 3) {
+            Log.e(TAG, "maybeGetTestPackageId: persist.gmscompat_test_pkgs can specify at most" +
+                        " 3 packages, full value: " + testPkgsStr);
+        }
+
+        for (int i = 0, m = Math.min(3, testPkgs.length); i < m; ++i) {
+            if (packageName.equals(testPkgs[i])) {
+                int res = PackageId.GMSCOMPAT_TEST_PACKAGE_1 + i;
+                if (res > PackageId.GMSCOMPAT_TEST_PACKAGE_3) {
+                    throw new IllegalStateException();
+                }
+                return res;
+            }
+        }
+        return PackageId.UNKNOWN;
     }
 }
