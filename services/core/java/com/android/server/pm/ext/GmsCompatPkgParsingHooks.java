@@ -44,7 +44,7 @@ public class GmsCompatPkgParsingHooks extends PackageParsingHooks {
         }
 
         ParsedServiceImpl s = createService(pkg, GmsCompatClientService.class.getName());
-        s.setPermission(GmsCompatApp.SIGNATURE_PROTECTED_PERMISSION);
+        s.setPermission(GmsCompatApp.SELF_PERMISSION);
 
         String pkgName = pkg.getPackageName();
         if (GmsCompat.canBeEnabledFor(pkgName)) {
@@ -62,7 +62,9 @@ public class GmsCompatPkgParsingHooks extends PackageParsingHooks {
     @CallSuper
     @Override
     public List<ParsedUsesPermissionImpl> addUsesPermissions() {
-        return createUsesPerms(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE);
+        return createUsesPerms(Manifest.permission.FOREGROUND_SERVICE_SPECIAL_USE
+                , GmsCompatApp.CLIENT_PERMISSION
+        );
     }
 
     @CallSuper

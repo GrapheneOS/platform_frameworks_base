@@ -925,11 +925,7 @@ public class NotificationManager {
         if (GmsCompat.isEnabled()) {
             if (GmsCompat.isGmsCore() && !GmsCompat.hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
                 String pkg = GmsCompat.appContext().getPackageName();
-                try {
-                    GmsCompatApp.iGms2Gca().showMissingPostNotifsPermissionNotification(pkg);
-                } catch (RemoteException e) {
-                    GmsCompatApp.callFailed(e);
-                }
+                GmsCompatApp.voidCall(i -> i.showMissingPostNotifsPermissionNotification(pkg));
             }
         }
 

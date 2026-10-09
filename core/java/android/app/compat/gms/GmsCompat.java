@@ -21,6 +21,7 @@ import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.util.Log;
 
+import com.android.internal.gmscompat.GmsCompatConfig;
 import com.android.internal.gmscompat.GmsCompatLib;
 import com.android.internal.gmscompat.GmsHooks;
 import com.android.internal.gmscompat.GmsInfo;
@@ -286,7 +287,8 @@ public final class GmsCompat {
     public static boolean hasPermission(@NonNull String perm) {
         Context ctx = appContext();
 
-        if (GmsHooks.config().shouldSpoofSelfPermissionCheck(perm)) {
+        GmsCompatConfig config = GmsHooks.config();
+        if (config != null && config.shouldSpoofSelfPermissionCheck(perm)) {
             // result of checkSelfPermission() below would be spoofed, ask the PackageManager directly
             IPackageManager pm = ActivityThread.getPackageManager();
             try {

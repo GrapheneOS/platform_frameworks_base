@@ -5044,20 +5044,16 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
                     case PackageId.GMS_CORE_NAME:
                     case PackageId.PLAY_STORE_NAME: {
                         if (isInstallerPlayStore) {
-                            if (mVersionCode <= params.maxAllowedVersion) {
-                                break;
-                            }
-
                             // lock that is held at this point is per-session lock, call into
                             // PackageManager is safe
                             AndroidPackage pkg = pmi.getPackage(mPackageName);
                             if (pkg != null && pkg.getLongVersionCode() == mVersionCode) {
+                                // allow installation of APK splits
                                 break;
                             }
 
                             String msg = "Installation of " + mPackageName + " version " + mVersionCode
-                                        + " is blocked to prevent breaking gmscompat. " +
-                                        "Max allowed version is " + params.maxAllowedVersion;
+                                        + " is blocked to prevent breaking gmscompat.";
                             throw new PackageManagerException(errorCode, msg);
                         }
 

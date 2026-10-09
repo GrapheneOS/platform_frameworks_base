@@ -81,9 +81,8 @@ import android.util.SparseArray;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.app.ContentProviderRedirector;
-import com.android.internal.gmscompat.GmsCompatApp;
+import com.android.internal.gmscompat.GmcPrivSettingsHooks;
 import com.android.internal.gmscompat.GmsHooks;
-import com.android.internal.gmscompat.PlayStoreHooks;
 import com.android.internal.gmscompat.dynamite.GmsDynamiteClientHooks;
 import com.android.internal.util.MimeIconUtils;
 
@@ -2866,7 +2865,7 @@ public abstract class ContentResolver implements ContentInterface {
             return;
         }
         if (GmsCompat.isEnabled()) {
-            if (GmsCompatApp.registerObserver(uri, observer)) {
+            if (GmcPrivSettingsHooks.maybeRegisterObserver(uri, observer)) {
                 return;
             }
         }
@@ -2897,9 +2896,7 @@ public abstract class ContentResolver implements ContentInterface {
         }
 
         if (GmsCompat.isEnabled()) {
-            if (GmsCompatApp.unregisterObserver(observer)) {
-                return;
-            }
+            GmcPrivSettingsHooks.unregisterObserver(observer);
         }
 
         try {

@@ -1052,10 +1052,6 @@ public class PackageInstaller {
      *         session is finalized. IDs are not reused during a given boot.
      */
     public int createSession(@NonNull SessionParams params) throws IOException {
-        if (GmsCompat.isPlayStore()) {
-            PlayStoreHooks.adjustSessionParams(params);
-        }
-
         try {
             return mInstaller.createSession(params, mInstallerPackageName, mAttributionTag,
                     mUserId);
@@ -3239,13 +3235,6 @@ public class PackageInstaller {
         public PersistableBundle extensionParams;
 
         private volatile ArrayMap<String, Integer> mPermissionStates;
-        /**
-         * @hide
-         *
-         * Used by gmscompat to disallow updates to unknown versions of GmsCore and Play Store.
-         */
-        @SuppressLint("MutableBareField")
-        public long maxAllowedVersion = Long.MAX_VALUE;
 
         /** @hide */
         public static final int MAX_URI_LENGTH = 2048;
@@ -3309,7 +3298,6 @@ public class PackageInstaller {
             dexoptCompilerFilter = source.readString();
             forceVerification = source.readBoolean();
             isAutoInstallDependenciesEnabled = source.readBoolean();
-            maxAllowedVersion = source.readLong();
             extensionParams = source.readPersistableBundle();
         }
 
@@ -3349,7 +3337,6 @@ public class PackageInstaller {
             ret.dexoptCompilerFilter = dexoptCompilerFilter;
             ret.forceVerification = forceVerification;
             ret.isAutoInstallDependenciesEnabled = isAutoInstallDependenciesEnabled;
-            ret.maxAllowedVersion = maxAllowedVersion;
             ret.extensionParams = extensionParams;
             return ret;
         }
@@ -4232,7 +4219,6 @@ public class PackageInstaller {
             dest.writeString(dexoptCompilerFilter);
             dest.writeBoolean(forceVerification);
             dest.writeBoolean(isAutoInstallDependenciesEnabled);
-            dest.writeLong(maxAllowedVersion);
             dest.writePersistableBundle(extensionParams);
         }
 

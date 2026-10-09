@@ -12,7 +12,7 @@ import com.android.server.pm.pkg.PackageStateInternal;
 import java.util.Collections;
 import java.util.List;
 
-class GCarrierSettingsHooks extends PackageHooks {
+class GCarrierSettingsHooks extends GmsCompatPackageHooks {
 
     static class ParsingHooks extends GmsCompatPkgParsingHooks {
 

@@ -6098,11 +6098,8 @@ public class Activity extends ContextThemeWrapper
                             }
 
                             if (!installed) {
-                                try {
-                                    GmsCompatApp.iClientOfGmsCore2Gca().showMissingAppNotification(pkg);
-                                } catch (RemoteException e) {
-                                    GmsCompatApp.callFailed(e);
-                                }
+                                GmsCompatApp.iClientOfGmsCore2Gca().voidCallOrExit(i ->
+                                        i.showMissingAppNotification(pkg));
                             }
                         }
                     }

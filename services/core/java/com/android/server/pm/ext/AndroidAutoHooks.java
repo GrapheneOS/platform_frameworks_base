@@ -12,7 +12,7 @@ import com.android.server.pm.pkg.AndroidPackage;
 
 import java.util.List;
 
-public class AndroidAutoHooks extends PackageHooks {
+public class AndroidAutoHooks extends GmsCompatPackageHooks {
     private static final String TAG = "AndroidAutoHooks";
 
     static class ParsingHooks extends GmsCompatPkgParsingHooks {
@@ -60,6 +60,11 @@ public class AndroidAutoHooks extends PackageHooks {
 
     @Override
     public int overridePermissionState(String permission, int userId) {
+        int superRes = super.overridePermissionState(permission, userId);
+        if (superRes != NO_PERMISSION_OVERRIDE) {
+            return superRes;
+        }
+
         int flag;
         Integer flag2 = null;
 

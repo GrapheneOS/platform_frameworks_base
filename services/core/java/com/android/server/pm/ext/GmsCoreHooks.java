@@ -13,6 +13,7 @@ import com.android.internal.gmscompat.GmcMediaProjectionService;
 import com.android.internal.gmscompat.GmsCompatApp;
 import com.android.internal.gmscompat.GmsHooks;
 import com.android.internal.gmscompat.client.GmsCorePersistentService;
+import com.android.internal.gmscompat.fileservice.GmsCoreFileProxyService;
 import com.android.internal.pm.pkg.component.ParsedIntentInfo;
 import com.android.internal.pm.pkg.component.ParsedPermission;
 import com.android.internal.pm.pkg.component.ParsedService;
@@ -23,10 +24,15 @@ import com.android.server.LocalServices;
 
 import java.util.List;
 
-class GmsCoreHooks extends PackageHooks {
+class GmsCoreHooks extends GmsCompatPackageHooks {
 
     @Override
     public int overridePermissionState(String permission, int userId) {
+        int superRes = super.overridePermissionState(permission, userId);
+        if (superRes != NO_PERMISSION_OVERRIDE) {
+            return superRes;
+        }
+
         if (android.os.Flags.isDevBuild()) {
             if (SystemProperties.getBoolean("sys.gmscore_grant." + permission, false)) {
                 return PERMISSION_OVERRIDE_GRANT;
@@ -107,17 +113,23 @@ class GmsCoreHooks extends PackageHooks {
 
         @Override
         public List<ParsedService> addServices(ParsingPackage pkg) {
+            String mainProcessName = GmsHooks.mainGmsCoreProcessName(pkg.getLongVersionCode());
             ParsedServiceImpl mp = createService(pkg, GmcMediaProjectionService.class.getName());
-            mp.setProcessName(GmsHooks.PERSISTENT_GmsCore_PROCESS);
+            mp.setProcessName(mainProcessName);
             mp.setForegroundServiceType(ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
             mp.setExported(false);
 
             ParsedServiceImpl persistent = createService(pkg, GmsCorePersistentService.class.getName());
             persistent.setDirectBootAware(true);
-            persistent.setProcessName(GmsHooks.PERSISTENT_GmsCore_PROCESS);
-            persistent.setPermission(GmsCompatApp.SIGNATURE_PROTECTED_PERMISSION);
+            persistent.setProcessName(mainProcessName);
+            persistent.setPermission(GmsCompatApp.SELF_PERMISSION);
 
-            return List.of(mp, persistent);
+            ParsedServiceImpl fileProxy = createService(pkg, GmsCoreFileProxyService.class.getName());
+            fileProxy.setDirectBootAware(true);
+            fileProxy.setProcessName(mainProcessName);
+            fileProxy.setExported(true);
+
+            return List.of(mp, persistent, fileProxy);
         }
     }
 }

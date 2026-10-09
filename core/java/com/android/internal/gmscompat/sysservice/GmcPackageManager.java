@@ -587,7 +587,7 @@ public class GmcPackageManager extends ApplicationPackageManager {
         // Don't repeat setComponentEnabledSettings() in all processes
         boolean shouldUpdate;
         if (GmsCompat.isGmsCore()) {
-            shouldUpdate = GmsHooks.inPersistentGmsCoreProcess;
+            shouldUpdate = GmsHooks.inMainGmsCoreProcess;
         } else if (GmsCompat.isPlayStore()) {
             shouldUpdate = GmsInfo.PACKAGE_PLAY_STORE.equals(Application.getProcessName());
         } else {

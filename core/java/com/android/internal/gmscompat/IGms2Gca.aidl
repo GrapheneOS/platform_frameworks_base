@@ -5,17 +5,13 @@ import android.app.Notification;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.StringParceledListSlice;
-import android.database.IContentObserver;
 import android.os.BinderDef;
 
 import com.android.internal.gmscompat.GmsCompatConfig;
-import com.android.internal.gmscompat.IGca2Gms;
-import com.android.internal.gmscompat.fileservice.IFileProxyService;
 
 // calls from GMS components to GmsCompatApp
 interface IGms2Gca {
-    GmsCompatConfig connectGmsCore(String processName, IGca2Gms iGca2Gms, @nullable IFileProxyService dynamiteFileProxyService);
-    GmsCompatConfig connect(String packageName, String processName, IGca2Gms iGca2Gms);
+    GmsCompatConfig connect(String packageName, String processName, IBinder processBinder);
 
     @nullable BinderDef maybeGetBinderDef(String callerPkg, int processState, String ifaceName);
 
@@ -33,17 +29,15 @@ interface IGms2Gca {
     oneway void showMissingPostNotifsPermissionNotification(String callerPkg);
 
     oneway void maybeShowContactsSyncNotification();
-
+    oneway void maybeShowGmsCorePowerExemptionNotification();
     oneway void maybeShowGmsCoreRestrictedBackgroundDataNotif();
 
     void onUncaughtException(in ApplicationErrorReport aer);
-    GmsCompatConfig requestConfigUpdate(String reason);
+    GmsCompatConfig getConfig();
 
     @nullable String privSettingsGetString(String ns, String key);
     boolean privSettingsPutString(String ns, String key, @nullable String value);
     boolean privSettingsPutStrings(String ns, in StringParceledListSlice keys, in StringParceledListSlice values);
-    void privSettingsRegisterObserver(String ns, String key, IContentObserver observer);
-    void privSettingsUnregisterObserver(IContentObserver observer);
 
     Notification getMediaProjectionNotification();
 

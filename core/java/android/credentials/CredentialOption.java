@@ -29,7 +29,6 @@ import android.ext.PackageId;
 import android.os.Bundle;
 import android.os.Parcel;
 import android.os.Parcelable;
-import android.os.RemoteException;
 import android.util.ArraySet;
 import android.util.Log;
 
@@ -298,12 +297,8 @@ public final class CredentialOption implements Parcelable {
                     Log.d("GmsCompat", "ignored CredentialOption.setIsSystemProviderRequired(true) for " +
                             "TYPE_GOOGLE_ID_TOKEN_CREDENTIAL", new Throwable());
                     mIsSystemProviderRequired = false;
-
-                    try {
-                        GmsCompatApp.iClientOfGmsCore2Gca().onGoogleIdCredentialOptionInit();
-                    } catch (RemoteException e) {
-                        throw GmsCompatApp.callFailed(e);
-                    }
+                    GmsCompatApp.iClientOfGmsCore2Gca().voidCallOrExit(i ->
+                            i.onGoogleIdCredentialOptionInit());
                     return this;
                 }
             }

@@ -4,7 +4,6 @@ import android.app.Notification;
 import android.app.Service;
 import android.content.Intent;
 import android.os.IBinder;
-import android.os.RemoteException;
 import android.util.ArrayMap;
 import android.util.Log;
 
@@ -50,13 +49,7 @@ public class GmcMediaProjectionService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand " + intent);
 
-        Notification n;
-        try {
-            // notification icon and text are stored in GmsCompat app
-            n = GmsCompatApp.iGms2Gca().getMediaProjectionNotification();
-        } catch (RemoteException e) {
-            throw GmsCompatApp.callFailed(e);
-        }
+        Notification n = GmsCompatApp.call(i -> i.getMediaProjectionNotification());
 
         startForeground(GmsCoreConst.NOTIF_ID_MEDIA_PROJECTION_SERVICE, n);
 

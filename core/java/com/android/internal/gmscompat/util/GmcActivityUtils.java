@@ -97,11 +97,7 @@ public class GmcActivityUtils implements Application.ActivityLifecycleCallbacks 
                 }
             }
         } else {
-            try {
-                GmsCompatApp.iGms2Gca().showGmsCoreMissingPermissionForNearbyShareNotification();
-            } catch (RemoteException e) {
-                GmsCompatApp.callFailed(e);
-            }
+            GmsCompatApp.voidCall(i -> i.showGmsCoreMissingPermissionForNearbyShareNotification());
         }
     }
 
@@ -123,11 +119,8 @@ public class GmcActivityUtils implements Application.ActivityLifecycleCallbacks 
 
         if (BluetoothAdapter.ACTION_REQUEST_ENABLE.equals(intent.getAction())) {
             if (GmsCompat.isGmsCore() && !GmsCompat.hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
-                try {
-                    GmsCompatApp.iGms2Gca().showGmsCoreMissingNearbyDevicesPermissionGeneric();
-                } catch (RemoteException e) {
-                    GmsCompatApp.callFailed(e);
-                }
+                GmsCompatApp.voidCall(i ->
+                        i.showGmsCoreMissingNearbyDevicesPermissionGeneric());
                 return null;
             }
         }

@@ -76,36 +76,6 @@ public final class PlayStoreHooks {
         InternalBroadcastReceiver.register(ctx);
     }
 
-    // PackageInstaller#createSession
-    public static void adjustSessionParams(PackageInstaller.SessionParams params) {
-        String pkg = requireNonNull(params.appPackageName);
-
-        switch (pkg) {
-            case GmsInfo.PACKAGE_GMS_CORE:
-            case GmsInfo.PACKAGE_PLAY_STORE:
-                String updateRequestReason = "Play Store created PackageInstaller SessionParams for " + pkg;
-                GmsCompatConfig config;
-                try {
-                    config = GmsCompatApp.iGms2Gca().requestConfigUpdate(updateRequestReason);
-                } catch (RemoteException e) {
-                    throw GmsCompatApp.callFailed(e);
-                }
-                if (GmsHooks.config().version != config.version) {
-                    GmsHooks.setConfig(config);
-                }
-                break;
-        }
-
-        switch (pkg) {
-            case GmsInfo.PACKAGE_GMS_CORE:
-                params.maxAllowedVersion = GmsHooks.config().maxGmsCoreVersion;
-                break;
-            case GmsInfo.PACKAGE_PLAY_STORE:
-                params.maxAllowedVersion = GmsHooks.config().maxPlayStoreVersion;
-                break;
-        }
-    }
-
     // PackageInstaller.Session#commit(IntentSender)
     public static IntentSender wrapCommitStatusReceiver(PackageInstaller.Session session, IntentSender statusReceiver) {
         return PackageInstallerStatusForwarder.register((intent, extras) -> sendIntent(intent, statusReceiver))
@@ -113,12 +83,7 @@ public final class PlayStoreHooks {
     }
 
     public static void onActivityResumed(Activity activity) {
-        Intent pendingActionIntent;
-        try {
-            pendingActionIntent = GmsCompatApp.iGms2Gca().maybeGetPlayStorePendingUserActionIntent();
-        } catch (RemoteException e) {
-            throw GmsCompatApp.callFailed(e);
-        }
+        Intent pendingActionIntent = GmsCompatApp.call(i -> i.maybeGetPlayStorePendingUserActionIntent());
         if (pendingActionIntent != null) {
             activity.startActivity(pendingActionIntent);
         }
@@ -170,11 +135,8 @@ public final class PlayStoreHooks {
                     }
                 }
 
-                try {
-                    GmsCompatApp.iGms2Gca().onPlayStorePendingUserAction(confirmationIntent, packageName);
-                } catch (RemoteException e) {
-                    GmsCompatApp.callFailed(e);
-                }
+                String packageName_ = packageName;
+                GmsCompatApp.voidCall(i -> i.onPlayStorePendingUserAction(confirmationIntent, packageName_));
 
                 // confirmationIntent has a PendingIntent to this instance, don't unregister yet
                 return;
@@ -384,11 +346,7 @@ public final class PlayStoreHooks {
             boolean hasObbAccess = ps.hasFlag(GosPackageStateFlag.ALLOW_ACCESS_TO_OBB_DIRECTORY);
 
             if (!hasObbAccess) {
-                try {
-                    GmsCompatApp.iGms2Gca().showPlayStoreMissingObbPermissionNotification();
-                } catch (RemoteException e) {
-                    GmsCompatApp.callFailed(e);
-                }
+                GmsCompatApp.voidCall(i -> i.showPlayStoreMissingObbPermissionNotification());
             }
         }
     }

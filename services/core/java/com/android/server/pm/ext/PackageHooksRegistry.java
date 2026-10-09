@@ -23,14 +23,16 @@ public class PackageHooksRegistry {
     }
 
     public static PackageHooks getHooks(int packageId) {
+        GmsCompatPackageHooks gmsCompatHooks = GmsCompatPackageHooks.maybeGet(packageId);
+        if (gmsCompatHooks != null) {
+            return gmsCompatHooks;
+        }
+
         return switch (packageId) {
             case PackageId.EUICC_SUPPORT_PIXEL -> new EuiccSupportPixelHooks();
-            case PackageId.G_CARRIER_SETTINGS -> new GCarrierSettingsHooks();
             case PackageId.G_EUICC_LPA -> new EuiccGoogleHooks();
-            case PackageId.ANDROID_AUTO -> new AndroidAutoHooks();
             case PackageId.PIXEL_CAMERA_SERVICES -> new PixelCameraServicesHooks();
             case PackageId.PIXEL_HEALTH -> new PixelHealthHooks();
-            case PackageId.GMS_CORE -> new GmsCoreHooks();
             default -> PackageHooks.DEFAULT;
         };
     }

@@ -22,6 +22,7 @@ import android.app.compat.gms.GmsCompat;
 
 import com.android.internal.app.ContactScopes;
 import com.android.internal.app.StorageScopesAppHooks;
+import com.android.internal.gmscompat.GmsCompatConfig;
 import com.android.internal.gmscompat.GmsHooks;
 
 /** @hide */
@@ -48,7 +49,8 @@ public class AppPermissionUtils {
         }
 
         if (GmsCompat.isEnabled()) {
-            if (GmsHooks.config().shouldSpoofSelfPermissionCheck(permName)) {
+            GmsCompatConfig config = GmsHooks.config();
+            if (config != null && config.shouldSpoofSelfPermissionCheck(permName)) {
                 return true;
             }
         }

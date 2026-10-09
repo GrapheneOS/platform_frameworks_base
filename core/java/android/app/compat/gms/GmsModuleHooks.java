@@ -24,11 +24,10 @@ import android.annotation.SystemApi;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.content.Intent;
-import android.os.Build;
-import android.os.RemoteException;
 import android.provider.Settings;
 import android.util.Log;
 
+import com.android.internal.gmscompat.GmcPrivSettingsHooks;
 import com.android.internal.gmscompat.GmsCompatApp;
 import com.android.internal.gmscompat.GmsHooks;
 import com.android.internal.gmscompat.StubDef;
@@ -60,11 +59,7 @@ public class GmsModuleHooks {
             if (GmsCompat.hasPermission(Manifest.permission.BLUETOOTH_CONNECT)) {
                 activity.startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));
             } else {
-                try {
-                    GmsCompatApp.iGms2Gca().showGmsCoreMissingNearbyDevicesPermissionGeneric();
-                } catch (RemoteException e) {
-                    GmsCompatApp.callFailed(e);
-                }
+                GmsCompatApp.voidCall(i -> i.showGmsCoreMissingNearbyDevicesPermissionGeneric());
             }
         } // else don't bother the user
 
@@ -106,15 +101,15 @@ public class GmsModuleHooks {
 
     @Nullable
     public static String deviceConfigGetProperty(@NonNull String namespace, @NonNull String name) {
-        return GmsCompatApp.getString(GmsCompatApp.deviceConfigNamespace(namespace), name);
+        return GmcPrivSettingsHooks.getString(GmcPrivSettingsHooks.deviceConfigNamespace(namespace), name);
     }
 
     public static boolean deviceConfigSetProperty(@NonNull String namespace, @NonNull String name, @Nullable String value) {
-        return GmsCompatApp.putString(GmsCompatApp.deviceConfigNamespace(namespace), name, value);
+        return GmcPrivSettingsHooks.putString(GmcPrivSettingsHooks.deviceConfigNamespace(namespace), name, value);
     }
 
     public static boolean deviceConfigSetProperties(@NonNull android.provider.DeviceConfig.Properties properties) {
-        return GmsCompatApp.setProperties(properties);
+        return GmcPrivSettingsHooks.setProperties(properties);
     }
 
     private GmsModuleHooks() {}

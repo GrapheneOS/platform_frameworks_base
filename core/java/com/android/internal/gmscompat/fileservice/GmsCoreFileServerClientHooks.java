@@ -3,6 +3,7 @@ package com.android.internal.gmscompat.fileservice;
 import android.annotation.Nullable;
 import android.app.compat.gms.GmsCompat;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.ext.PackageId;
@@ -12,12 +13,10 @@ import android.os.RemoteException;
 import android.util.ArrayMap;
 import android.util.Log;
 
-import com.android.internal.annotations.GuardedBy;
-import com.android.internal.gmscompat.GmsCompatApp;
+import com.android.internal.gmscompat.util.SynchronousServiceBinding;
 
 import java.io.File;
 import java.io.FileDescriptor;
-import java.util.ArrayList;
 
 import libcore.io.IoBridge;
 import libcore.io.IoUtils;
@@ -27,20 +26,20 @@ import static android.system.OsConstants.O_RDONLY;
 
 public class GmsCoreFileServerClientHooks {
     private static final String TAG = "GmsCoreFileServerClientHooks";
-    private static final boolean DEBUG = false;
+    private static boolean DEBUG;
 
     private static boolean isEnabled;
     private static String gmsCoreDeDataPrefix;
     private static String gmsCoreCeDataPrefix;
-    private static volatile IFileProxyService fileProxyService;
+    private static FileProxyServiceBinding fileProxyServiceBinding;
     private static ArrayMap<String, ParcelFileDescriptor> pfdCache;
-    private static ArrayList<ParcelFileDescriptor> pastCachedFds;
 
     public static boolean isEnabled() {
         return isEnabled;
     }
 
     public static void init() {
+        DEBUG = Log.isLoggable(TAG, Log.VERBOSE);
         Context context = GmsCompat.appContext();
         ApplicationInfo gmsCoreAppInfo;
         try {
@@ -52,7 +51,11 @@ public class GmsCoreFileServerClientHooks {
         gmsCoreDeDataPrefix = gmsCoreAppInfo.deviceProtectedDataDir + "/";
         gmsCoreCeDataPrefix = gmsCoreAppInfo.credentialProtectedDataDir + "/";
         pfdCache = new ArrayMap<>(20);
-        pastCachedFds = new ArrayList<>();
+
+        var fileProxyServiceIntent = new Intent();
+        fileProxyServiceIntent.setClassName(PackageId.GMS_CORE_NAME,
+            GmsCoreFileProxyService.class.getName());
+        fileProxyServiceBinding = new FileProxyServiceBinding(context, fileProxyServiceIntent);
 
         File.lastModifiedHook = GmsCoreFileServerClientHooks::getFileLastModified;
         IoBridge.openFdInterceptor = new IoBridge.OpenFdInterceptor() {
@@ -123,25 +126,28 @@ public class GmsCoreFileServerClientHooks {
         if (DEBUG) {
             Log.d(TAG, "cached path " + path, new Throwable());
         }
-        try {
-            ArrayMap<String, ParcelFileDescriptor> cache = pfdCache;
-            // this lock isn't contended, favor simplicity, not making the critical section shorter
-            synchronized (cache) {
-                ParcelFileDescriptor pfd = cache.get(path);
-                if (pfd == null) {
-                    pfd = getFileProxyService().openFile(path);
-                    if (pfd == null) {
-                        return null;
-                    }
-                    // ParcelFileDescriptor owns the underlying file descriptor
-                    cache.put(path, pfd);
+
+        ArrayMap<String, ParcelFileDescriptor> cache = pfdCache;
+        // this lock isn't contended, favor simplicity, not making the critical section shorter
+        synchronized (cache) {
+            ParcelFileDescriptor cachedPfd = cache.get(path);
+            if (cachedPfd == null) {
+                ParcelFileDescriptor pfd;
+                try {
+                    pfd = fileProxyServiceBinding.call(service -> service.openFile(path));
+                } catch (RemoteException e) {
+                    // FileProxyService never forwards exceptions to minimize the information leaks,
+                    // this is a very rare "binder died" exception
+                    throw e.rethrowAsRuntimeException();
                 }
-                return pfd.getFileDescriptor();
+                if (pfd == null) {
+                    return null;
+                }
+                // ParcelFileDescriptor owns the underlying file descriptor
+                cache.put(path, pfd);
+                cachedPfd = pfd;
             }
-        } catch (RemoteException e) {
-            // FileProxyService never forwards exceptions to minimize the information leaks,
-            // this is a very rare "binder died" exception
-            throw e.rethrowAsRuntimeException();
+            return cachedPfd.getFileDescriptor();
         }
     }
 
@@ -167,11 +173,7 @@ public class GmsCoreFileServerClientHooks {
             Log.d(TAG, "fresh path " + path, new Throwable());
         }
         try {
-            IFileProxyService service;
-            synchronized (pfdCache) {
-                service = getFileProxyService();
-            }
-            return service.openFile(path);
+            return fileProxyServiceBinding.call(service -> service.openFile(path));
         } catch (RemoteException e) {
             // FileProxyService never forwards exceptions to minimize the information leaks,
             // this is a very rare "binder died" exception
@@ -179,35 +181,15 @@ public class GmsCoreFileServerClientHooks {
         }
     }
 
-    @GuardedBy("pfdCache")
-    private static IFileProxyService getFileProxyService() {
-        IFileProxyService cache = fileProxyService;
-        if (cache != null) {
-            return cache;
+    static class FileProxyServiceBinding extends SynchronousServiceBinding<IFileProxyService> {
+
+        public FileProxyServiceBinding(Context ctx, Intent intent) {
+            super(ctx, intent, "GmcFileProxyServiceBinding");
         }
-        try {
-            IFileProxyService service = GmsCompatApp.iClientOfGmsCore2Gca().getGmsCoreFileProxyService();
-            fileProxyService = service;
-            IBinder.DeathRecipient serviceDeathCallback = () -> {
-                fileProxyService = null;
-                Log.d(TAG, "FileProxyService died");
-                synchronized (pfdCache) {
-                    // It's not safe to close cached file descriptors, they might still be in use
-                    // at this point. Simply clearing the cache would make cached ParcelFileDescriptors
-                    // collectable by GC, which would close the underlying file descriptors via
-                    // ParcelFileDescriptor#finalize()
-                    //
-                    // pastCachedFds list is effectively a file descriptor leak, but it's small and
-                    // rare. File descriptor count limit (RLIMIT_NOFILE) is set to 32768 as of Android 15.
-                    pastCachedFds.addAll(pfdCache.values());
-                    pfdCache.clear();
-                }
-            };
-            service.asBinder().linkToDeath(serviceDeathCallback, 0);
-            return service;
-        } catch (RemoteException e) {
-            Log.e(TAG, "unable to obtain FileProxyService", e);
-            throw e.rethrowAsRuntimeException();
+
+        @Override
+        protected IFileProxyService wrapBinder(IBinder binder) {
+            return IFileProxyService.Stub.asInterface(binder);
         }
     }
 }

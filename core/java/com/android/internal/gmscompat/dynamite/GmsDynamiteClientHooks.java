@@ -15,7 +15,6 @@ import dalvik.system.DelegateLastClassLoader;
 
 public final class GmsDynamiteClientHooks {
     static final String TAG = "GmsCompat/DynamiteClient";
-    private static final boolean DEBUG = false;
 
     // written last in the init sequence, "volatile" to publish all the preceding writes
     private static volatile boolean enabled;

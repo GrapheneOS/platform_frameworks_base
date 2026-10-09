@@ -10,9 +10,7 @@ import android.content.IntentFilter;
 import android.os.BinderDef;
 import android.os.HybridBinder;
 import android.os.IBinder;
-import android.os.RemoteException;
 import android.util.ArrayMap;
-import android.util.ArraySet;
 import android.util.Log;
 
 public class GmcBinderDefs {
@@ -50,16 +48,10 @@ public class GmcBinderDefs {
         int processState = ActivityThread.currentActivityThread().getProcessState();
 
         BinderDef maybeBinderDef;
-        try {
-            if (GmsCompat.isEnabled()) {
-                maybeBinderDef = GmsCompatApp.iGms2Gca()
-                        .maybeGetBinderDef(pkgName, processState, iface);
-            } else {
-                maybeBinderDef = GmsCompatApp.iClientOfGmsCore2Gca()
-                        .maybeGetBinderDef(pkgName, processState, iface);
-            }
-        } catch (RemoteException e) {
-            throw GmsCompatApp.callFailed(e);
+        if (GmsCompat.isEnabled()) {
+            maybeBinderDef = GmsCompatApp.call(i -> i.maybeGetBinderDef(pkgName, processState, iface));
+        } else {
+            maybeBinderDef = GmsCompatApp.iClientOfGmsCore2Gca().callOrExit(i -> i.maybeGetBinderDef(pkgName, processState, iface));
         }
 
         synchronized (seenInterfaces) {
@@ -86,7 +78,7 @@ public class GmcBinderDefs {
         static void register(Context ctx) {
             var l = new BinderDefStateListener();
             var filter = new IntentFilter(INTENT_ACTION);
-            String permission = GmsCompatApp.SIGNATURE_PROTECTED_PERMISSION;
+            String permission = GmsCompatApp.SELF_PERMISSION;
             ctx.registerReceiver(l, filter, permission, null, Context.RECEIVER_EXPORTED);
         }
 

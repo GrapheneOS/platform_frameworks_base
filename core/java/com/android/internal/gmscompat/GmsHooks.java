@@ -42,6 +42,8 @@ import android.net.Uri;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.DeadSystemRuntimeException;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Parcel;
 import android.os.PowerExemptionManager;
@@ -59,6 +61,7 @@ import android.webkit.WebView;
 
 import com.android.internal.gmscompat.client.GmsCompatClientService;
 import com.android.internal.gmscompat.client.GmsCorePersistentService;
+import com.android.internal.gmscompat.fileservice.GmsCoreFileProxyService;
 import com.android.internal.gmscompat.flags.GmsFlag;
 import com.android.internal.gmscompat.flags.GmsFlagOverrides;
 import com.android.internal.gmscompat.gcarriersettings.GCarrierSettingsApp;
@@ -70,6 +73,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
@@ -78,11 +82,9 @@ import static com.android.internal.gmscompat.GmsInfo.PACKAGE_GMS_CORE;
 public final class GmsHooks {
     private static final String TAG = "GmsCompat/Hooks";
 
+    private static volatile Object configUpdateLock;
     private static volatile GmsCompatConfig config;
-
-    public static final String PERSISTENT_GmsCore_PROCESS = PACKAGE_GMS_CORE + ".persistent";
-    public static boolean inPersistentGmsCoreProcess;
-    public static final String UI_GmsCore_PROCESS = PACKAGE_GMS_CORE + ".ui";
+    public static boolean inMainGmsCoreProcess;
 
     public static GmsCompatConfig config() {
         // thread-safe: immutable after publication
@@ -90,6 +92,9 @@ public final class GmsHooks {
     }
 
     public static void init(Context ctx, String packageName, String processName) {
+        backgroundThread = new HandlerThread("gmscompat");
+        backgroundThread.start();
+
         if (!packageName.equals(processName)) {
             // Fix RuntimeException: Using WebView from more than one process at once with the same data
             // directory is not supported. https://crbug.com/558377
@@ -97,7 +102,8 @@ public final class GmsHooks {
         }
 
         if (GmsCompat.isGmsCore()) {
-            inPersistentGmsCoreProcess = processName.equals(PERSISTENT_GmsCore_PROCESS);
+            String mainProcessName = mainGmsCoreProcessName(ctx.getApplicationInfo().longVersionCode);
+            inMainGmsCoreProcess = processName.equals(mainProcessName);
         }
 
         GmsCompatLib.init(ctx, processName);
@@ -110,47 +116,45 @@ public final class GmsHooks {
             GCarrierSettingsApp.init();
         }
 
-        configUpdateLock = new Object();
         tlPermissionsToSpoof = new ThreadLocal<>();
 
-        // Locking is needed to prevent a race that would occur if config is updated via
-        // BinderGca2Gms#updateConfig in the time window between BinderGms2Gca#connect and setConfig()
-        // call below. Older GmsCompatConfig would overwrite the newer one in that case.
+        configUpdateLock = new Object();
         synchronized (configUpdateLock) {
-            GmsCompatConfig config = GmsCompatApp.connect(ctx, processName);
-            setConfig(config);
+            config = GmsCompatApp.connect(ctx, processName);
         }
 
         Thread.setUncaughtExceptionPreHandler(new UncaughtExceptionPreHandler());
 
-        if (inPersistentGmsCoreProcess) {
+        if (inMainGmsCoreProcess) {
             GmsFlagOverrides.init(ctx);
-            // The persistent GmsCore process can get frozen if it's not being used by any
+            // The main GmsCore process can get frozen if it's not being used by any
             // non-background process. AlarmManager alarms are dropped for frozen processes,
             // which breaks FCM notifications.
             //
-            // Bind to GmsCore persistent process from the never-background GmsCompat app to avoid
+            // Bind to GmsCore main process from the never-background GmsCompat app to avoid
             // this issue.
             //
             // It's important to use a non-main thread for this call to prevent a deadlock since
             // both GmsHooks.init() and GmsCorePersistentService.onCreate() run on the main thread
-            // of the com.google.android.gms.persistent process.
+            // of the com.google.android.gms process.
             BackgroundThread.getHandler().post(() ->
                     GmsCompatApp.raisePackageToForeground(PackageId.GMS_CORE_NAME, 0L,
-                    "GmsCore persistent process startup", PowerExemptionManager.REASON_OTHER,
+                    "GmsCore main process startup", PowerExemptionManager.REASON_OTHER,
                     GmsCorePersistentService.class.getName()));
         }
 
         GmcPackageManager.init(ctx);
     }
 
-    static Object configUpdateLock;
+    public static String mainGmsCoreProcessName(long gmsCoreVersion) {
+        return gmsCoreVersion < 26_33_31_000 ?
+                PackageId.GMS_CORE_NAME + ".persistent" :
+                PackageId.GMS_CORE_NAME;
+    }
 
-    static void setConfig(GmsCompatConfig c) {
-        // configUpdateLock should never be null at this point, it's initialized before GmsCompatApp
-        // gets a handle to BinderGca2Gms that is used for updating GmsCompatConfig
+    static void setConfig(GmsCompatConfig newConfig) {
         synchronized (configUpdateLock) {
-            config = c;
+            config = newConfig;
         }
     }
 
@@ -159,6 +163,7 @@ public final class GmsHooks {
 
         @Override
         public void uncaughtException(Thread t, Throwable e) {
+            Log.e(TAG, "", e);
             Context ctx = GmsCompat.appContext();
 
             ApplicationErrorReport aer = new ApplicationErrorReport();
@@ -175,11 +180,7 @@ public final class GmsHooks {
             // Send the report to GmsCompatApp before GMS receives the uncaughtException() callback.
 
             if (!shouldSkipException(e)) {
-                try {
-                    GmsCompatApp.iGms2Gca().onUncaughtException(aer);
-                } catch (RemoteException re) {
-                    Log.e(TAG, "", re);
-                }
+                GmsCompatApp.voidCall(i -> i.onUncaughtException(aer));
             }
 
             if (orig != null) {
@@ -476,11 +477,8 @@ public final class GmsHooks {
         Context ctx = GmsCompat.appContext();
         PendingIntent pendingIntent = PendingIntent.getActivity(ctx, 0, intent,
                 PendingIntent.FLAG_IMMUTABLE, options);
-        try {
-            GmsCompatApp.iGms2Gca().startActivityFromTheBackground(ctx.getPackageName(), pendingIntent);
-        } catch (RemoteException e) {
-            GmsCompatApp.callFailed(e);
-        }
+
+        GmsCompatApp.voidCall(i -> i.startActivityFromTheBackground(ctx.getPackageName(), pendingIntent));
     }
 
     // Activity#onCreate(Bundle)
@@ -594,7 +592,7 @@ public final class GmsHooks {
         }
 
         if (GmsCompat.isGmsCore()) {
-            if (inPersistentGmsCoreProcess) {
+            if (inMainGmsCoreProcess) {
                 if ("phenotype.db".equals(h.getDatabaseName()) && !context.isDeviceProtectedStorage()) {
                     if (phenotypeDb != null) {
                         Log.w(TAG, "reassigning phenotypeDb", new Throwable());
@@ -618,6 +616,9 @@ public final class GmsHooks {
                 }
                 if (GmcMediaProjectionService.class.getName().equals(className)) {
                     return new GmcMediaProjectionService();
+                }
+                if (GmsCoreFileProxyService.class.getName().equals(className)) {
+                    return new GmsCoreFileProxyService();
                 }
             }
             if (GmsCompat.isGCarrierSettings()) {
@@ -736,8 +737,8 @@ public final class GmsHooks {
                 // for this. However, this is set as an "API param", so it's not as backwards
                 // compatible or guaranteed as the String property in the VerifyPhoneNumberRequest
                 // class
-                GmsCompatApp.iGms2Gca()
-                        .maybeShowRcsRequirementsNotification(isTs43Verification);
+                GmsCompatApp.voidCall(i ->
+                        i.maybeShowRcsRequirementsNotification(isTs43Verification));
             }
         } catch (Exception e) {
             Log.e(TAG, "onBeginGmsConstellationServiceCall: failed", e);
@@ -764,6 +765,16 @@ public final class GmsHooks {
         }
 
         return GmcBinderDefs.maybeOverrideBinder(binder, ifaceName);
+    }
+
+    private static HandlerThread backgroundThread;
+
+    public static Handler getBackgroundHandler() {
+        return backgroundThread.getThreadHandler();
+    }
+
+    public static Executor getBackgroundExecutor() {
+        return backgroundThread.getThreadExecutor();
     }
 
     private GmsHooks() {}
