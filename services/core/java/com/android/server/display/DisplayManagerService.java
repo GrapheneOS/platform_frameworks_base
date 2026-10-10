@@ -840,6 +840,7 @@ public final class DisplayManagerService extends SystemService {
                 for (int i = 0; i < mDisplayPowerControllers.size(); i++) {
                     mDisplayPowerControllers.valueAt(i).onBootCompleted();
                 }
+                scheduleTraversalLocked(false);
             }
             mDisplayModeDirector.onBootCompleted();
             mLogicalDisplayMapper.onBootCompleted();
@@ -3862,6 +3863,13 @@ public final class DisplayManagerService extends SystemService {
             // TODO: no logical display for the device, blank it
             Slog.w(TAG, "Missing logical display to use for physical display device: "
                     + device.getDisplayDeviceInfoLocked());
+            return;
+        }
+        // Keep secondary internal displays on their boot animation layer stacks until boot
+        // completes, matching the deferred power-state updates in DisplayPowerController.
+        // Their logical display layer stacks can differ from those used by the boot animation.
+        if (!mBootCompleted && info.type == Display.TYPE_INTERNAL
+                && display.getDisplayIdLocked() != Display.DEFAULT_DISPLAY) {
             return;
         }
         display.configureDisplayLocked(t, device, info.state == Display.STATE_OFF,

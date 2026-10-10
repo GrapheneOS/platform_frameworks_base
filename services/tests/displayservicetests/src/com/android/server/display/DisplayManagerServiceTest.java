@@ -615,6 +615,55 @@ public class DisplayManagerServiceTest {
     }
 
     @Test
+    public void testSecondaryInternalDisplayConfigurationDeferredUntilBootCompleted() {
+        mDisplayManager = new DisplayManagerService(mContext, mBasicInjector);
+        registerDefaultDisplays(mDisplayManager);
+        mDisplayManager.windowManagerAndInputReady();
+        FakeDisplayDevice device = createFakeDisplayDevice(mDisplayManager,
+                new float[]{60f}, Display.TYPE_INTERNAL);
+        LogicalDisplay display = mDisplayManager.getLogicalDisplayMapper().getDisplayLocked(device);
+        assertNotEquals(Display.DEFAULT_DISPLAY, display.getDisplayIdLocked());
+
+        SurfaceControl.Transaction transaction = mock(SurfaceControl.Transaction.class);
+        mDisplayManager.performTraversalInternal(transaction, new SparseArray<>());
+        verify(transaction).setDisplayLayerStack(mMockDisplayToken, Display.DEFAULT_DISPLAY);
+        verify(transaction, never()).setDisplayLayerStack(eq(device.getDisplayTokenLocked()),
+                anyInt());
+        verify(transaction, never()).setDisplayProjection(eq(device.getDisplayTokenLocked()),
+                anyInt(), any(), any());
+
+        flushHandlers();
+        clearInvocations(mMockWindowManagerInternal);
+        mDisplayManager.onBootPhase(SystemService.PHASE_BOOT_COMPLETED);
+        flushHandlers();
+        verify(mMockWindowManagerInternal, atLeastOnce()).requestTraversalFromDisplayManager();
+
+        SurfaceControl.Transaction afterBoot = mock(SurfaceControl.Transaction.class);
+        mDisplayManager.performTraversalInternal(afterBoot, new SparseArray<>());
+        verify(afterBoot).setDisplayLayerStack(device.getDisplayTokenLocked(),
+                display.getDisplayInfoLocked().layerStack);
+        verify(afterBoot).setDisplayProjection(eq(device.getDisplayTokenLocked()),
+                anyInt(), any(), any());
+    }
+
+    @Test
+    public void testExternalDisplayConfigurationBeforeBootCompleted() {
+        mDisplayManager = new DisplayManagerService(mContext, mBasicInjector);
+        registerDefaultDisplays(mDisplayManager);
+        mDisplayManager.windowManagerAndInputReady();
+        FakeDisplayDevice device = createFakeDisplayDevice(mDisplayManager,
+                new float[]{60f}, Display.TYPE_EXTERNAL);
+        LogicalDisplay display = mDisplayManager.getLogicalDisplayMapper().getDisplayLocked(device);
+
+        SurfaceControl.Transaction transaction = mock(SurfaceControl.Transaction.class);
+        mDisplayManager.performTraversalInternal(transaction, new SparseArray<>());
+        verify(transaction).setDisplayLayerStack(device.getDisplayTokenLocked(),
+                display.getDisplayInfoLocked().layerStack);
+        verify(transaction).setDisplayProjection(eq(device.getDisplayTokenLocked()),
+                anyInt(), any(), any());
+    }
+
+    @Test
     public void testCreateVirtualDisplay_sentToInputManager() throws RemoteException {
         // This is to update the display device config such that DisplayManagerService can ignore
         // the usage of SensorManager, which is available only after the PowerManagerService
