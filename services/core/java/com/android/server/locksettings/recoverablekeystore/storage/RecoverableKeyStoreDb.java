@@ -1347,6 +1347,38 @@ public class RecoverableKeyStoreDb {
     }
 
     /**
+     * Removes all entries for the given recovery agent without removing user-wide metadata.
+     */
+    public void removeRecoveryAgentFromAllTables(int userId, int uid) {
+        SQLiteDatabase db = mKeyStoreDbHelper.getWritableDatabase();
+        String[] selectionArgs = {
+                Integer.toString(userId),
+                Integer.toString(uid)
+        };
+
+        db.beginTransaction();
+        try {
+            // Use each table's own contract so ownership-column changes are caught during rebases.
+            deleteRecoveryAgentRows(db, KeysEntry.TABLE_NAME, KeysEntry.COLUMN_NAME_USER_ID,
+                    KeysEntry.COLUMN_NAME_UID, selectionArgs);
+            deleteRecoveryAgentRows(db, RecoveryServiceMetadataEntry.TABLE_NAME,
+                    RecoveryServiceMetadataEntry.COLUMN_NAME_USER_ID,
+                    RecoveryServiceMetadataEntry.COLUMN_NAME_UID, selectionArgs);
+            deleteRecoveryAgentRows(db, RootOfTrustEntry.TABLE_NAME,
+                    RootOfTrustEntry.COLUMN_NAME_USER_ID, RootOfTrustEntry.COLUMN_NAME_UID,
+                    selectionArgs);
+            db.setTransactionSuccessful();
+        } finally {
+            db.endTransaction();
+        }
+    }
+
+    private static void deleteRecoveryAgentRows(SQLiteDatabase db, String tableName,
+            String userIdColumn, String uidColumn, String[] selectionArgs) {
+        db.delete(tableName, userIdColumn + " = ? AND " + uidColumn + " = ?", selectionArgs);
+    }
+
+    /**
      * Removes all entries for given userId from Keys table.
      *
      * @return {@code true} if deleted a row.

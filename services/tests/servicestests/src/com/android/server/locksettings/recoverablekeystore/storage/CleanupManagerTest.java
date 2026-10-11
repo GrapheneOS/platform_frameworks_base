@@ -16,7 +16,9 @@
 
 package com.android.server.locksettings.recoverablekeystore.storage;
 
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -26,6 +28,8 @@ import android.os.UserManager;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.server.locksettings.recoverablekeystore.WrappedKey;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -108,5 +112,33 @@ public class CleanupManagerTest {
         verify(mDatabase).setUserSerialNumber(USER_ID, USER_SERIAL_NUMBER_2);
         verify(mRecoverySnapshotStorage).remove(UID);
     }
-}
 
+    @Test
+    public void verifyKnownUsers_removedUser_removesAllUserState() throws Exception {
+        Map<Integer, Long> knownSerialNumbers = new HashMap<>();
+        knownSerialNumbers.put(USER_ID, USER_SERIAL_NUMBER);
+        when(mDatabase.getUserSerialNumbers()).thenReturn(knownSerialNumbers);
+        when(mDatabase.getRecoveryAgents(USER_ID)).thenReturn(List.of(UID));
+        when(mDatabase.getPlatformKeyGenerationId(USER_ID)).thenReturn(1);
+        Map<String, WrappedKey> keys = new HashMap<>();
+        keys.put("alias", new WrappedKey(new byte[] {1}, new byte[] {2}, null, 1));
+        when(mDatabase.getAllKeys(USER_ID, UID, 1)).thenReturn(keys);
+        when(mUserManager.getSerialNumberForUser(eq(UserHandle.of(USER_ID)))).thenReturn(-1L);
+
+        mManager.verifyKnownUsers();
+
+        verify(mRecoverySnapshotStorage).remove(UID);
+        verify(mApplicationKeyStorage).deleteEntry(USER_ID, UID, "alias");
+        verify(mDatabase).removeUserFromAllTables(USER_ID);
+    }
+
+    @Test
+    public void removeDataForRecoveryAgent_removesOnlyAgentState() {
+        mManager.removeDataForRecoveryAgent(USER_ID, UID);
+
+        verify(mRecoverySnapshotStorage).remove(UID);
+        verify(mApplicationKeyStorage).deleteEntriesForRecoveryAgent(USER_ID, UID);
+        verify(mDatabase).removeRecoveryAgentFromAllTables(USER_ID, UID);
+        verify(mDatabase, never()).removeUserFromAllTables(anyInt());
+    }
+}

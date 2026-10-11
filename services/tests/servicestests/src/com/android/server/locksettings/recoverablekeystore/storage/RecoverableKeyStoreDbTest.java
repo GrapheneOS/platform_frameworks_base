@@ -449,6 +449,52 @@ public class RecoverableKeyStoreDbTest {
     }
 
     @Test
+    public void removeRecoveryAgentFromAllTables_removesOnlyAgentData() throws Exception {
+        int userId = 12;
+        int uid = 120001;
+        int otherUid = 120002;
+        int generationId = 24;
+        long userSerialNumber = 42L;
+        String alias = "target";
+        String otherAlias = "other";
+        WrappedKey wrappedKey =
+                new WrappedKey(
+                        getUtf8Bytes("nonce"),
+                        getUtf8Bytes("key"),
+                        /* metadata= */ null,
+                        generationId);
+        mRecoverableKeyStoreDb.setPlatformKeyGenerationId(userId, generationId);
+        mRecoverableKeyStoreDb.setUserSerialNumber(userId, userSerialNumber);
+        mRecoverableKeyStoreDb.insertKey(userId, uid, alias, wrappedKey);
+        mRecoverableKeyStoreDb.insertKey(userId, otherUid, otherAlias, wrappedKey);
+        mRecoverableKeyStoreDb.setRecoverySecretTypes(userId, uid, new int[] {1});
+        mRecoverableKeyStoreDb.setRecoverySecretTypes(userId, otherUid, new int[] {2});
+        mRecoverableKeyStoreDb.setRecoveryServiceCertSerial(userId, uid, TEST_ROOT_CERT_ALIAS, 1L);
+        mRecoverableKeyStoreDb.setRecoveryServiceCertSerial(
+                userId, otherUid, TEST_ROOT_CERT_ALIAS, 2L);
+
+        mRecoverableKeyStoreDb.removeRecoveryAgentFromAllTables(userId, uid);
+
+        assertThat(mRecoverableKeyStoreDb.getKey(uid, alias)).isNull();
+        assertThat(mRecoverableKeyStoreDb.getKey(otherUid, otherAlias)).isNotNull();
+        assertThat(mRecoverableKeyStoreDb.getRecoverySecretTypes(userId, uid)).isEmpty();
+        assertThat(mRecoverableKeyStoreDb.getRecoverySecretTypes(userId, otherUid))
+                .isEqualTo(new int[] {2});
+        assertThat(
+                        mRecoverableKeyStoreDb.getRecoveryServiceCertSerial(
+                                userId, uid, TEST_ROOT_CERT_ALIAS))
+                .isNull();
+        assertThat(
+                        mRecoverableKeyStoreDb.getRecoveryServiceCertSerial(
+                                userId, otherUid, TEST_ROOT_CERT_ALIAS))
+                .isEqualTo(2L);
+        assertThat(mRecoverableKeyStoreDb.getPlatformKeyGenerationId(userId))
+                .isEqualTo(generationId);
+        assertThat(mRecoverableKeyStoreDb.getUserSerialNumbers().get(userId))
+                .isEqualTo(userSerialNumber);
+    }
+
+    @Test
     public void setRecoveryStatus_withSingleKey() {
         int userId = 12;
         int uid = 1009;
