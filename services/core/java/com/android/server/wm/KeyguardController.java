@@ -475,7 +475,8 @@ class KeyguardController {
         final TransitionController tc = mRootWindowContainer.mTransitionController;
         final KeyguardDisplayState state = getDisplayState(displayId);
 
-        final boolean visibleChange = isKeyguardLocked(displayId)
+        final boolean locked = isKeyguardLocked(displayId);
+        final boolean visibleChange = locked
                 && !(Display.isOffState(dc.getDisplayInfo().state)
                         && Flags.commitKeyguardOcclusionBeforeWakingUp());
 
@@ -515,7 +516,15 @@ class KeyguardController {
                 }
             }
             updateKeyguardSleepToken(dc);
-            if (!tc.isShellTransitionsEnabled()) {
+            // Skipping resume of an activity hidden by keyguard can skip marking the display ready.
+            // With commitKeyguardOcclusionBeforeWakingUp enabled, visibleChange is false while
+            // the display is off. Use locked here so the display can still be marked ready
+            // for an existing transition after updating the keyguard sleep token.
+            // Calling setShowWhenLocked(false) can reach here before its activity visibility pass.
+            // Do not override a pause wait while that pass can still add transition participants.
+            if (!tc.isShellTransitionsEnabled()
+                    || (locked && !state.mOccluded
+                            && mRootWindowContainer.allPausedActivitiesComplete())) {
                 dc.executeAppTransition();
             }
         } finally {

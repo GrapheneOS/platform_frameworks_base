@@ -3807,11 +3807,11 @@ final class ActivityRecord extends WindowToken {
         }
 
         final boolean isCurrentVisible = mVisibleRequested || isState(PAUSED, STARTED);
-        if (updateVisibility && isCurrentVisible
+        if (updateVisibility
                 // Avoid intermediate lifecycle change when launching with clearing task.
                 && !task.isClearingToReuseTask()) {
             boolean ensureVisibility = false;
-            if (occludesParent(true /* includingFinishing */)) {
+            if (isCurrentVisible && occludesParent(true /* includingFinishing */)) {
                 // If the current activity is not opaque, we need to make sure the visibilities of
                 // activities be updated, they may be seen by users.
                 ensureVisibility = true;
@@ -3821,6 +3821,9 @@ final class ActivityRecord extends WindowToken {
                 // finishing the top activity that occluded keyguard. So that, the
                 // ActivityStack#mTopActivityOccludesKeyguard can be updated and the activity below
                 // won't be resumed.
+                // The finish path skips resuming activities hidden by keyguard, which can also skip
+                // the visibility update during resume. Update visibility when a stopped occluder
+                // finishes so wake cannot resume an activity using stale keyguard state.
                 ensureVisibility = true;
             }
 
@@ -3936,7 +3939,9 @@ final class ActivityRecord extends WindowToken {
             }
         }
         if (activityRemoved) {
-            mRootWindowContainer.resumeFocusedTasksTopActivities();
+            // Immediate removal bypasses destroyed(), but still needs the keyguard filter
+            // when resuming the next activity after this one finishes.
+            mRootWindowContainer.resumeFocusedTasksTopActivitiesAfterFinishing();
         }
 
         ProtoLog.d(WM_DEBUG_CONTAINERS, "destroyIfPossible: r=%s destroy returned "
@@ -3958,7 +3963,7 @@ final class ActivityRecord extends WindowToken {
             mTaskSupervisor.mFinishingActivities.add(this);
         }
         resumeKeyDispatchingLocked();
-        return mRootWindowContainer.resumeFocusedTasksTopActivities();
+        return mRootWindowContainer.resumeFocusedTasksTopActivitiesAfterFinishing();
     }
 
     /**
@@ -4187,7 +4192,10 @@ final class ActivityRecord extends WindowToken {
             removeFromHistory(reason);
         }
 
-        mRootWindowContainer.resumeFocusedTasksTopActivities();
+        // The last paused activity in a shared TaskFragment may be the one just removed.
+        // TaskFragment's sleeping check then cannot prevent resuming the activity below,
+        // so keep the keyguard filter through destroy completion.
+        mRootWindowContainer.resumeFocusedTasksTopActivitiesAfterFinishing();
     }
 
     /**

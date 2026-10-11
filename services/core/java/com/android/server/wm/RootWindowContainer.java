@@ -2543,15 +2543,38 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         return resumeFocusedTasksTopActivities(null, null, null, false /* deferPause */);
     }
 
+    /**
+     * Resume focused tasks after an activity starts finishing. Skip activities hidden by keyguard
+     * unless they can show over keyguard or contain a window requesting keyguard dismissal.
+     */
+    boolean resumeFocusedTasksTopActivitiesAfterFinishing() {
+        return resumeFocusedTasksTopActivities(null, null, null, false /* deferPause */,
+                true /* skipHiddenByKeyguard */);
+    }
+
     boolean resumeFocusedTasksTopActivities(
             Task targetRootTask, ActivityRecord target) {
         return resumeFocusedTasksTopActivities(targetRootTask, target, null /* targetOptions */,
                 false /* deferPause */);
     }
 
+    /** @see #resumeFocusedTasksTopActivitiesAfterFinishing() */
+    boolean resumeFocusedTasksTopActivitiesAfterFinishing(
+            Task targetRootTask, ActivityRecord target) {
+        return resumeFocusedTasksTopActivities(targetRootTask, target, null /* targetOptions */,
+                false /* deferPause */, true /* skipHiddenByKeyguard */);
+    }
+
     boolean resumeFocusedTasksTopActivities(
             Task targetRootTask, ActivityRecord target, ActivityOptions targetOptions,
             boolean deferPause) {
+        return resumeFocusedTasksTopActivities(targetRootTask, target, targetOptions, deferPause,
+                false /* skipHiddenByKeyguard */);
+    }
+
+    private boolean resumeFocusedTasksTopActivities(
+            Task targetRootTask, ActivityRecord target, ActivityOptions targetOptions,
+            boolean deferPause, boolean skipHiddenByKeyguard) {
         if (!mTaskSupervisor.readyToResume()) {
             return false;
         }
@@ -2559,8 +2582,10 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         boolean result = false;
         if (targetRootTask != null && (targetRootTask.isTopRootTaskInDisplayArea()
                 || getTopDisplayFocusedRootTask() == targetRootTask)) {
-            result = targetRootTask.resumeTopActivityUncheckedLocked(target, targetOptions,
-                    deferPause);
+            if (!skipHiddenByKeyguard || !isHiddenByKeyguard(targetRootTask.topRunningActivity())) {
+                result = targetRootTask.resumeTopActivityUncheckedLocked(target, targetOptions,
+                        deferPause);
+            }
         }
 
         for (int displayNdx = getChildCount() - 1; displayNdx >= 0; --displayNdx) {
@@ -2596,6 +2621,7 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                     // had already resumed in above. We don't want to resume it again,
                     // especially in some cases, it would cause a second launch failure
                     // if app process was dead.
+                    // The target may instead have been skipped by the keyguard filter above.
                     resumedOnDisplay[0] |= curResult;
                     return;
                 }
@@ -2604,6 +2630,9 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                     // but only consider the top activity on that display.
                     rootTask.executeAppTransition(targetOptions);
                 } else if (topRunningActivity.attachedToProcess()) {
+                    if (skipHiddenByKeyguard && isHiddenByKeyguard(topRunningActivity)) {
+                        return;
+                    }
                     resumedOnDisplay[0] |= topRunningActivity.makeActiveIfNeeded(target);
                 }
             });
@@ -2613,8 +2642,13 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
                 // crashed) it's possible that nothing was resumed on a display. Requesting resume
                 // of top activity in focused root task explicitly will make sure that at least home
                 // activity is started and resumed, and no recursion occurs.
+                // After an activity finish, the keyguard filter can suppress this fallback.
                 final Task focusedRoot = display.getFocusedRootTask();
                 if (focusedRoot != null) {
+                    if (skipHiddenByKeyguard
+                            && isHiddenByKeyguard(focusedRoot.topRunningActivity())) {
+                        continue;
+                    }
                     result |= focusedRoot.resumeTopActivityUncheckedLocked(
                             target, targetOptions, false /* skipPause */);
                 } else if (targetRootTask == null) {
@@ -2625,6 +2659,15 @@ class RootWindowContainer extends WindowContainer<DisplayContent>
         }
 
         return result;
+    }
+
+    private boolean isHiddenByKeyguard(@Nullable ActivityRecord activity) {
+        // Allow showWhenLocked activities to resume before occlusion is updated, and allow
+        // dismissKeyguard activities to resume so they can request dismissal.
+        return activity != null
+                && !activity.canShowWhenLocked()
+                && !activity.containsDismissKeyguardWindow()
+                && !mTaskSupervisor.getKeyguardController().checkKeyguardVisibility(activity);
     }
 
     void sendSleepTransition() {

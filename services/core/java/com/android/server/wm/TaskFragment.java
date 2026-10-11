@@ -1943,6 +1943,7 @@ class TaskFragment extends WindowContainer<WindowContainer> {
         // warnForNonLeafTask("completePauseLocked");
 
         ActivityRecord prev = mPausingActivity;
+        final boolean wasFinishing = prev != null && prev.finishing;
         ProtoLog.v(WM_DEBUG_STATES, "Complete pause: %s", prev);
 
         if (prev != null) {
@@ -1982,8 +1983,10 @@ class TaskFragment extends WindowContainer<WindowContainer> {
         if (resumeNext) {
             final Task topRootTask = mRootWindowContainer.getTopDisplayFocusedRootTask();
             if (topRootTask != null && !topRootTask.shouldSleepOrShutDownActivities()) {
-                final boolean resumed =
-                        mRootWindowContainer.resumeFocusedTasksTopActivities(topRootTask, prev);
+                final boolean resumed = wasFinishing
+                        ? mRootWindowContainer.resumeFocusedTasksTopActivitiesAfterFinishing(
+                                topRootTask, prev)
+                        : mRootWindowContainer.resumeFocusedTasksTopActivities(topRootTask, prev);
                 if (!resumed && mWmService.mSyncEngine.hasActiveSync()) {
                     // TODO(b/294925498): Remove this once we have accurate ready tracking.
                     mWmService.requestTraversal();
@@ -1997,7 +2000,12 @@ class TaskFragment extends WindowContainer<WindowContainer> {
                     // something. Also if the top activity on the root task is not the just paused
                     // activity, we need to go ahead and resume it to ensure we complete an
                     // in-flight app switch.
-                    mRootWindowContainer.resumeFocusedTasksTopActivities();
+                    // If the activity was finishing, the keyguard filter can skip this resume.
+                    if (wasFinishing) {
+                        mRootWindowContainer.resumeFocusedTasksTopActivitiesAfterFinishing();
+                    } else {
+                        mRootWindowContainer.resumeFocusedTasksTopActivities();
+                    }
                 }
             }
         }
@@ -2007,6 +2015,24 @@ class TaskFragment extends WindowContainer<WindowContainer> {
         }
 
         mRootWindowContainer.ensureActivitiesVisible(resuming);
+
+        // Mark the transition ready after all activities have finished pausing,
+        // even if nothing resumes. The final pause may finish on the display returning to keyguard
+        // or on another display.
+        // If the call above skipped the visibility update because one is already running or updates
+        // are postponed, let the code completing that update mark the transition ready.
+        if (!mTaskSupervisor.inActivityVisibilityUpdate()
+                && !mTaskSupervisor.isRootVisibilityUpdateDeferred()
+                && mRootWindowContainer.allPausedActivitiesComplete()) {
+            final KeyguardController keyguard = mTaskSupervisor.getKeyguardController();
+            mRootWindowContainer.forAllDisplays(display -> {
+                if (!display.isRemoving() && !display.isRemovedOrInvalid()
+                        && keyguard.isKeyguardLocked(display.mDisplayId)
+                        && !keyguard.isKeyguardOccluded(display.mDisplayId)) {
+                    display.executeAppTransition();
+                }
+            });
+        }
 
         // Notify when the task stack has changed, but only if visibilities changed (not just
         // focus). Also if there is an active root pinned task - we always want to notify it about
