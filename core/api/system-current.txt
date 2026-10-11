@@ -5821,6 +5821,7 @@ package android.ext {
   }
 
   public interface KnownSystemPackage {
+    field public static final int LAUNCHER = 4; // 0x4
     field public static final int SETTINGS = 0; // 0x0
     field public static final int SETUP_WIZARD = 3; // 0x3
     field public static final int SHELL = 1; // 0x1
