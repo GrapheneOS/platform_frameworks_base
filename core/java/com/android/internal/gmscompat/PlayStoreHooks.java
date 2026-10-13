@@ -74,12 +74,48 @@ public final class PlayStoreHooks {
         Context ctx = GmsCompat.appContext();
         packageManager = ctx.getPackageManager();
         InternalBroadcastReceiver.register(ctx);
+        PendingUserActionListener.register(ctx);
     }
 
     // PackageInstaller.Session#commit(IntentSender)
     public static IntentSender wrapCommitStatusReceiver(PackageInstaller.Session session, IntentSender statusReceiver) {
         return PackageInstallerStatusForwarder.register((intent, extras) -> sendIntent(intent, statusReceiver))
                 .getIntentSender();
+    }
+
+    static class PendingUserActionListener extends BroadcastReceiver {
+        private static final String TAG = "GmcPendingUserActionListener";
+        private static final String INTENT_ACTION = PendingUserActionListener.class.getName();
+
+        private PendingUserActionListener() {}
+
+        static void register(Context appContext) {
+            appContext.registerReceiver(new PendingUserActionListener(),
+                    new IntentFilter(INTENT_ACTION), Context.RECEIVER_NOT_EXPORTED);
+        }
+
+        static void onNewPendingUserAction(Context appContext) {
+            Log.i(TAG, "onNewPendingUserAction");
+            var intent = new Intent(INTENT_ACTION);
+            intent.setPackage(appContext.getPackageName());
+            appContext.sendBroadcast(intent);
+        }
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            Log.i(TAG, "onReceive in " + Application.getProcessName());
+            Activity activity = GmcActivityUtils.getMostRecentVisibleActivity();
+            if (activity == null) {
+                Log.i(TAG, "no visible activity");
+                return;
+            }
+            Intent pendingActionIntent = GmsCompatApp.call(i -> i.maybeGetPlayStorePendingUserActionIntent());
+            if (pendingActionIntent == null) {
+                Log.i(TAG, "no pendingActionIntent");
+                return;
+            }
+            activity.startActivity(pendingActionIntent);
+        }
     }
 
     public static void onActivityResumed(Activity activity) {
@@ -137,6 +173,7 @@ public final class PlayStoreHooks {
 
                 String packageName_ = packageName;
                 GmsCompatApp.voidCall(i -> i.onPlayStorePendingUserAction(confirmationIntent, packageName_));
+                PendingUserActionListener.onNewPendingUserAction(context);
 
                 // confirmationIntent has a PendingIntent to this instance, don't unregister yet
                 return;

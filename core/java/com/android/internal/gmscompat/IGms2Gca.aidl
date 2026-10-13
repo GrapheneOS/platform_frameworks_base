@@ -15,7 +15,7 @@ interface IGms2Gca {
 
     @nullable BinderDef maybeGetBinderDef(String callerPkg, int processState, String ifaceName);
 
-    oneway void onPlayStorePendingUserAction(in Intent actionIntent, @nullable String pkgName);
+    void onPlayStorePendingUserAction(in Intent actionIntent, @nullable String pkgName);
     @nullable Intent maybeGetPlayStorePendingUserActionIntent();
 
     oneway void showPlayStoreMissingObbPermissionNotification();
