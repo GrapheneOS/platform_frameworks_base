@@ -82,12 +82,12 @@ public class GmcDebug {
         Log.v(LOG_TAG, "conn: " + System.identityHashCode(conn), new Throwable());
     }
 
-    public static void maybeLogServiceConnCallback(String name, ComponentName cn) {
+    public static void maybeLogServiceConnCallback(ServiceConnection conn, String name, ComponentName cn) {
         String LOG_TAG = "GmcServiceConnCb";
         if (!Log.isLoggable(LOG_TAG, Log.VERBOSE)) {
             return;
         }
-        Log.v(LOG_TAG, name + ", " + cn.toShortString());
+        Log.v(LOG_TAG, "conn: " + System.identityHashCode(conn) + ", " + name + ", " + cn.toShortString());
     }
 
     public static void maybeLogSendBroadcast(Intent intent, String receiverPerm, Bundle options,

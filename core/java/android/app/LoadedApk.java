@@ -2481,7 +2481,7 @@ public final class LoadedApk {
             // If there was an old service, it is now disconnected.
             if (old != null) {
                 if (GmsCompat.isEnabled()) {
-                    GmcDebug.maybeLogServiceConnCallback("onServiceDisconnected_old", name);
+                    GmcDebug.maybeLogServiceConnCallback(mConnection, "onServiceDisconnected_old", name);
                 }
                 mConnection.onServiceDisconnected(name);
             }
@@ -2502,7 +2502,7 @@ public final class LoadedApk {
                 }
             }
             if (GmsCompat.isEnabled()) {
-                GmcDebug.maybeLogServiceConnCallback(op, name);
+                GmcDebug.maybeLogServiceConnCallback(mConnection, op, name);
             }
         }
 
@@ -2519,7 +2519,7 @@ public final class LoadedApk {
             }
 
             if (GmsCompat.isEnabled()) {
-                GmcDebug.maybeLogServiceConnCallback("onServiceDisconnected", name);
+                GmcDebug.maybeLogServiceConnCallback(mConnection, "onServiceDisconnected", name);
             }
 
             mConnection.onServiceDisconnected(name);
