@@ -53,6 +53,7 @@ fun activeNotificationModel(
     callType: CallType = CallType.None,
     requestedPromotion: Boolean = false,
     promotedContent: PromotedNotificationContentModels? = null,
+    isSensitive: Boolean = false,
     notifStyle: NotifStyle? = null,
     isScreenShareNotification: Boolean = false,
 ) =
@@ -82,6 +83,7 @@ fun activeNotificationModel(
         callType = callType,
         requestedPromotion = requestedPromotion,
         promotedContent = promotedContent,
+        isSensitive = isSensitive,
         style = notifStyle,
         isScreenShareNotification = isScreenShareNotification,
     )
