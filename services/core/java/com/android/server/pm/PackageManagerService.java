@@ -5157,9 +5157,6 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                 public void run() {
                     mHandler.removeCallbacks(this);
 
-                    GosPackageStatePmHooks.onClearApplicationUserData(
-                            PackageManagerService.this, packageName, userId);
-
                     final boolean succeeded;
                     try (PackageFreezer freezer = freezePackage(packageName, userId,
                             "clearApplicationUserData",
@@ -5175,6 +5172,10 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                                 resetComponentEnabledSettingsIfNeededLPw(packageName, userId,
                                         callingUid);
                             }
+                        }
+                        if (succeeded) {
+                            GosPackageStatePmHooks.onApplicationDataCleared(
+                                    PackageManagerService.this, packageName, userId);
                         }
                     }
                     if (succeeded) {

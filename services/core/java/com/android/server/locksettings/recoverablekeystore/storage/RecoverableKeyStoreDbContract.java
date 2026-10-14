@@ -21,7 +21,9 @@ import android.provider.BaseColumns;
 /**
  * Contract for recoverable key database. Describes the tables present.
  *
- * Make sure that {@code removeUserFromAllKnownTables} is updated, when new table is added.
+ * Make sure that {@link RecoverableKeyStoreDb#removeUserFromAllTables(int)} is updated when a table
+ * is added. If the table contains recovery-agent state, also update
+ * {@link RecoverableKeyStoreDb#removeRecoveryAgentFromAllTables(int, int)}.
  */
 class RecoverableKeyStoreDbContract {
     /**

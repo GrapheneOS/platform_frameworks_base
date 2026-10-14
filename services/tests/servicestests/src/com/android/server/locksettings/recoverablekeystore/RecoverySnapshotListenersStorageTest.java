@@ -50,6 +50,58 @@ public class RecoverySnapshotListenersStorageTest {
     }
 
     @Test
+    public void remove_clearsListener() {
+        int recoveryAgentUid = 1000;
+        PendingIntent intent =
+                PendingIntent.getBroadcast(
+                        InstrumentationRegistry.getTargetContext(),
+                        /* requestCode= */ 1,
+                        new Intent()
+                                .setPackage(
+                                        InstrumentationRegistry.getTargetContext()
+                                                .getPackageName()),
+                        /* flags= */ PendingIntent.FLAG_MUTABLE);
+        mStorage.setSnapshotListener(recoveryAgentUid, intent);
+
+        mStorage.remove(recoveryAgentUid);
+
+        assertFalse(mStorage.hasListener(recoveryAgentUid));
+    }
+
+    @Test
+    public void remove_clearsPendingSnapshot() throws Exception {
+        Context context = InstrumentationRegistry.getTargetContext();
+        int recoveryAgentUid = 1000;
+        mStorage.recoverySnapshotAvailable(recoveryAgentUid);
+        mStorage.remove(recoveryAgentUid);
+        PendingIntent intent =
+                PendingIntent.getBroadcast(
+                        context,
+                        /* requestCode= */ 0,
+                        new Intent(TEST_INTENT_ACTION).setPackage(context.getPackageName()),
+                        /* flags= */ PendingIntent.FLAG_MUTABLE);
+        CountDownLatch latch = new CountDownLatch(1);
+        BroadcastReceiver broadcastReceiver =
+                new BroadcastReceiver() {
+                    @Override
+                    public void onReceive(Context context, Intent intent) {
+                        latch.countDown();
+                    }
+                };
+        context.registerReceiver(
+                broadcastReceiver,
+                new IntentFilter(TEST_INTENT_ACTION),
+                Context.RECEIVER_EXPORTED_UNAUDITED);
+
+        try {
+            mStorage.setSnapshotListener(recoveryAgentUid, intent);
+            assertFalse(latch.await(TEST_TIMEOUT_SECONDS, TimeUnit.SECONDS));
+        } finally {
+            context.unregisterReceiver(broadcastReceiver);
+        }
+    }
+
+    @Test
     public void setSnapshotListener_invokesIntentImmediatelyIfPreviouslyNotified()
             throws Exception {
         Context context = InstrumentationRegistry.getTargetContext();

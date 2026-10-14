@@ -91,6 +91,7 @@ public class KeySyncTask implements Runnable {
     private final RecoverySnapshotListenersStorage mSnapshotListenersStorage;
     private final TestOnlyInsecureCertificateHelper mTestOnlyInsecureCertificateHelper;
     private final Scrypt mScrypt;
+    private boolean mSensitiveCryptoStarted;
 
     public static KeySyncTask newInstance(
             Context context,
@@ -158,6 +159,12 @@ public class KeySyncTask implements Runnable {
             Log.e(TAG, "Unexpected exception thrown during KeySyncTask", e);
         } finally {
             mCredential.zeroize(); // no longer needed
+            if (mSensitiveCryptoStarted) {
+                // Best effort cleanup for unreachable sensitive objects and native contexts.
+                System.gc();
+                System.runFinalization();
+                System.gc();
+            }
         }
     }
 
@@ -274,12 +281,9 @@ public class KeySyncTask implements Runnable {
 
         boolean useScryptToHashCredential = shouldUseScryptToHashCredential();
         byte[] salt = generateNewSaltIfNecessary();
-        byte[] localLskfHash;
-        if (useScryptToHashCredential) {
-            localLskfHash = hashCredentialsByScrypt(salt, mCredential.getCredential());
-        } else {
-            localLskfHash = hashCredentialsBySaltedSha256(salt, mCredential.getCredential());
-        }
+
+        // Loading keys can create movable plaintext key material before reporting a failure.
+        mSensitiveCryptoStarted = true;
 
         Map<String, Pair<SecretKey, byte[]>> rawKeysWithMetadata;
         try {
@@ -343,10 +347,18 @@ public class KeySyncTask implements Runnable {
                 vaultHandle);
 
         byte[] encryptedRecoveryKey;
+        // Derive the LSKF hash immediately before its only use so it stays in memory for less time.
+        byte[] localLskfHash_ = null;
         try {
+            if (useScryptToHashCredential) {
+                localLskfHash_ = hashCredentialsByScrypt(salt, mCredential.getCredential());
+            } else {
+                localLskfHash_ =
+                        hashCredentialsBySaltedSha256(salt, mCredential.getCredential());
+            }
             encryptedRecoveryKey = KeySyncUtils.thmEncryptRecoveryKey(
                     publicKey,
-                    localLskfHash,
+                    localLskfHash_,
                     vaultParams,
                     recoveryKey);
         } catch (NoSuchAlgorithmException e) {
@@ -355,6 +367,8 @@ public class KeySyncTask implements Runnable {
         } catch (InvalidKeyException e) {
             Log.e(TAG,"Could not encrypt with recovery key", e);
             return;
+        } finally {
+            ArrayUtils.zeroize(localLskfHash_);
         }
 
         KeyDerivationParams keyDerivationParams;

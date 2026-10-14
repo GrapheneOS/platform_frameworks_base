@@ -81,6 +81,15 @@ public abstract class LockSettingsInternal {
     public abstract void removeUser(@UserIdInt int userId);
 
     /**
+     * Removes recoverable keystore state for the given recovery agent.
+     *
+     * @param userId the ID of the user whose state is being removed
+     * @param uid the UID of the recovery agent
+     */
+    public abstract void removeRecoverableKeystoreStateForRecoveryAgent(
+            @UserIdInt int userId, int uid);
+
+    /**
      * Create an escrow token for the current user, which can later be used to unlock FBE
      * or change user password.
      *

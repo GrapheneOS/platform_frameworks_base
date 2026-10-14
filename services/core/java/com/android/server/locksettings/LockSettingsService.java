@@ -4359,6 +4359,13 @@ public class LockSettingsService extends ILockSettings.Stub {
         }
 
         @Override
+        public void removeRecoverableKeystoreStateForRecoveryAgent(
+                @UserIdInt int userId, int uid) {
+            mRecoverableKeyStoreManager.removeRecoverableKeystoreStateForRecoveryAgent(
+                    userId, uid);
+        }
+
+        @Override
         public long addEscrowToken(byte[] token, int userId,
                 EscrowTokenStateChangeCallback callback) {
             return LockSettingsService.this.addEscrowToken(token, TOKEN_TYPE_STRONG, userId,

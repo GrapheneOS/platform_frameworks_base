@@ -21,6 +21,7 @@ import java.security.KeyStore;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
+import java.util.Enumeration;
 
 /**
  * Proxies {@link java.security.KeyStore}. As all of its methods are final, it cannot otherwise be
@@ -43,4 +44,7 @@ public interface KeyStoreProxy {
 
     /** @see KeyStore#deleteEntry(String) */
     void deleteEntry(String alias) throws KeyStoreException;
+
+    /** @see KeyStore#aliases() */
+    Enumeration<String> aliases() throws KeyStoreException;
 }
