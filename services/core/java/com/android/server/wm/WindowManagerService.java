@@ -10097,7 +10097,7 @@ public class WindowManagerService extends IWindowManager.Stub
         if (hasFlags(addedPrivateFlags,
                 (PRIVATE_FLAG_IS_ROUNDED_CORNERS_OVERLAY| PRIVATE_FLAG_TRUSTED_OVERLAY))
                 && !hasPermission(android.Manifest.permission.INTERNAL_SYSTEM_WINDOW,
-                    callingUid, callingPid)) {
+                    callingPid, callingUid)) {
             Slog.w(TAG, "Removing PRIVATE_FLAG_IS_ROUNDED_CORNERS_OVERLAY or"
                     + " PRIVATE_FLAG_TRUSTED_OVERLAY from '" + windowName
                     + "' because it doesn't have INTERNAL_SYSTEM_WINDOW permission");
@@ -10105,8 +10105,8 @@ public class WindowManagerService extends IWindowManager.Stub
                     ~(PRIVATE_FLAG_IS_ROUNDED_CORNERS_OVERLAY | PRIVATE_FLAG_TRUSTED_OVERLAY);
         }
         if (hasFlags(addedPrivateFlags, LayoutParams.PRIVATE_FLAG_INTERCEPT_GLOBAL_DRAG_AND_DROP)
-                && !hasPermission(android.Manifest.permission.MANAGE_ACTIVITY_TASKS, callingUid,
-                    callingPid)) {
+                && !hasPermission(android.Manifest.permission.MANAGE_ACTIVITY_TASKS, callingPid,
+                    callingUid)) {
             Slog.w(TAG, "Removing PRIVATE_FLAG_INTERCEPT_GLOBAL_DRAG_AND_DROP from '"
                 + windowName + "' because it doesn't have MANAGE_ACTIVITY_TASKS permission");
             sanitizedFlags &= ~LayoutParams.PRIVATE_FLAG_INTERCEPT_GLOBAL_DRAG_AND_DROP;
