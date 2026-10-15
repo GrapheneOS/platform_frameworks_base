@@ -191,8 +191,15 @@ public abstract class SynchronousServiceBinding<T> implements IBinder.DeathRecip
                 if (isPermanent) {
                     bindFlags |= Context.BIND_ABOVE_CLIENT;
                 }
-                boolean bound = context.bindServiceAsUser(serviceIntent, connection, bindFlags,
-                        serviceConnectionHandler, context.getUser());
+                boolean bound;
+                try {
+                    bound = context.bindServiceAsUser(serviceIntent, connection, bindFlags,
+                            serviceConnectionHandler, context.getUser());
+                } catch (SecurityException e) {
+                    Log.e(logTag, "", e);
+                    context.unbindService(connection);
+                    throw e;
+                }
                 if (!bound) {
                     Log.e(logTag, "bindService() failed");
                     context.unbindService(connection);
