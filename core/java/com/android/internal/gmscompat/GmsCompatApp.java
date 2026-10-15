@@ -84,6 +84,10 @@ public final class GmsCompatApp {
         gms2GcaServiceBinding.voidCallOrExit(callFn);
     }
 
+    public static SynchronousServiceBinding<IGms2Gca> gms2GcaBinding() {
+        return gms2GcaServiceBinding;
+    }
+
     private static SynchronousServiceBinding<IClientOfGmsCore2Gca> clientOfGmsCore2GcaBinding;
 
     public static SynchronousServiceBinding<IClientOfGmsCore2Gca> iClientOfGmsCore2Gca() {

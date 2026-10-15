@@ -180,7 +180,11 @@ public final class GmsHooks {
             // Send the report to GmsCompatApp before GMS receives the uncaughtException() callback.
 
             if (!shouldSkipException(e)) {
-                GmsCompatApp.voidCall(i -> i.onUncaughtException(aer));
+                try {
+                    GmsCompatApp.gms2GcaBinding().voidCall(i -> i.onUncaughtException(aer));
+                } catch (RemoteException re) {
+                    Log.e(TAG, "", re);
+                }
             }
 
             if (orig != null) {
