@@ -14510,6 +14510,11 @@ public final class Settings {
         public static final String BATTERY_CHARGE_LIMIT = "battery_charge_limit";
 
         /** @hide */
+        @Protected(read = KnownSystemPackage.SYSTEM_UI, readWrite = KnownSystemPackage.SETTINGS)
+        public static final String REQUIRE_AUTHENTICATION_TO_DISABLE_AIRPLANE_MODE =
+                "require_authentication_to_disable_airplane_mode";
+
+        /** @hide */
         @Protected(restrictReads = false, readWrite = {KnownSystemPackage.SETTINGS,
                 KnownSystemPackage.SETUP_WIZARD})
         public static final String NETWORK_LOCATION = "network_location";

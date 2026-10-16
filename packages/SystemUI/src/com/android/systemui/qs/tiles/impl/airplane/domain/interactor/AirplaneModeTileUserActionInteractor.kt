@@ -24,6 +24,7 @@ import com.android.systemui.qs.tiles.base.domain.interactor.QSTileUserActionInte
 import com.android.systemui.qs.tiles.base.domain.model.QSTileInput
 import com.android.systemui.qs.tiles.base.shared.model.QSTileUserAction
 import com.android.systemui.qs.tiles.impl.airplane.domain.model.AirplaneModeTileModel
+import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.AirplaneModeAuthenticationInteractor
 import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.AirplaneModeInteractor
 import javax.inject.Inject
 
@@ -32,6 +33,7 @@ class AirplaneModeTileUserActionInteractor
 @Inject
 constructor(
     private val airplaneModeInteractor: AirplaneModeInteractor,
+    private val authenticationInteractor: AirplaneModeAuthenticationInteractor,
     private val qsTileIntentUserActionHandler: QSTileIntentUserInputHandler,
 ) : QSTileUserActionInteractor<AirplaneModeTileModel> {
 
@@ -39,7 +41,10 @@ constructor(
         with(input) {
             when (action) {
                 is QSTileUserAction.Click -> {
-                    when (airplaneModeInteractor.setIsAirplaneMode(!data.isEnabled)) {
+                    val newState = !data.isEnabled
+                    if (!newState && !authenticationInteractor.authenticateIfRequired()) return
+                    if (!newState && !airplaneModeInteractor.isAirplaneMode.value) return
+                    when (airplaneModeInteractor.setIsAirplaneMode(newState)) {
                         AirplaneModeInteractor.SetResult.SUCCESS -> {
                             // do nothing
                         }
