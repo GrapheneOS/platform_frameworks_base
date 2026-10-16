@@ -2144,7 +2144,7 @@ public class ActivityManagerService extends IActivityManager.Stub
             ServiceManager.addService("processinfo", new ProcessInfoService(this));
             ServiceManager.addService("cacheinfo", new CacheBinder(this));
             ServiceManager.addService(IMediaDrmIdAccessService.SERVICE_NAME,
-                    new MediaDrmIdAccessService(this), /* allowIsolated= */ true);
+                    new MediaDrmIdAccessService(this));
             if (Flags.enableActivityManagerStructuredService()) {
                 ServiceManager.addService(
                         "activity_structured",

@@ -23,11 +23,16 @@ import android.os.IMediaDrmIdAccessService;
 import android.os.Process;
 import android.os.UserHandle;
 import android.text.TextUtils;
+import android.util.ArraySet;
 import android.util.Slog;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.os.BackgroundThread;
+import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageStateInternal;
+
+import java.util.List;
+import java.util.Set;
 
 /** Trusted policy service for MediaDrm device unique ID access. */
 final class MediaDrmIdAccessService extends IMediaDrmIdAccessService.Stub {
@@ -47,11 +52,6 @@ final class MediaDrmIdAccessService extends IMediaDrmIdAccessService.Stub {
     MediaDrmIdAccessService(ActivityManagerService service, Handler callbackHandler) {
         mService = service;
         mCallbackHandler = callbackHandler;
-    }
-
-    @Override
-    public boolean isAllowed() {
-        return checkAccess(Binder.getCallingUid(), Binder.getCallingPid());
     }
 
     @Override
@@ -75,54 +75,69 @@ final class MediaDrmIdAccessService extends IMediaDrmIdAccessService.Stub {
             return true;
         }
 
-        final boolean isolated = Process.isIsolatedUid(uid);
-        final boolean sdkSandbox = Process.isSdkSandboxUid(uid);
+        final boolean privateComputeCore = Process.isPrivateComputeCoreUid(uid);
         final ProcessRecord process;
         synchronized (mService.mPidsSelfLocked) {
             process = mService.mPidsSelfLocked.get(pid);
         }
 
         String packageName = null;
-        int appUid = sdkSandbox ? Process.getAppUidForSdkSandboxUid(uid) : uid;
+        final int appUid = privateComputeCore
+                ? mService.getPackageManagerInternal().getAppUidForPrivateComputeCoreUid(uid)
+                : uid;
         if (process != null && process.uid == uid) {
-            if (sdkSandbox) {
-                packageName = process.sdkSandboxClientAppPackage;
-            } else {
-                packageName = process.info.packageName;
-                if (isolated) {
-                    appUid = process.info.uid;
+            packageName = process.info.packageName;
+        }
+
+        final int userId = UserHandle.getUserId(
+                appUid == Process.INVALID_UID ? uid : appUid);
+        if (appUid != Process.INVALID_UID && !TextUtils.isEmpty(packageName)) {
+            final PackageStateInternal processPackageState = mService.getPackageManagerInternal()
+                    .getPackageStateInternal(packageName);
+            if (processPackageState == null
+                    || processPackageState.getAppId() != UserHandle.getAppId(appUid)
+                    || !processPackageState.getUserStateOrDefault(userId).isInstalled()) {
+                packageName = null;
+            }
+        }
+
+        final ArraySet<String> blockingPackageNames = new ArraySet<>();
+        boolean hasInstalledPackage = false;
+        if (appUid != Process.INVALID_UID) {
+            final List<AndroidPackage> uidPackages = mService.getPackageManagerInternal()
+                    .getPackagesForAppId(UserHandle.getAppId(appUid));
+            for (int i = 0; i < uidPackages.size(); i++) {
+                final String uidPackageName = uidPackages.get(i).getPackageName();
+                final PackageStateInternal uidPackageState = mService.getPackageManagerInternal()
+                        .getPackageStateInternal(uidPackageName);
+                if (uidPackageState != null
+                        && uidPackageState.getAppId() == UserHandle.getAppId(appUid)
+                        && uidPackageState.getUserStateOrDefault(userId).isInstalled()) {
+                    hasInstalledPackage = true;
+                    if (!uidPackageState.isSystem()) {
+                        blockingPackageNames.add(uidPackageName);
+                    }
                 }
             }
         }
-
-        PackageStateInternal packageState = null;
-        final int userId = UserHandle.getUserId(appUid);
-        if (!TextUtils.isEmpty(packageName)) {
-            packageState = mService.getPackageManagerInternal()
-                    .getPackageStateInternal(packageName);
-            if (packageState == null
-                    || packageState.getAppId() != UserHandle.getAppId(appUid)
-                    || !packageState.getUserStateOrDefault(userId).isInstalled()) {
-                packageName = null;
-                packageState = null;
-            }
-        }
-
-        if (!isolated && !sdkSandbox && packageState != null && packageState.isSystem()) {
+        if (hasInstalledPackage && blockingPackageNames.isEmpty()) {
             return true;
         }
 
-        final String blockedPackage = packageName;
+        final String processPackageName = packageName;
+        final Set<String> blockingPackages = Set.copyOf(blockingPackageNames);
         final int blockedAppUid = appUid;
         mCallbackHandler.post(() -> onAccessBlocked(
-                uid, pid, blockedAppUid, userId, blockedPackage));
+                uid, pid, blockedAppUid, userId, processPackageName, blockingPackages));
         return false;
     }
 
     @VisibleForTesting
     void onAccessBlocked(int uid, int pid, int appUid, int userId,
-            @Nullable String packageName) {
+            @Nullable String processPackageName, Set<String> blockingPackages) {
         Slog.w(TAG, "blocked deviceUniqueId access: uid=" + uid + ", pid=" + pid
-                + ", appUid=" + appUid + ", userId=" + userId + ", package=" + packageName);
+                + ", appUid=" + appUid + ", userId=" + userId
+                + ", processPackage=" + processPackageName
+                + ", blockingPackages=" + blockingPackages);
     }
 }
