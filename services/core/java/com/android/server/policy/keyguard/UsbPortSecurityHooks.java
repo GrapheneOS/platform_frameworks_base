@@ -228,6 +228,8 @@ public class UsbPortSecurityHooks {
     private boolean keyguardDismissedAtLeastOnce;
     private Boolean prevKeyguardShowing; // intentionally using boxed boolean to have a null value
     private long keyguardShowingChangeCount;
+    // Counts port state changes, so a delayed change is dropped once a newer one was made.
+    private long portStateChangeCount;
 
     private int usbConnectEventCountBeforeLocked;
     private int usbConnectEventCount;
@@ -276,12 +278,14 @@ public class UsbPortSecurityHooks {
                     Slog.d(TAG, "toggling USB ports");
                     setSecurityStateForAllPorts(PortSecurityState.PORTS_DISABLED);
                     final long curShowingChangeCount = keyguardShowingChangeCount;
+                    final long curPortStateChangeCount = portStateChangeCount;
                     final long delayMs = 1500;
                     handler.postDelayed(() -> {
-                        if (keyguardShowingChangeCount == curShowingChangeCount) {
+                        if (keyguardShowingChangeCount == curShowingChangeCount
+                                && portStateChangeCount == curPortStateChangeCount) {
                             setSecurityStateForAllPorts(PortSecurityState.PORTS_ENABLED);
                         } else {
-                            Slog.d(TAG, "showingChangeCount changed, skipping delayed enable");
+                            Slog.d(TAG, "showingChangeCount or port state changed, skipping delayed enable");
                         }
                     }, delayMs);
                 }
@@ -307,6 +311,7 @@ public class UsbPortSecurityHooks {
         if (!handler.getLooper().isCurrentThread()) {
             throw new IllegalStateException("setSecurityStateForAllPorts() must be called on the handler thread");
         }
+        ++portStateChangeCount;
 
         if (PortSecurityState.PORTS_ENABLED.equals(state) && !halDisabledPorts.isEmpty()) {
             Slogf.d(TAG, "setSecurityStateForAllPorts: ignoring enable request since halDisabledPorts is %s", Arrays.toString(halDisabledPorts.toArray()));
@@ -391,14 +396,16 @@ public class UsbPortSecurityHooks {
 
         if (delayStateUpdate) {
             final long curShowingChangeCount = keyguardShowingChangeCount;
+            final long curPortStateChangeCount = portStateChangeCount;
             // it's hard to setup a proper callback to avoid this hardcoded delay, would need to
             // modify init and kernel
             final long delayMs = 1500;
             handler.postDelayed(() -> {
-                if (keyguardShowingChangeCount == curShowingChangeCount) {
+                if (keyguardShowingChangeCount == curShowingChangeCount
+                        && portStateChangeCount == curPortStateChangeCount) {
                     setSecurityStateForAllPorts(state);
                 } else {
-                    Slog.d(TAG, "updateSetting: showingChangeCount changed, skipping delayed state change");
+                    Slog.d(TAG, "updateSetting: showingChangeCount or port state changed, skipping delayed state change");
                 }
             }, delayMs);
         } else {
