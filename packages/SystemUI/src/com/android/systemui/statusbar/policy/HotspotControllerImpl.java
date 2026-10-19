@@ -26,6 +26,7 @@ import android.net.wifi.WifiClient;
 import android.net.wifi.WifiManager;
 import android.os.Handler;
 import android.os.HandlerExecutor;
+import android.os.UserHandle;
 import android.os.UserManager;
 import android.util.Log;
 
@@ -128,7 +129,9 @@ public class HotspotControllerImpl implements HotspotController, WifiManager.Sof
     @Override
     public boolean isHotspotSupported() {
         return mIsTetheringSupportedConfig && mIsTetheringSupported && mHasTetherableWifiRegexs
-                && UserManager.get(mContext).isUserAdmin(mUserTracker.getUserId());
+                && !UserManager.get(mContext).hasUserRestrictionForUser(
+                        UserManager.DISALLOW_CONFIG_TETHERING,
+                        UserHandle.of(mUserTracker.getUserId()));
     }
 
     public void dump(PrintWriter pw, String[] args) {
