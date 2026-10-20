@@ -3,8 +3,8 @@ package com.android.server.pm.ext;
 import android.Manifest;
 import android.annotation.CallSuper;
 import android.annotation.Nullable;
+import android.app.GmsCompatServiceHooks;
 import android.app.compat.gms.GmsCompat;
-import android.content.pm.ServiceInfo;
 import android.ext.PackageId;
 import android.os.Bundle;
 
@@ -70,9 +70,6 @@ public class GmsCompatPkgParsingHooks extends PackageParsingHooks {
     @CallSuper
     @Override
     public void amendParsedService(ParsedServiceImpl s) {
-        if (s.getForegroundServiceType() == ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED) {
-            // FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED requires special privileges
-            s.setForegroundServiceType(ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
-        }
+        GmsCompatServiceHooks.amendParsedService(s);
     }
 }
