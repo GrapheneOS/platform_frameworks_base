@@ -10,12 +10,15 @@ import android.os.Bundle;
 
 import com.android.internal.gmscompat.GmsCompatApp;
 import com.android.internal.gmscompat.client.GmsCompatClientService;
+import com.android.internal.pm.pkg.component.ParsedProcess;
+import com.android.internal.pm.pkg.component.ParsedProcessImpl;
 import com.android.internal.pm.pkg.component.ParsedService;
 import com.android.internal.pm.pkg.component.ParsedServiceImpl;
 import com.android.internal.pm.pkg.component.ParsedUsesPermissionImpl;
 import com.android.internal.pm.pkg.parsing.PackageParsingHooks;
 import com.android.internal.pm.pkg.parsing.ParsingPackage;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class GmsCompatPkgParsingHooks extends PackageParsingHooks {
@@ -57,6 +60,16 @@ public class GmsCompatPkgParsingHooks extends PackageParsingHooks {
         }
 
         return s;
+    }
+
+    @CallSuper
+    @Override
+    public List<ParsedProcess> addProcesses(ParsingPackage pkg) {
+        var p = new ParsedProcessImpl();
+        p.setName(GmsCompat.gmsCompatProcessNameForPackage(pkg.getPackageName()));
+        var res = new ArrayList<ParsedProcess>();
+        res.add(p);
+        return res;
     }
 
     @CallSuper
