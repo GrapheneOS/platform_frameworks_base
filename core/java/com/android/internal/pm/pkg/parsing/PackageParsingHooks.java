@@ -4,6 +4,7 @@ import android.annotation.Nullable;
 import android.content.pm.PackageManager;
 
 import com.android.internal.pm.pkg.component.ParsedPermission;
+import com.android.internal.pm.pkg.component.ParsedProcess;
 import com.android.internal.pm.pkg.component.ParsedProvider;
 import com.android.internal.pm.pkg.component.ParsedService;
 import com.android.internal.pm.pkg.component.ParsedServiceImpl;
@@ -47,7 +48,13 @@ public class PackageParsingHooks {
 
     }
 
+    @Nullable
     public List<ParsedService> addServices(ParsingPackage pkg) {
+        return null;
+    }
+
+    @Nullable
+    public List<ParsedProcess> addProcesses(ParsingPackage pkg) {
         return null;
     }
 

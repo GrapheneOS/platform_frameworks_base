@@ -37,6 +37,7 @@ import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 
 /** @hide */
@@ -205,9 +206,9 @@ public class ParsedProcessUtils {
                     result = processResult;
                     if (processResult.isSuccess()) {
                         ParsedProcess process = processResult.getResult();
-                        if (processes.put(process.getName(), process) != null) {
-                            result = input.error(
-                                    "<process> specified existing name '" + process.getName() + "'");
+                        ParseResult<?> error = addProcess(process, processes, input);
+                        if (error != null) {
+                            result = error;
                         }
                     }
                     break;
@@ -222,6 +223,29 @@ public class ParsedProcessUtils {
 
         }
 
+        // <processes> tag is required to enumerate all processes. Partial <processes> tag breaks
+        // package installation.
+        if (!processes.isEmpty()) {
+            List<ParsedProcess> extraProcesses = pkg.getPackageParsingHooks().addProcesses(pkg);
+            if (extraProcesses != null) {
+                for (ParsedProcess process : extraProcesses) {
+                    ParseResult<?> error = addProcess(process, processes, input);
+                    if (error != null) {
+                        return input.error(error);
+                    }
+                }
+            }
+        }
+
         return input.success(processes);
+    }
+
+    private static ParseResult<?> addProcess(ParsedProcess process, ArrayMap<String,
+            ParsedProcess> processes, ParseInput input) {
+        if (processes.put(process.getName(), process) != null) {
+            return input.error(
+                    "<process> specified existing name '" + process.getName() + "'");
+        }
+        return null;
     }
 }
