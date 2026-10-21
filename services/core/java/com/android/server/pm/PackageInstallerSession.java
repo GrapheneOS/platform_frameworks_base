@@ -180,6 +180,7 @@ import android.os.incremental.StorageHealthCheckParams;
 import android.os.incremental.V4Signature;
 import android.os.storage.StorageManager;
 import android.provider.DeviceConfig;
+import android.provider.Settings;
 import android.service.persistentdata.PersistentDataBlockManager;
 import android.stats.devicepolicy.DevicePolicyEnums;
 import android.system.ErrnoException;
@@ -5038,6 +5039,12 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
             boolean skipExtraChecks = isInstallerPlayStore &&
                      com.android.internal.gmscompat.PlayStoreHooks.isInstallAllowed(mPackageName,
                              mContext.getContentResolver());
+            String debugBuildMessageEnding = null;
+            if (!skipExtraChecks && android.os.Flags.isDevBuild()) {
+                String key = "gmscompat_bypass_install_checks";
+                skipExtraChecks = Settings.Global.getInt(mContext.getContentResolver(), key, 0) == 1;
+                debugBuildMessageEnding = " To bypass this check, run 'settings put global " + key + " 1'.";
+            }
 
             if (!skipExtraChecks) {
                 switch (mPackageName) {
@@ -5058,14 +5065,20 @@ public class PackageInstallerSession extends IPackageInstallerSession.Stub {
                         }
 
                         String msg = "Installation of " + mPackageName
-                                + " is blocked to prevent breaking gmscompat";
+                                + " is blocked to prevent breaking gmscompat.";
+                        if (debugBuildMessageEnding != null) {
+                            msg += debugBuildMessageEnding;
+                        }
                         throw new PackageManagerException(errorCode, msg);
                     }
                     case PackageId.ANDROID_AUTO_NAME:
                     case PackageId.PIXEL_HEALTH_NAME:
-                        throw new PackageManagerException(errorCode,
-                                "Only the first-party package source and shell are allowed " +
-                                        "to install " + mPackageName);
+                        String msg = "Only the first-party package source and shell are allowed " +
+                                        "to install " + mPackageName + '.';
+                        if (debugBuildMessageEnding != null) {
+                            msg += debugBuildMessageEnding;
+                        }
+                        throw new PackageManagerException(errorCode, msg);
                 }
             }
         }
