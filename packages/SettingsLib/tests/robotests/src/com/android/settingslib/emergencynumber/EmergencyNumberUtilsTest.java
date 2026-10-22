@@ -73,6 +73,8 @@ public class EmergencyNumberUtilsTest {
     @Before
     public void setup() {
         MockitoAnnotations.initMocks(this);
+        when(mTelephonyManager.createForSubscriptionId(anyInt())).thenReturn(
+                mTelephonyManager);
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
         when(mContext.getContentResolver()).thenReturn(mContentResolver);
         when(mContext.getSystemService(CarrierConfigManager.class)).thenReturn(
