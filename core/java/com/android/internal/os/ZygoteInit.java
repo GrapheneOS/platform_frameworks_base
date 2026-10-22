@@ -182,7 +182,8 @@ public class ZygoteInit {
             // run the privileged class initializers while the process is running in
             // the zygote SELinux context
             // noinspection unused
-            int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE + RoSystemProperties.FACTORYTEST;
+            int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE
+                    + RoSystemProperties.FACTORYTEST + Build.VERSION.SDK_INT_FULL;
         }
         Log.d(TAG, "end preload");
 
