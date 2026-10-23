@@ -751,6 +751,32 @@ public final class GmsHooks {
         }
     }
 
+    public static final String GMS_SERVICE_ENTITLEMENT_INTERFACE_DESCRIPTOR =
+            "com.google.android.gms.serviceentitlement.internal.IServiceEntitlement";
+
+    public static void onBeginGmsServiceEntitlementCall(int transactionCode) {
+        // requestRawResponseForGetPhoneNumberWithJustification method. Bugle uses it for the TS.43
+        // AcquireTemporaryToken RCS provisioning step, which needs ICC authentication.
+        if (transactionCode != 7) {
+            return;
+        }
+
+        try {
+            final var ctx = GmsCompat.appContext();
+            if (ctx == null) return;
+            final var callingPkg = ctx.getPackageManager().getNameForUid(Binder.getCallingUid());
+            if (!PackageId.BUGLE_NAME.equals(callingPkg)) {
+                Log.d(TAG, "onBeginGmsServiceEntitlementCall code " + transactionCode +
+                        ", unexpected callingPkg " + callingPkg);
+                return;
+            }
+
+            GmsCompatApp.voidCall(i -> i.maybeShowRcsRequirementsNotification(true));
+        } catch (Exception e) {
+            Log.e(TAG, "onBeginGmsServiceEntitlementCall: failed", e);
+        }
+    }
+
     public static IBinder maybeOverrideBinder(IBinder binder) {
         boolean proceed = GmsCompat.isEnabled() || GmsCompat.isClientOfGmsCore();
         if (!proceed) {
