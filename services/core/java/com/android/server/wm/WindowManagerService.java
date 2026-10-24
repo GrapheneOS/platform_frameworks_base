@@ -114,6 +114,7 @@ import static android.view.displayhash.DisplayHashResultCallback.DISPLAY_HASH_ER
 import static android.view.flags.Flags.sensitiveContentAppProtection;
 import static android.window.ScreenCapture.ScreenCaptureParams.CAPTURE_MODE_REQUIRE_OPTIMIZED;
 import static android.window.ScreenCapture.ScreenCaptureParams.PROTECTED_CONTENT_POLICY_THROW_EXCEPTION;
+import static android.window.ScreenCapture.ScreenCaptureParams.SECURE_CONTENT_POLICY_CAPTURE;
 import static android.window.ScreenCapture.ScreenCaptureParams.SECURE_CONTENT_POLICY_THROW_EXCEPTION;
 import static android.window.WindowProviderService.isWindowProviderService;
 
@@ -351,6 +352,7 @@ import com.android.internal.policy.IShortcutService;
 import com.android.internal.policy.KeyInterceptionInfo;
 import com.android.internal.protolog.ProtoLog;
 import com.android.internal.protolog.WmProtoLogGroups;
+import com.android.internal.util.ArrayUtils;
 import com.android.internal.util.DumpUtils;
 import com.android.internal.util.FastPrintWriter;
 import com.android.internal.util.FrameworkStatsLog;
@@ -2749,7 +2751,7 @@ public class WindowManagerService extends IWindowManager.Stub
                     && win.hasWallpaper();
             wallpaperMayMove |= (flagChanges & FLAG_SHOW_WALLPAPER) != 0;
             if ((flagChanges & FLAG_SECURE) != 0) {
-                win.setSecureLocked(win.isSecureLocked());
+                win.setSecureLocked(win.isSurfaceSecureLocked());
             }
 
             final boolean wasVisible = win.isVisible();
@@ -9543,6 +9545,28 @@ public class WindowManagerService extends IWindowManager.Stub
         }
 
         @Override
+        public void setScreenRecordingOverrides(ArraySet<PackageInfo> blocked,
+                ArraySet<PackageInfo> allowed) {
+            synchronized (mGlobalLock) {
+                if (!mSensitiveContentPackages.setScreenRecordingOverrides(blocked, allowed)) {
+                    return;
+                }
+                WindowManagerService.this.refreshScreenCaptureDisabled();
+                // recents thumbnails of blocked apps would otherwise be visible in the recording
+                mRoot.forAllWindows((w) -> {
+                    final Task task = w.getTask();
+                    if (task != null && !w.isVisible()
+                            && mSensitiveContentPackages.isScreenRecordingBlockedForApp(
+                                    w.getOwningPackage(), w.getOwningUid())) {
+                        mTaskSnapshotController.removeAndDeleteSnapshot(
+                                task.mTaskId, task.mUserId);
+                        task.onSnapshotReleased();
+                    }
+                }, /* traverseTopToBottom= */ true);
+            }
+        }
+
+        @Override
         public void registerWindowFocusChangeListener(WindowFocusChangeListener listener) {
             WindowManagerService.this.addWindowFocusChangeListener(listener);
         }
@@ -11001,14 +11025,25 @@ public class WindowManagerService extends IWindowManager.Stub
             throw new SecurityException("Requires READ_FRAME_BUFFER permission");
         }
 
+        // per-app screenshot overrides apply only to screenshots taken by SystemUI
+        final ArrayList<SurfaceControl> appOverrideExcludeLayers =
+                Binder.getCallingUid() != SYSTEM_UID
+                        && mContext.checkCallingPermission(STATUS_BAR_SERVICE)
+                                == PackageManager.PERMISSION_GRANTED
+                ? new ArrayList<>() : null;
         ScreenCaptureInternal.LayerCaptureArgs layerCaptureArgs =
-                getCaptureArgs(displayId, captureArgs);
+                getCaptureArgs(displayId, captureArgs, appOverrideExcludeLayers);
         ScreenCaptureInternal.captureLayers(layerCaptureArgs, listener);
 
         if (Binder.getCallingUid() != SYSTEM_UID) {
             // Release the SurfaceControl objects only if the caller is not in system server as no
             // parcelling occurs in this case.
             layerCaptureArgs.release();
+        }
+        if (appOverrideExcludeLayers != null) {
+            for (int i = 0, n = appOverrideExcludeLayers.size(); i < n; ++i) {
+                appOverrideExcludeLayers.get(i).release();
+            }
         }
     }
 
@@ -11083,7 +11118,19 @@ public class WindowManagerService extends IWindowManager.Stub
     @VisibleForTesting
     ScreenCaptureInternal.LayerCaptureArgs getCaptureArgs(
             int displayId, @Nullable ScreenCaptureInternal.CaptureArgs captureArgs) {
+        return getCaptureArgs(displayId, captureArgs, null);
+    }
+
+    /**
+     * @param appOverrideExcludeLayers if non-null, per-app screenshot overrides are applied and the
+     *                                 surface copies that they exclude are added to it
+     */
+    @VisibleForTesting
+    ScreenCaptureInternal.LayerCaptureArgs getCaptureArgs(
+            int displayId, @Nullable ScreenCaptureInternal.CaptureArgs captureArgs,
+            @Nullable ArrayList<SurfaceControl> appOverrideExcludeLayers) {
         final SurfaceControl displaySurfaceControl;
+        boolean captureSecureLayers = false;
         synchronized (mGlobalLock) {
             DisplayContent displayContent = mRoot.getDisplayContent(displayId);
             if (displayContent == null) {
@@ -11103,12 +11150,26 @@ public class WindowManagerService extends IWindowManager.Stub
             } else {
                 mTmpRect.set(captureArgs.mSourceCrop);
             }
+
+            if (appOverrideExcludeLayers != null) {
+                captureSecureLayers = ScreenCaptureAppPolicy.applyScreenshotOverrides(
+                        displayContent, appOverrideExcludeLayers);
+            }
         }
 
-        return new ScreenCaptureInternal.LayerCaptureArgs.Builder(
+        final ScreenCaptureInternal.LayerCaptureArgs.Builder builder =
+                new ScreenCaptureInternal.LayerCaptureArgs.Builder(
                         displaySurfaceControl, captureArgs)
-                .setSourceCrop(mTmpRect)
-                .build();
+                .setSourceCrop(mTmpRect);
+        if (appOverrideExcludeLayers != null && !appOverrideExcludeLayers.isEmpty()) {
+            builder.setExcludeLayers(ArrayUtils.concat(SurfaceControl.class,
+                    captureArgs.getExcludeLayers(),
+                    appOverrideExcludeLayers.toArray(new SurfaceControl[0])));
+        }
+        if (captureSecureLayers) {
+            builder.setSecureContentPolicy(SECURE_CONTENT_POLICY_CAPTURE);
+        }
+        return builder.build();
     }
 
     @Override

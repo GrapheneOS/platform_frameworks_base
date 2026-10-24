@@ -24,6 +24,10 @@ import java.util.Objects;
 import static android.content.pm.GosPackageStateFlag.ALLOW_ACCESS_TO_OBB_DIRECTORY;
 import static android.content.pm.GosPackageStateFlag.ALLOW_CLIPBOARD_READ;
 import static android.content.pm.GosPackageStateFlag.ALLOW_CLIPBOARD_READ_NON_DEFAULT;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREENSHOTS;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREENSHOTS_NON_DEFAULT;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREEN_RECORDING;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREEN_RECORDING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_SUPPRESS_NOTIF;
@@ -155,6 +159,10 @@ class GosPackageStatePermissions {
                 SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF,
                 BLOCK_SCREENSHOT_DETECTION,
                 BLOCK_SCREEN_RECORDING_DETECTION,
+                ALLOW_SCREENSHOTS_NON_DEFAULT,
+                ALLOW_SCREENSHOTS,
+                ALLOW_SCREEN_RECORDING_NON_DEFAULT,
+                ALLOW_SCREEN_RECORDING,
         };
         builder()
                 .readWriteFlags(settingsReadWriteFlags)
