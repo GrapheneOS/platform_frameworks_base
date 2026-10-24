@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="config_headlineFontFamily" translatable="false">google-sans</string>
+    <string name="config_headlineFontFamilyMedium" translatable="false">google-sans-medium</string>
+    <!-- Stylistic set 3 of Google Sans for headlines -->
+    <string name="config_headlineFontFeatureSettings" translatable="false">ss03</string>
+    <string name="config_bodyFontFamily" translatable="false">google-sans-text</string>
+    <string name="config_bodyFontFamilyMedium" translatable="false">google-sans-text-medium</string>
+</resources>
