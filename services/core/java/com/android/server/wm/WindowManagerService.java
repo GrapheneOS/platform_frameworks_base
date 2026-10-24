@@ -11186,7 +11186,8 @@ public class WindowManagerService extends IWindowManager.Stub
             displayContent.forAllActivities(
                     (ar) -> {
                         if (!notifiedApps.contains(ar.mActivityComponent) && ar.isVisible()
-                                && ar.isRegisteredForScreenCaptureCallback()) {
+                                && ar.isRegisteredForScreenCaptureCallback()
+                                && !ScreenCaptureAppPolicy.isScreenshotDetectionBlocked(ar)) {
                             ar.reportScreenCaptured();
                             notifiedApps.add(ar.mActivityComponent);
                         }

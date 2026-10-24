@@ -41,6 +41,8 @@ public interface GosPackageStateFlag {
     /** @hide */ int ALLOW_CLIPBOARD_READ_NON_DEFAULT = 31;
     /** @hide */ int ALLOW_CLIPBOARD_READ = 32;
     /** @hide */ int SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF = 33;
+    /** @hide */ int BLOCK_SCREENSHOT_DETECTION = 34;
+    /** @hide */ int BLOCK_SCREEN_RECORDING_DETECTION = 35;
 
     /** @hide */
     @IntDef(value = {
@@ -74,6 +76,8 @@ public interface GosPackageStateFlag {
             ALLOW_CLIPBOARD_READ_NON_DEFAULT,
             ALLOW_CLIPBOARD_READ,
             SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF,
+            BLOCK_SCREENSHOT_DETECTION,
+            BLOCK_SCREEN_RECORDING_DETECTION,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface Enum {}
