@@ -32,6 +32,7 @@ import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
 import android.compat.annotation.ChangeId;
 import android.compat.annotation.EnabledAfter;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Parcel;
@@ -184,6 +185,7 @@ public final class LocationRequest implements Parcelable {
     private static final double LEGACY_IMPLICIT_MIN_UPDATE_INTERVAL_FACTOR = 1D / 6D;
     private static final double IMPLICIT_MIN_UPDATE_INTERVAL_FACTOR = 1D / 2D;
 
+    private final boolean mCoarse;
     private @Nullable String mProvider;
     private @Quality int mQuality;
     private long mIntervalMillis;
@@ -278,6 +280,7 @@ public final class LocationRequest implements Parcelable {
     }
 
     private LocationRequest(
+            boolean coarse,
             @Nullable String provider,
             long intervalMillis,
             @Quality int quality,
@@ -292,6 +295,7 @@ public final class LocationRequest implements Parcelable {
             boolean bypass,
             boolean lowPower,
             WorkSource workSource) {
+        mCoarse = coarse;
         mProvider = provider;
         mIntervalMillis = intervalMillis;
         mQuality = quality;
@@ -758,12 +762,24 @@ public final class LocationRequest implements Parcelable {
         return mWorkSource;
     }
 
+    /**
+     * Returns true if this request is limited to coarse locations even if the requesting app holds
+     * the {@link Manifest.permission#ACCESS_FINE_LOCATION} permission. See
+     * {@link Builder#setCoarse(boolean)}.
+     *
+     * @hide
+     */
+    public boolean isCoarse() {
+        return mCoarse;
+    }
+
 
     public static final @NonNull Parcelable.Creator<LocationRequest> CREATOR =
             new Parcelable.Creator<LocationRequest>() {
                 @Override
                 public LocationRequest createFromParcel(Parcel in) {
                     return new LocationRequest(
+                            /* coarse= */ in.readBoolean(),
                             /* provider= */ in.readString(),
                             /* intervalMillis= */ in.readLong(),
                             /* quality= */ in.readInt(),
@@ -793,6 +809,7 @@ public final class LocationRequest implements Parcelable {
 
     @Override
     public void writeToParcel(@NonNull Parcel parcel, int flags) {
+        parcel.writeBoolean(mCoarse);
         parcel.writeString(mProvider);
         parcel.writeLong(mIntervalMillis);
         parcel.writeInt(mQuality);
@@ -831,6 +848,7 @@ public final class LocationRequest implements Parcelable {
                 && mAdasGnssBypass == that.mAdasGnssBypass
                 && mBypass == that.mBypass
                 && mLowPower == that.mLowPower
+                && mCoarse == that.mCoarse
                 && Objects.equals(mProvider, that.mProvider)
                 && Objects.equals(mWorkSource, that.mWorkSource);
     }
@@ -900,6 +918,9 @@ public final class LocationRequest implements Parcelable {
         if (mBypass) {
             s.append(", bypass");
         }
+        if (mCoarse) {
+            s.append(", coarse");
+        }
         if (mWorkSource != null && !mWorkSource.isEmpty()) {
             s.append(", ").append(mWorkSource);
         }
@@ -911,7 +932,7 @@ public final class LocationRequest implements Parcelable {
      * A builder class for {@link LocationRequest}.
      */
     public static final class Builder {
-
+        private boolean mCoarse;
         private long mIntervalMillis;
         private @Quality int mQuality;
         private long mDurationMillis;
@@ -930,6 +951,7 @@ public final class LocationRequest implements Parcelable {
          * more information on the interval.
          */
         public Builder(long intervalMillis) {
+            mCoarse = false;
             // gives us a range check
             setIntervalMillis(intervalMillis);
 
@@ -950,6 +972,7 @@ public final class LocationRequest implements Parcelable {
          * Creates a new Builder with all parameters copied from the given location request.
          */
         public Builder(@NonNull LocationRequest locationRequest) {
+            mCoarse = locationRequest.mCoarse;
             mIntervalMillis = locationRequest.mIntervalMillis;
             mQuality = locationRequest.mQuality;
             mDurationMillis = locationRequest.mDurationMillis;
@@ -987,6 +1010,28 @@ public final class LocationRequest implements Parcelable {
         public @NonNull Builder setIntervalMillis(@IntRange(from = 0) long intervalMillis) {
             mIntervalMillis = Preconditions.checkArgumentInRange(intervalMillis, 0, Long.MAX_VALUE,
                     "intervalMillis");
+            return this;
+        }
+
+        /**
+         * If set to true, locations delivered for this request are coarsened in the same way as
+         * for apps that hold only the {@link Manifest.permission#ACCESS_COARSE_LOCATION}
+         * permission, even if the requesting app holds the
+         * {@link Manifest.permission#ACCESS_FINE_LOCATION} permission. Such request is attributed
+         * to the coarse location app op and is subject to the same minimum update interval as
+         * requests from apps that hold only the ACCESS_COARSE_LOCATION permission, but its quality
+         * is capped at {@link #QUALITY_BALANCED_POWER_ACCURACY} instead of being lowered to
+         * {@link #QUALITY_LOW_POWER}. Defaults to false.
+         *
+         * <p>The requesting app needs to hold the ACCESS_COARSE_LOCATION permission, otherwise no
+         * locations are delivered. Apps that target Android 11 or lower may hold the
+         * ACCESS_FINE_LOCATION permission without holding the ACCESS_COARSE_LOCATION permission.
+         *
+         * @hide
+         */
+        @UnsupportedAppUsage
+        public @NonNull Builder setCoarse(boolean coarse) {
+            mCoarse = coarse;
             return this;
         }
 
@@ -1216,6 +1261,7 @@ public final class LocationRequest implements Parcelable {
                     "passive location requests must have an explicit minimum update interval");
 
             return new LocationRequest(
+                    mCoarse,
                     null,
                     mIntervalMillis,
                     mQuality,
