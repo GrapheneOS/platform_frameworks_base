@@ -23,6 +23,7 @@ import android.annotation.NonNull;
 import android.annotation.RequiresFeature;
 import android.annotation.RequiresPermission;
 import android.annotation.SystemApi;
+import android.compat.annotation.UnsupportedAppUsage;
 import android.content.pm.PackageManager;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -37,14 +38,17 @@ import java.util.Objects;
 @SystemApi
 public final class LastLocationRequest implements Parcelable {
 
+    private final boolean mCoarse;
     private final boolean mHiddenFromAppOps;
     private final boolean mAdasGnssBypass;
     private final boolean mLocationSettingsIgnored;
 
     private LastLocationRequest(
+            boolean coarse,
             boolean hiddenFromAppOps,
             boolean adasGnssBypass,
             boolean locationSettingsIgnored) {
+        mCoarse = coarse;
         mHiddenFromAppOps = hiddenFromAppOps;
         mAdasGnssBypass = adasGnssBypass;
         mLocationSettingsIgnored = locationSettingsIgnored;
@@ -79,6 +83,16 @@ public final class LastLocationRequest implements Parcelable {
         return mAdasGnssBypass;
     }
 
+    /**
+     * Returns true if this request is limited to coarse locations even if the requesting app holds
+     * the {@link Manifest.permission#ACCESS_FINE_LOCATION} permission. See
+     * {@link Builder#setCoarse(boolean)}.
+     *
+     * @hide
+     */
+    public boolean isCoarse() {
+        return mCoarse;
+    }
 
     /**
      * Returns true if location settings, throttling, background location limits, and any other
@@ -107,6 +121,7 @@ public final class LastLocationRequest implements Parcelable {
                 @Override
                 public LastLocationRequest createFromParcel(Parcel in) {
                     return new LastLocationRequest(
+                            /* coarse= */ in.readBoolean(),
                             /* hiddenFromAppOps= */ in.readBoolean(),
                             /* adasGnssBypass= */ in.readBoolean(),
                             /* locationSettingsIgnored= */ in.readBoolean());
@@ -123,6 +138,7 @@ public final class LastLocationRequest implements Parcelable {
 
     @Override
     public void writeToParcel(@NonNull Parcel parcel, int flags) {
+        parcel.writeBoolean(mCoarse);
         parcel.writeBoolean(mHiddenFromAppOps);
         parcel.writeBoolean(mAdasGnssBypass);
         parcel.writeBoolean(mLocationSettingsIgnored);
@@ -138,13 +154,14 @@ public final class LastLocationRequest implements Parcelable {
         }
         LastLocationRequest that = (LastLocationRequest) o;
         return mHiddenFromAppOps == that.mHiddenFromAppOps
+                && mCoarse == that.mCoarse
                 && mAdasGnssBypass == that.mAdasGnssBypass
                 && mLocationSettingsIgnored == that.mLocationSettingsIgnored;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(mHiddenFromAppOps, mAdasGnssBypass, mLocationSettingsIgnored);
+        return Objects.hash(mHiddenFromAppOps, mAdasGnssBypass, mLocationSettingsIgnored, mCoarse);
     }
 
     @NonNull
@@ -152,6 +169,9 @@ public final class LastLocationRequest implements Parcelable {
     public String toString() {
         StringBuilder s = new StringBuilder();
         s.append("LastLocationRequest[");
+        if (mCoarse) {
+            s.append("coarse, ");
+        }
         if (mHiddenFromAppOps) {
             s.append("hiddenFromAppOps, ");
         }
@@ -173,6 +193,7 @@ public final class LastLocationRequest implements Parcelable {
      */
     public static final class Builder {
 
+        private boolean mCoarse;
         private boolean mHiddenFromAppOps;
         private boolean mAdasGnssBypass;
         private boolean mLocationSettingsIgnored;
@@ -181,6 +202,7 @@ public final class LastLocationRequest implements Parcelable {
          * Creates a new Builder.
          */
         public Builder() {
+            mCoarse = false;
             mHiddenFromAppOps = false;
             mAdasGnssBypass = false;
             mLocationSettingsIgnored = false;
@@ -190,6 +212,7 @@ public final class LastLocationRequest implements Parcelable {
          * Creates a new Builder with all parameters copied from the given last location request.
          */
         public Builder(@NonNull LastLocationRequest lastLocationRequest) {
+            mCoarse = lastLocationRequest.mCoarse;
             mHiddenFromAppOps = lastLocationRequest.mHiddenFromAppOps;
             mAdasGnssBypass = lastLocationRequest.mAdasGnssBypass;
             mLocationSettingsIgnored = lastLocationRequest.mLocationSettingsIgnored;
@@ -209,6 +232,24 @@ public final class LastLocationRequest implements Parcelable {
         @RequiresPermission(Manifest.permission.UPDATE_APP_OPS_STATS)
         public @NonNull Builder setHiddenFromAppOps(boolean hiddenFromAppOps) {
             mHiddenFromAppOps = hiddenFromAppOps;
+            return this;
+        }
+
+        /**
+         * If set to true, the returned last location is coarsened in the same way as for apps
+         * that hold only the {@link Manifest.permission#ACCESS_COARSE_LOCATION} permission, even
+         * if the requesting app holds the {@link Manifest.permission#ACCESS_FINE_LOCATION}
+         * permission. Such request is attributed to the coarse location app op. Defaults to false.
+         *
+         * <p>The requesting app needs to hold the ACCESS_COARSE_LOCATION permission, otherwise no
+         * location is returned. Apps that target Android 11 or lower may hold the
+         * ACCESS_FINE_LOCATION permission without holding the ACCESS_COARSE_LOCATION permission.
+         *
+         * @hide
+         */
+        @UnsupportedAppUsage
+        public @NonNull Builder setCoarse(boolean coarse) {
+            mCoarse = coarse;
             return this;
         }
 
@@ -257,6 +298,7 @@ public final class LastLocationRequest implements Parcelable {
          */
         public @NonNull LastLocationRequest build() {
             return new LastLocationRequest(
+                    mCoarse,
                     mHiddenFromAppOps,
                     mAdasGnssBypass,
                     mLocationSettingsIgnored);

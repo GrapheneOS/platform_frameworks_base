@@ -409,7 +409,9 @@ public class LocationProviderManager extends
 
             mBaseRequest = Objects.requireNonNull(request);
             mIdentity = Objects.requireNonNull(identity);
-            mPermissionLevel = permissionLevel;
+            // see LocationRequest.Builder#setCoarse()
+            mPermissionLevel = request.isCoarse()
+                    ? min(permissionLevel, PERMISSION_COARSE) : permissionLevel;
             mProviderLocationRequest = request;
         }
 
@@ -709,7 +711,20 @@ public class LocationProviderManager extends
             LocationRequest.Builder builder = new LocationRequest.Builder(mBaseRequest);
 
             if (mPermissionLevel < PERMISSION_FINE) {
-                builder.setQuality(LocationRequest.QUALITY_LOW_POWER);
+                if (mBaseRequest.isCoarse()) {
+                    // See LocationRequest.Builder#setCoarse(). Fused location provider doesn't use
+                    // GNSS for low power requests when network location provider is present, and
+                    // network location provider is always present on GrapheneOS, but is disabled
+                    // by default. Lowering the quality of coarse requests to low power would leave
+                    // them without locations in that case, cap it at balanced instead. Note that
+                    // the requested quality value isn't validated.
+                    builder.setQuality(
+                            mBaseRequest.getQuality() == LocationRequest.QUALITY_LOW_POWER
+                                    ? LocationRequest.QUALITY_LOW_POWER
+                                    : LocationRequest.QUALITY_BALANCED_POWER_ACCURACY);
+                } else {
+                    builder.setQuality(LocationRequest.QUALITY_LOW_POWER);
+                }
                 if (mBaseRequest.getIntervalMillis() < MIN_COARSE_INTERVAL_MS) {
                     builder.setIntervalMillis(MIN_COARSE_INTERVAL_MS);
                 }
@@ -1796,6 +1811,18 @@ public class LocationProviderManager extends
 
     @Nullable public Location getLastLocation(LastLocationRequest request,
             CallerIdentity identity, @PermissionLevel int permissionLevel) {
+        // see LastLocationRequest.Builder#setCoarse()
+        if (request.isCoarse() && permissionLevel == PERMISSION_FINE) {
+            // Apps that target Android 11 or lower may hold the ACCESS_FINE_LOCATION permission
+            // without holding the ACCESS_COARSE_LOCATION permission. The coarse location app op
+            // isn't managed by the permission system for such apps, which means that it can't be
+            // relied upon for enforcing restrictions such as foreground-only location access.
+            if (!mLocationPermissionsHelper.hasLocationPermissions(PERMISSION_COARSE, identity)) {
+                return null;
+            }
+            permissionLevel = PERMISSION_COARSE;
+        }
+
         request = calculateLastLocationRequest(request, identity);
 
         if (!isActive(request.isBypass(), identity)) {

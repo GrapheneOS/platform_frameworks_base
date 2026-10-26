@@ -19,6 +19,7 @@ package com.android.server.location.provider;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.LOCATION_BYPASS;
+import static android.app.AppOpsManager.OP_COARSE_LOCATION;
 import static android.app.AppOpsManager.OP_FINE_LOCATION;
 import static android.app.AppOpsManager.OP_MONITOR_HIGH_POWER_LOCATION;
 import static android.app.AppOpsManager.OP_MONITOR_LOCATION;
@@ -358,6 +359,33 @@ public class LocationProviderManagerTest {
                 IDENTITY, PERMISSION_COARSE);
         assertThat(coarse).isNotEqualTo(loc);
         assertThat(coarse).isNearby(loc, 5000);
+    }
+
+    @Test
+    public void testGetLastLocation_CoarseRequest() {
+        Location loc = createLocation(NAME, mRandom);
+        mProvider.setProviderLocation(loc);
+        Location coarse = mManager.getLastLocation(
+                new LastLocationRequest.Builder().setCoarse(true).build(), IDENTITY,
+                PERMISSION_FINE);
+        assertThat(coarse).isNotEqualTo(loc);
+        assertThat(coarse).isNearby(loc, 5000);
+
+        assertThat(mInjector.getAppOpsHelper().getAppOpNoteCount(OP_COARSE_LOCATION,
+                IDENTITY.getPackageName())).isEqualTo(1);
+        assertThat(mInjector.getAppOpsHelper().getAppOpNoteCount(OP_FINE_LOCATION,
+                IDENTITY.getPackageName())).isEqualTo(0);
+    }
+
+    @Test
+    public void testGetLastLocation_CoarseRequest_NoCoarsePermission() {
+        mInjector.getLocationPermissionsHelper()
+                .revokePermission(IDENTITY.getPackageName(), ACCESS_COARSE_LOCATION);
+
+        mProvider.setProviderLocation(createLocation(NAME, mRandom));
+        assertThat(mManager.getLastLocation(
+                new LastLocationRequest.Builder().setCoarse(true).build(), IDENTITY,
+                PERMISSION_FINE)).isNull();
     }
 
     @Test
@@ -775,6 +803,62 @@ public class LocationProviderManagerTest {
     }
 
     @Test
+    public void testRegisterListener_CoarseRequest() throws Exception {
+        ILocationListener listener = createMockLocationListener();
+        mManager.registerLocationRequest(
+                new LocationRequest.Builder(0)
+                        .setQuality(LocationRequest.QUALITY_HIGH_ACCURACY)
+                        .setCoarse(true)
+                        .setWorkSource(WORK_SOURCE)
+                        .build(),
+                IDENTITY,
+                PERMISSION_FINE,
+                listener);
+
+        // coarse requests are subject to the coarse minimum interval, and their quality is capped
+        // at balanced instead of being lowered to low power
+        assertThat(mProvider.getRequest().getIntervalMillis()).isEqualTo(10 * 60 * 1000);
+        assertThat(mProvider.getRequest().getQuality()).isEqualTo(
+                LocationRequest.QUALITY_BALANCED_POWER_ACCURACY);
+
+        Location loc = createLocation(NAME, mRandom);
+        mProvider.setProviderLocation(loc);
+        mProvider.setProviderLocation(createLocation(NAME, mRandom));
+
+        ArgumentCaptor<List<Location>> captor = ArgumentCaptor.forClass(List.class);
+        verify(listener, times(1)).onLocationChanged(captor.capture(),
+                nullable(IRemoteCallback.class));
+        Location coarse = captor.getValue().get(0);
+        assertThat(coarse).isNotEqualTo(loc);
+        assertThat(coarse).isNearby(loc, 5000);
+
+        assertThat(mInjector.getAppOpsHelper().getAppOpNoteCount(OP_COARSE_LOCATION,
+                IDENTITY.getPackageName())).isEqualTo(1);
+        assertThat(mInjector.getAppOpsHelper().getAppOpNoteCount(OP_FINE_LOCATION,
+                IDENTITY.getPackageName())).isEqualTo(0);
+    }
+
+    @Test
+    public void testRegisterListener_CoarseRequest_NoCoarsePermission() throws Exception {
+        mInjector.getLocationPermissionsHelper()
+                .revokePermission(IDENTITY.getPackageName(), ACCESS_COARSE_LOCATION);
+
+        ILocationListener listener = createMockLocationListener();
+        mManager.registerLocationRequest(
+                new LocationRequest.Builder(0)
+                        .setCoarse(true)
+                        .setWorkSource(WORK_SOURCE)
+                        .build(),
+                IDENTITY,
+                PERMISSION_FINE,
+                listener);
+
+        mProvider.setProviderLocation(createLocation(NAME, mRandom));
+        verify(listener, never()).onLocationChanged(any(List.class),
+                nullable(IRemoteCallback.class));
+    }
+
+    @Test
     public void testProviderRequestListener() throws Exception {
         IProviderRequestListener requestListener = mock(IProviderRequestListener.class);
         mManager.addProviderRequestListener(requestListener);
@@ -801,6 +885,42 @@ public class LocationProviderManagerTest {
         mProvider.setProviderLocation(loc);
         mProvider.setProviderLocation(createLocation(NAME, mRandom));
         verify(listener, times(1)).onLocation(loc);
+    }
+
+    @Test
+    public void testGetCurrentLocation_CoarseRequest() throws Exception {
+        ILocationCallback listener = createMockGetCurrentLocationListener();
+        LocationRequest request = new LocationRequest.Builder(0)
+                .setCoarse(true)
+                .setWorkSource(WORK_SOURCE)
+                .build();
+        mManager.getCurrentLocation(request, IDENTITY, PERMISSION_FINE, listener);
+
+        Location loc = createLocation(NAME, mRandom);
+        mProvider.setProviderLocation(loc);
+
+        ArgumentCaptor<Location> captor = ArgumentCaptor.forClass(Location.class);
+        verify(listener, times(1)).onLocation(captor.capture());
+        assertThat(captor.getValue()).isNotEqualTo(loc);
+        assertThat(captor.getValue()).isNearby(loc, 5000);
+    }
+
+    @Test
+    public void testGetCurrentLocation_CoarseRequest_LastLocation() throws Exception {
+        Location loc = createLocation(NAME, mRandom);
+        mProvider.setProviderLocation(loc);
+
+        ILocationCallback listener = createMockGetCurrentLocationListener();
+        LocationRequest request = new LocationRequest.Builder(0)
+                .setCoarse(true)
+                .setWorkSource(WORK_SOURCE)
+                .build();
+        mManager.getCurrentLocation(request, IDENTITY, PERMISSION_FINE, listener);
+
+        ArgumentCaptor<Location> captor = ArgumentCaptor.forClass(Location.class);
+        verify(listener, times(1)).onLocation(captor.capture());
+        assertThat(captor.getValue()).isNotEqualTo(loc);
+        assertThat(captor.getValue()).isNearby(loc, 5000);
     }
 
     @Test
