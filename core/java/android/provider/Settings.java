@@ -7523,6 +7523,10 @@ public final class Settings {
         @Protected(readWrite = KnownSystemPackage.SETTINGS)
         public static final String DISALLOW_DELAYED_LOCKING_ON_USER_STOP = "disallow_delayed_locking_on_user_stop";
 
+        /** @hide */
+        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        public static final String CLEAR_RECENTS_ON_REBOOT = "clear_recents_on_reboot";
+
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to

@@ -50,6 +50,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
@@ -94,6 +95,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -548,6 +550,25 @@ public class RecentTasksTest extends WindowTestsBase {
         assertNull(task3.getTopNonFinishingActivity());
         // The visible task should not be affected.
         assertNotNull(task2.getTopNonFinishingActivity());
+    }
+
+    @Test
+    public void testClearRecentsOnReboot_noTasksLoadedFromStorage() {
+        mRecentTasks.unloadUserDataFromMemoryLocked(TEST_USER_0_ID);
+        mRecentTasks.mClearRecentTasksOverride = true;
+        mTaskPersister.mUserTasksOverride = new ArrayList<>();
+        clearInvocations(mTaskPersister);
+
+        mRecentTasks.loadRecentTasksIfNeeded(TEST_USER_0_ID);
+
+        final ArgumentCaptor<TaskPersister.RecentTaskFiles> taskFiles =
+                ArgumentCaptor.forClass(TaskPersister.RecentTaskFiles.class);
+        verify(mTaskPersister).restoreTasksForUserLocked(eq(TEST_USER_0_ID),
+                taskFiles.capture(), any());
+        assertThat(taskFiles.getValue().mLoadedFiles).isEmpty();
+        assertThat(mRecentTasks.usersWithRecentsLoadedLocked()).asList().contains(TEST_USER_0_ID);
+        // Removing obsolete snapshots and task images requires a TaskPersister cleanup pass
+        verify(mTaskPersister).wakeup(eq(null), anyBoolean());
     }
 
     @Test
@@ -1804,11 +1825,17 @@ public class RecentTasksTest extends WindowTestsBase {
 
     private static class TestRecentTasks extends RecentTasks {
         private boolean mIsTrimmableOverride;
+        boolean mClearRecentTasksOverride;
 
         public boolean mLastAllowed;
 
         TestRecentTasks(ActivityTaskManagerService service, TaskPersister taskPersister) {
             super(service, taskPersister);
+        }
+
+        @Override
+        boolean shouldClearRecentTasks(int userId) {
+            return mClearRecentTasksOverride;
         }
 
         @Override
