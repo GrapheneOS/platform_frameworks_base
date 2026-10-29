@@ -46,7 +46,7 @@ class LocationAutoOff extends DelayedConditionalAction {
     }
 
     private boolean isEligibleForAutoOff() {
-        return true;
+        return locationManager.isLocationEnabledForUser(UserHandle.of(UserHandle.myUserId()));
     }
 
     @Override
