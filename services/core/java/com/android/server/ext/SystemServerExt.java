@@ -45,6 +45,7 @@ public final class SystemServerExt {
     void initBgThread() {
         WifiAutoOff.maybeInit(this);
         BluetoothAutoOff.maybeInit(this);
+        LocationAutoOff.maybeInit(this);
 
         if (android.os.Flags.isDevBuild()) {
             if (!SELinuxFlags.kernelSupportsSELinuxFlags()) {

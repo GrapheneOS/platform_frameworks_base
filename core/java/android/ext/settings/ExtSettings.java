@@ -64,6 +64,10 @@ public class ExtSettings {
     public static final IntSetting NFC_AUTO_OFF = new IntSetting(
             Setting.Scope.GLOBAL, Settings.Global.NFC_AUTO_OFF, 0 /* off by default */);
 
+    // The amount of time in milliseconds before Location Services are turned off
+    public static final IntSetting LOCATION_AUTO_OFF = new IntSetting(
+            Setting.Scope.GLOBAL, Settings.Global.LOCATION_AUTO_OFF, 0 /* off by default */);
+
     public static final BoolSysProperty ALLOW_NATIVE_DEBUG_BY_DEFAULT = new BoolSysProperty(
             "persist.native_debug", defaultBool(R.bool.setting_default_allow_native_debugging));
 

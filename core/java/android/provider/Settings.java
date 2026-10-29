@@ -14478,6 +14478,10 @@ public final class Settings {
         public static final String NFC_AUTO_OFF = "nfc_off_timeout";
 
         /** @hide */
+        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        public static final String LOCATION_AUTO_OFF = "location_off_timeout";
+
+        /** @hide */
         @Protected(restrictReads = false, readWrite = KnownSystemPackage.SETTINGS)
         public static final String REMOTE_KEY_PROVISIONING_SERVER = "attest_remote_provisioner_server";
 
