@@ -2,6 +2,8 @@ java_test_host {
     name: "GosCompatSecureSpawnTests",
     srcs: [
         "src/**/*.java",
+        "GosCompatSecureSpawnApp/src/app/grapheneos/goscompat/securespawn/FailureCollector.java",
+        "GosCompatSecureSpawnApp/src/app/grapheneos/goscompat/securespawn/StatusComparison.java",
         ":GosPackageStateFlags",
     ],
     libs: [

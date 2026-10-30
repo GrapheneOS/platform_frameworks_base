@@ -1,7 +1,6 @@
 #include <aidl/app/grapheneos/goscompat/securespawn/BnNativeSignalProbe.h>
 #include <android/binder_ibinder.h>
 #include <android/native_service.h>
-#include <signal.h>
 #include <unistd.h>
 
 #include <memory>
@@ -12,8 +11,8 @@ using aidl::app::grapheneos::goscompat::securespawn::BnNativeSignalProbe;
 
 class NativeSignalProbe final : public BnNativeSignalProbe {
 public:
-    ndk::ScopedAStatus terminateWithSigterm() override {
-        kill(getpid(), SIGTERM);
+    ndk::ScopedAStatus getPid(int32_t* _aidl_return) override {
+        *_aidl_return = static_cast<int32_t>(getpid());
         return ndk::ScopedAStatus::ok();
     }
 };
