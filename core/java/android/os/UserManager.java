@@ -1376,6 +1376,14 @@ public class UserManager {
     public static final String DISALLOW_SMS = "no_sms";
 
     /**
+     * Specifies that applications in the target user are not allowed network access.
+     * Previous per-app INTERNET grants are restored when this restriction is cleared.
+     * The default value is false.
+     * @hide
+     */
+    public static final String DISALLOW_NETWORK = "no_network";
+
+    /**
      * Specifies if the user is not allowed to have fun. In some cases, the
      * device owner may wish to prevent the user from experiencing amusement or
      * joy while using the device. The default value is <code>false</code>.
@@ -2201,6 +2209,7 @@ public class UserManager {
             DISALLOW_MODIFY_ACCOUNTS,
             DISALLOW_MOUNT_PHYSICAL_MEDIA,
             DISALLOW_NEAR_FIELD_COMMUNICATION_RADIO,
+            DISALLOW_NETWORK,
             DISALLOW_NETWORK_RESET,
             DISALLOW_NON_TOOL_ACCESSIBILITY_SERVICE,
             DISALLOW_OEM_UNLOCK,

@@ -89,6 +89,7 @@ For all users (profile, full, and system):
     enabled
     max-allowed
     default-restrictions (with attributes defined in UserRestrictionUtils.USER_RESTRICTIONS)
+    Use no_network="true" to disable network access while retaining previous app grant choices.
     user-properties (with attributes delineated by UserProperties.ATTR_ strings)
 For profile users only:
     max-allowed-per-parent

@@ -43,6 +43,9 @@ import java.util.Set;
  * Interface for managing all permissions and handling permissions related tasks.
  */
 public interface PermissionManagerServiceInterface extends PermissionManagerInternal {
+    /** Reconcile actual INTERNET grants with the target user's persisted network policy. */
+    void updateUserNetworkPermissions(@UserIdInt int userId);
+
     /**
      * Dump.
      */

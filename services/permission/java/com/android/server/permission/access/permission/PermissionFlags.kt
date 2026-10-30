@@ -312,6 +312,12 @@ object PermissionFlags {
      */
     const val TRUSTED_UI_CONSENTED = 1 shl 26
 
+    /** INTERNET is temporarily revoked by the user's network policy. */
+    const val NETWORK_BLOCKED = 1 shl 27
+
+    /** Saved RUNTIME_GRANTED bit, restored when NETWORK_BLOCKED is removed. */
+    const val NETWORK_PREVIOUSLY_GRANTED = 1 shl 28
+
     /** Mask for all permission flags. */
     const val MASK_ALL = 0.inv()
 
@@ -339,7 +345,9 @@ object PermissionFlags {
             HIBERNATION or
             USER_SELECTED or
             TRUSTED_UI_SHOWN or
-            TRUSTED_UI_CONSENTED
+            TRUSTED_UI_CONSENTED or
+            NETWORK_BLOCKED or
+            NETWORK_PREVIOUSLY_GRANTED
 
     /** Mask for all permission flags about permission exemption. */
     const val MASK_EXEMPT = INSTALLER_EXEMPT or SYSTEM_EXEMPT or UPGRADE_EXEMPT
@@ -565,6 +573,8 @@ object PermissionFlags {
             PURPOSE_REVOKED -> "PURPOSE_REVOKED"
             TRUSTED_UI_SHOWN -> "TRUSTED_UI_SHOWN"
             TRUSTED_UI_CONSENTED -> "TRUSTED_UI_CONSENTED"
+            NETWORK_BLOCKED -> "NETWORK_BLOCKED"
+            NETWORK_PREVIOUSLY_GRANTED -> "NETWORK_PREVIOUSLY_GRANTED"
             else -> "0x${flag.toUInt().toString(16).uppercase()}"
         }
 

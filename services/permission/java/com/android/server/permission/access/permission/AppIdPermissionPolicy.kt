@@ -74,6 +74,10 @@ class AppIdPermissionPolicy : SchemePolicy() {
 
     private val privilegedPermissionAllowlistViolations = MutableIndexedSet<String>()
 
+    // Cache for network access info for users. 
+    // Needed because it is mutated under the permission state lock; grant API guards also read concurrently.
+    private val networkRestrictedUsers = java.util.concurrent.ConcurrentHashMap<Int, Boolean>()
+
     /** Test-only switch to enforce signature permission allowlist even on debuggable builds. */
     @Volatile var isSignaturePermissionAllowlistForceEnforced = false
 
@@ -85,6 +89,21 @@ class AppIdPermissionPolicy : SchemePolicy() {
 
     override fun GetStateScope.onStateMutated() {
         onPermissionFlagsChangedListeners.forEachIndexed { _, it -> it.onStateMutated() }
+    }
+
+    fun isUserNetworkRestricted(userId: Int): Boolean =
+        networkRestrictedUsers[userId] ?: false
+
+    fun MutateStateScope.setUserNetworkRestricted(userId: Int, restricted: Boolean) {
+        val permissions = newState.userStates[userId]?.appIdPermissionFlags ?: return
+        networkRestrictedUsers[userId] = restricted
+        permissions.forEachIndexed { _, appId, flags ->
+            val internet = flags[Manifest.permission.INTERNET]
+            if (internet != null) {
+                val updated = calculateNetworkPermissionFlags(appId, userId, internet, internet)
+                writePermissionFlags(appId, userId, Manifest.permission.INTERNET, internet, updated)
+            }
+        }
     }
 
     override fun MutateStateScope.onUserAdded(userId: Int) {
@@ -101,6 +120,7 @@ class AppIdPermissionPolicy : SchemePolicy() {
     }
 
     override fun MutateStateScope.onUserRemoved(userId: Int) {
+        networkRestrictedUsers.remove(userId)
         onPermissionFlagsChangedListeners.forEachIndexed { _, it -> it.onUserRemoved(userId) }
     }
 
@@ -2093,12 +2113,35 @@ class AppIdPermissionPolicy : SchemePolicy() {
     ): Boolean =
         updatePermissionFlags(appId, userId, permissionName, PermissionFlags.MASK_ALL, flags)
 
+    /** Initialize a new installation's decision without changing an existing shared UID backup. */
+    fun MutateStateScope.initializeNetworkPermissionForInstall(
+        packageState: PackageState,
+        userId: Int,
+        flags: Int,
+    ): Boolean {
+        val appId = packageState.appId
+        val otherRequester = newState.externalState.appIdPackageNames[appId]
+            ?.anyIndexed { _, name ->
+                if (name == packageState.packageName) return@anyIndexed false
+                val other = newState.externalState.packageStates[name]
+                    ?: return@anyIndexed true
+                if (other.getUserStateOrDefault(userId)?.isInstalled == false) {
+                    return@anyIndexed false
+                }
+                val pkg = other.androidPackage ?: return@anyIndexed true
+                Manifest.permission.INTERNET in pkg.requestedPermissions
+            } ?: true
+        return updatePermissionFlags(appId, userId, Manifest.permission.INTERNET,
+            PermissionFlags.MASK_ALL, flags, initializeNetworkInstallGrant = !otherRequester)
+    }
+
     fun MutateStateScope.updatePermissionFlags(
         appId: Int,
         userId: Int,
         permissionName: String,
         flagMask: Int,
         flagValues: Int,
+        initializeNetworkInstallGrant: Boolean = false,
     ): Boolean {
         if (userId !in newState.userStates) {
             // Despite that we check UserManagerInternal.exists() in PermissionService, we may still
@@ -2111,7 +2154,58 @@ class AppIdPermissionPolicy : SchemePolicy() {
             newState.userStates[userId]!!
                 .appIdPermissionFlags[appId]
                 .getWithDefault(permissionName, 0)
-        val newFlags = (oldFlags andInv flagMask) or (flagValues and flagMask)
+        val requestedFlags = (oldFlags andInv flagMask) or (flagValues and flagMask)
+        val newFlags = if (permissionName == Manifest.permission.INTERNET) {
+            calculateNetworkPermissionFlags(
+                appId, userId, oldFlags, requestedFlags, initializeNetworkInstallGrant)
+        } else {
+            requestedFlags
+        }
+        return writePermissionFlags(appId, userId, permissionName, oldFlags, newFlags)
+    }
+
+    /** Apply network policy before either a restriction transition or a normal permission write. */
+    private fun MutateStateScope.calculateNetworkPermissionFlags(
+        appId: Int,
+        userId: Int,
+        oldFlags: Int,
+        requestedFlags: Int,
+        initializeInstallGrant: Boolean = false,
+    ): Int {
+        val packageNames = newState.externalState.appIdPackageNames[appId] ?: return requestedFlags
+        // Handle different INTERNET declarations among apps using the same shared UID
+        // Their grant state is shared:
+        // requested means at least one app declares INTERNET; unavailable means at least
+        // one app's metadata is missing, so absence of a declaration cannot be confirmed.
+        var requested = false
+        var unavailable = false
+        packageNames.forEachIndexed { _, name ->
+            val pkg = newState.externalState.packageStates[name]?.androidPackage
+            if (pkg == null) {
+                unavailable = true
+            } else if (Manifest.permission.INTERNET in pkg.requestedPermissions) {
+                requested = true
+            }
+        }
+        return when {
+            requested -> UserNetworkPermissionPolicy.update(
+                oldFlags, requestedFlags, isUserNetworkRestricted(userId),
+                initializeInstallGrant = initializeInstallGrant)
+            unavailable -> UserNetworkPermissionPolicy.update(
+                oldFlags, oldFlags, isUserNetworkRestricted(userId))
+            // Discard only when all package metadata confirms there is no requester.
+            else -> 0
+        }
+    }
+
+    /** Store already-calculated flags and notify the existing permission-change listeners. */
+    private fun MutateStateScope.writePermissionFlags(
+        appId: Int,
+        userId: Int,
+        permissionName: String,
+        oldFlags: Int,
+        newFlags: Int,
+    ): Boolean {
         if (oldFlags == newFlags) {
             return false
         }

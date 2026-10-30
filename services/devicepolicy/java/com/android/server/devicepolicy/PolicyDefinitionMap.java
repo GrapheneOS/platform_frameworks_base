@@ -254,6 +254,7 @@ public class PolicyDefinitionMap {
         userRestrictionFlags.put(UserManager.DISALLOW_ADJUST_VOLUME, /* flags= */ 0);
         userRestrictionFlags.put(UserManager.DISALLOW_OUTGOING_CALLS, /* flags= */ 0);
         userRestrictionFlags.put(UserManager.DISALLOW_SMS, /* flags= */ 0);
+        userRestrictionFlags.put(UserManager.DISALLOW_NETWORK, /* flags= */ 0);
         // TODO: check if its global only
         userRestrictionFlags.put(UserManager.DISALLOW_FUN, /* flags= */ 0);
         // TODO: check if its global only

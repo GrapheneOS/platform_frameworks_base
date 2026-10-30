@@ -126,6 +126,32 @@ public final class UserRestrictionsUtilsTest {
     }
 
     @Test
+    public void testNetworkRestrictionMatchesOutgoingCallsPolicy() {
+        expect.that(UserRestrictionsUtils.isValidRestriction(UserManager.DISALLOW_NETWORK))
+                .isTrue();
+        expect.that(UserRestrictionsUtils.canDeviceOwnerChange(UserManager.DISALLOW_NETWORK))
+                .isTrue();
+        for (boolean mainUser : new boolean[] {false, true}) {
+            for (boolean organizationOwned : new boolean[] {false, true}) {
+                expect.that(UserRestrictionsUtils.canProfileOwnerChange(
+                        UserManager.DISALLOW_NETWORK, mainUser, organizationOwned)).isEqualTo(
+                                UserRestrictionsUtils.canProfileOwnerChange(
+                                        UserManager.DISALLOW_OUTGOING_CALLS,
+                                        mainUser, organizationOwned));
+            }
+        }
+        expect.that(UserRestrictionsUtils.isGlobal(UserManagerInternal.OWNER_TYPE_DEVICE_OWNER,
+                UserManager.DISALLOW_NETWORK)).isFalse();
+        expect.that(UserRestrictionsUtils.canFinancedDeviceOwnerChange(UserManager.DISALLOW_NETWORK))
+                .isEqualTo(UserRestrictionsUtils.canFinancedDeviceOwnerChange(
+                        UserManager.DISALLOW_OUTGOING_CALLS));
+        expect.that(UserRestrictionsUtils.canParentOfProfileOwnerOfOrganizationOwnedDeviceChange(
+                UserManager.DISALLOW_NETWORK)).isEqualTo(
+                        UserRestrictionsUtils.canParentOfProfileOwnerOfOrganizationOwnedDeviceChange(
+                                UserManager.DISALLOW_OUTGOING_CALLS));
+    }
+
+    @Test
     public void testMerge() {
         Bundle a = newRestrictions("a", "d");
         Bundle b = newRestrictions("b", "d", "e");

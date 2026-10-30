@@ -47,6 +47,7 @@ import com.android.modules.utils.TypedXmlPullParser;
 import com.android.modules.utils.TypedXmlSerializer;
 import com.android.server.BundleUtils;
 import com.android.server.LocalServices;
+import com.android.server.pm.permission.PermissionManagerServiceInterface;
 
 import com.google.android.collect.Sets;
 
@@ -79,6 +80,7 @@ public class UserRestrictionsUtils {
     }
 
     public static final Set<String> USER_RESTRICTIONS = newSetWithUniqueCheck(new String[] {
+            UserManager.DISALLOW_NETWORK,
             UserManager.DISALLOW_CONFIG_WIFI,
             UserManager.DISALLOW_CONFIG_WIFI_PRIVATE,
             UserManager.DISALLOW_CONFIG_WIFI_SHARED,
@@ -303,6 +305,7 @@ public class UserRestrictionsUtils {
                     UserManager.DISALLOW_TASK_CONTINUITY_HANDOFF,
                     UserManager.DISALLOW_SHARE_LOCATION,
                     UserManager.DISALLOW_OUTGOING_CALLS,
+                    UserManager.DISALLOW_NETWORK,
                     UserManager.DISALLOW_CAMERA,
                     UserManager.DISALLOW_BLUETOOTH,
                     UserManager.DISALLOW_BLUETOOTH_SHARING,
@@ -353,7 +356,8 @@ public class UserRestrictionsUtils {
             UserManager.DISALLOW_INSTALL_UNKNOWN_SOURCES,
             UserManager.DISALLOW_SAFE_BOOT,
             UserManager.DISALLOW_CONFIG_DATE_TIME,
-            UserManager.DISALLOW_OUTGOING_CALLS
+            UserManager.DISALLOW_OUTGOING_CALLS,
+            UserManager.DISALLOW_NETWORK
     );
 
     /**
@@ -788,6 +792,10 @@ public class UserRestrictionsUtils {
                     pmi.removeAllNonSystemPackageSuspensions(userId);
                     pmi.removeAllDistractingPackageRestrictions(userId);
                     pmi.flushPackageRestrictions(userId);
+                    break;
+                case UserManager.DISALLOW_NETWORK:
+                    LocalServices.getService(PermissionManagerServiceInterface.class)
+                            .updateUserNetworkPermissions(userId);
                     break;
             }
         } finally {

@@ -136,6 +136,7 @@ class PermissionService(private val service: AccessCheckingService) :
     private lateinit var systemConfig: SystemConfig
     private lateinit var userManagerInternal: UserManagerInternal
     private lateinit var userManagerService: UserManagerService
+    private val userNetworkPolicyLock = Any()
 
     private lateinit var handlerThread: HandlerThread
     private lateinit var handler: Handler
@@ -195,6 +196,22 @@ class PermissionService(private val service: AccessCheckingService) :
         onPermissionFlagsChangedListener = OnPermissionFlagsChangedListener()
         policy.addOnPermissionFlagsChangedListener(onPermissionFlagsChangedListener)
         devicePolicy.addOnPermissionFlagsChangedListener(onPermissionFlagsChangedListener)
+        for (userId in userManagerService.userIdsIncludingPreCreated) {
+            updateUserNetworkPermissions(userId)
+        }
+    }
+
+    override fun updateUserNetworkPermissions(userId: Int) {
+        // Serialize initialization and restriction application so an older policy read cannot
+        // overwrite a newer value. Never query UserManager under the permission state lock.
+        synchronized(userNetworkPolicyLock) {
+            if (!userManagerInternal.exists(userId)) return
+            val restricted = userManagerInternal.hasUserRestriction(
+                android.os.UserManager.DISALLOW_NETWORK, userId)
+            service.mutateState {
+                with(policy) { setUserNetworkRestricted(userId, restricted) }
+            }
+        }
     }
 
     override fun getAllPermissionGroups(flags: Int): List<PermissionGroupInfo> {
@@ -886,6 +903,10 @@ class PermissionService(private val service: AccessCheckingService) :
                 Manifest.permission.REVOKE_RUNTIME_PERMISSIONS
             }
         context.enforceCallingOrSelfPermission(enforcedPermissionName, methodName)
+        if (permissionName == Manifest.permission.INTERNET &&
+            policy.isUserNetworkRestricted(userId)) {
+            throw SecurityException("Network access is disabled for user $userId")
+        }
 
         val packageState: PackageState?
         val permissionControllerPackageName =
@@ -959,6 +980,7 @@ class PermissionService(private val service: AccessCheckingService) :
         packageState: PackageState,
         userId: Int,
         permissionStates: ArrayMap<String, Int>,
+        isNewlyInstalled: Boolean,
     ) {
         service.mutateState {
             permissionStates.forEachIndexed { _, permissionName, permissionState ->
@@ -997,6 +1019,8 @@ class PermissionService(private val service: AccessCheckingService) :
                                 overridePolicyFixed = false,
                                 reportError = false,
                                 "setRequestedPermissionStates",
+                                initializeNetworkInstallGrant = isNewlyInstalled &&
+                                    permissionName == Manifest.permission.INTERNET,
                             )
 
                             var extraFlagMask = 0
@@ -1053,6 +1077,7 @@ class PermissionService(private val service: AccessCheckingService) :
         overridePolicyFixed: Boolean,
         reportError: Boolean,
         methodName: String,
+        initializeNetworkInstallGrant: Boolean = false,
     ) {
         val permission = with(policy) { getPermissions()[permissionName] }
         if (permission == null) {
@@ -1164,11 +1189,17 @@ class PermissionService(private val service: AccessCheckingService) :
         }
 
         val newFlags = PermissionFlags.updateRuntimePermissionGranted(oldFlags, isGranted)
-        if (oldFlags == newFlags) {
+        val initializeNetworkGrant = initializeNetworkInstallGrant &&
+            permissionName == Manifest.permission.INTERNET && policy.isUserNetworkRestricted(userId)
+        if (oldFlags == newFlags && !initializeNetworkGrant) {
             return
         }
 
-        setPermissionFlagsWithPolicy(appId, userId, permissionName, deviceId, newFlags)
+        if (initializeNetworkGrant) {
+            with(policy) { initializeNetworkPermissionForInstall(packageState, userId, newFlags) }
+        } else {
+            setPermissionFlagsWithPolicy(appId, userId, permissionName, deviceId, newFlags)
+        }
 
         if (permission.isRuntime) {
             val action =
@@ -2589,7 +2620,8 @@ class PermissionService(private val service: AccessCheckingService) :
                     }
                 }
             }
-            setRequestedPermissionStates(packageState, userId, permissionStates)
+            setRequestedPermissionStates(packageState, userId, permissionStates,
+                isNewlyInstalled = params.isNewlyInstalledInUserId(userId))
         }
     }
 
