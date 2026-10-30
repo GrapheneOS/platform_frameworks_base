@@ -1,3 +1,18 @@
+aidl_interface {
+    name: "goscompat_native_signal_probe_aidl",
+    unstable: true,
+    backend: {
+        java: {
+            platform_apis: false,
+        },
+        ndk: {
+            enabled: true,
+        },
+    },
+    srcs: ["aidl/**/*.aidl"],
+    local_include_dir: "aidl",
+}
+
 cc_library_shared {
     name: "libgoscompat_secure_spawn_jni",
     srcs: ["jni/secure_spawn_jni.c"],
@@ -11,6 +26,25 @@ cc_library_shared {
     stl: "none",
 }
 
+cc_library_shared {
+    name: "libgoscompat_native_signal_probe",
+    srcs: ["jni/native_signal_probe.cpp"],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+    ],
+    shared_libs: [
+        "libandroid",
+        "libbinder_ndk",
+    ],
+    static_libs: [
+        "goscompat_native_signal_probe_aidl-ndk",
+    ],
+    sdk_version: "current",
+    stl: "c++_shared",
+}
+
 goscompat_secure_spawn_java_srcs = [
     "src/**/*.java",
 ]
@@ -22,6 +56,7 @@ goscompat_secure_spawn_app_srcs = goscompat_secure_spawn_java_srcs + [
 goscompat_secure_spawn_test_static_libs = [
     "androidx.test.ext.junit",
     "androidx.test.runner",
+    "goscompat_native_signal_probe_aidl-java",
     "truth",
 ]
 
@@ -44,6 +79,7 @@ android_test_helper_app {
     srcs: goscompat_secure_spawn_app_srcs,
     manifest: "AndroidManifest.xml",
     jni_libs: [
+        "libgoscompat_native_signal_probe",
         "libgoscompat_secure_spawn_jni",
     ],
     use_embedded_native_libs: true,

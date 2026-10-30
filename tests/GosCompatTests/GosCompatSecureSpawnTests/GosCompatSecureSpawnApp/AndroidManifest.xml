@@ -16,6 +16,17 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".NativeSignalProbeService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:nativeService="true"
+            android:process=":native_signal_probe">
+            <property
+                android:name="android.app.PROPERTY_NATIVE_SERVICE_LIBRARY_NAME"
+                android:value="libgoscompat_native_signal_probe.so" />
+        </service>
     </application>
 
     <instrumentation

@@ -109,6 +109,11 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         runCheckCase(PREV_SELINUX_CONTEXT_METHOD);
     }
 
+    @Test
+    public void nativeServiceTerminatesOnSigterm() throws Exception {
+        runCheckCase("nativeServiceTerminatesOnSigterm");
+    }
+
     protected void runDeviceTest(String methodName) throws Exception {
         runDeviceTest(PACKAGE_NAME, methodName);
     }
