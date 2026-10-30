@@ -89,4 +89,37 @@
             column="52"/>
     </issue>
 
+    <issue
+        id="NewApi"
+        message="Call requires API level 29 (current min is 23): `android.telephony.emergency.EmergencyNumber#getEmergencyServiceCategories`"
+        errorLine1="                        candidate.metadata.getEmergencyServiceCategories(),"
+        errorLine2="                                           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="frameworks/base/packages/SettingsLib/EmergencyNumber/src/com/android/settingslib/emergencynumber/EmergencyNumberUtils.java"
+            line="236"
+            column="44"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 23): `android.telephony.TelephonyManager#getActiveModemCount`"
+        errorLine1="            int modemCount = mTelephony.getActiveModemCount();"
+        errorLine2="                                        ~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="frameworks/base/packages/SettingsLib/EmergencyNumber/src/com/android/settingslib/emergencynumber/EmergencyCountryResolver.java"
+            line="23"
+            column="41"/>
+    </issue>
+
+    <issue
+        id="NewApi"
+        message="Call requires API level 30 (current min is 23): `android.telephony.TelephonyManager#getNetworkCountryIso`"
+        errorLine1="                country = readCountry(() -> mTelephony.getNetworkCountryIso(slotIndex));"
+        errorLine2="                                                       ~~~~~~~~~~~~~~~~~~~~">
+        <location
+            file="frameworks/base/packages/SettingsLib/EmergencyNumber/src/com/android/settingslib/emergencynumber/EmergencyCountryResolver.java"
+            line="26"
+            column="56"/>
+    </issue>
+
 </issues>
