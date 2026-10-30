@@ -2,13 +2,20 @@ package app.grapheneos.goscompat.securespawn;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageInfo;
+import android.os.Bundle;
 import android.os.IBinder;
+import android.os.ParcelFileDescriptor;
 import android.os.Process;
+import android.system.OsConstants;
 import android.util.Log;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -20,12 +27,18 @@ import app.grapheneos.goscompat.securespawn.shared.SecureSpawnReflectiveDumpChec
 import app.grapheneos.goscompat.securespawn.shared.SecureSpawnSmapsCheck;
 import app.grapheneos.goscompat.securespawn.shared.SecureSpawnTestApiCompatCheck;
 
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +47,30 @@ import java.util.concurrent.TimeUnit;
 public final class SecureSpawnDeviceTest {
     private static final String PACKAGE_NAME = "app.grapheneos.goscompat.securespawn";
     private static final String TAG = "GosCompatSecureSpawn";
-    private static final long NATIVE_SERVICE_TIMEOUT_SECONDS = 10;
+    private static final Set<String> PRIMARY_ZYGOTE_NAMES = Set.of("zygote64", "zygote");
+    // init starts the standalone native zygote as /system/bin/zygote_next with --name zygote_next.
+    private static final Set<String> NATIVE_ZYGOTE_NAMES =
+            Set.of("zygote_next", "/system/bin/zygote_next");
+    private static final long SERVICE_TIMEOUT_SECONDS = 10;
+    private static final long WEBVIEW_TIMEOUT_SECONDS = 5;
+
+    @Rule
+    public final FailureCollector statusErrors = new FailureCollector(
+            "instrumentation failure results", (summary, diagnostics) -> {
+                Bundle results = new Bundle();
+                results.putString(FailureCollector.SUMMARY_KEY, summary);
+                results.putString(FailureCollector.DIAGNOSTICS_KEY, diagnostics);
+                InstrumentationRegistry.getInstrumentation().addResults(results);
+            });
+
+    private interface WebViewRendererAction {
+        void run(WebViewRendererActivity activity, PackageInfo provider, int rendererPid)
+                throws Exception;
+    }
+
+    private interface BoundServiceAction {
+        void run(IBinder binder) throws Exception;
+    }
 
     @Test
     public void execSpawned() {
@@ -66,8 +102,212 @@ public final class SecureSpawnDeviceTest {
                 .that(result.hardenedMallocDisabled()).isTrue();
     }
 
+    private enum ProcessKind {
+        APP, ISOLATED, NATIVE_ISOLATED, APP_ZYGOTE, NATIVE_APP_ZYGOTE, WEBVIEW
+    }
+
     @Test
-    public void nativeServiceTerminatesOnSigterm() throws Exception {
+    public void appProcessStatus() throws Exception {
+        checkProcessStatus(ProcessKind.APP, Process.myPid(), Process.myUid());
+    }
+
+    @Test
+    public void isolatedServiceProcessStatus() throws Exception {
+        checkManagedServiceStatus(ProcessKind.ISOLATED, ".ManagedIsolatedProbeService");
+    }
+
+    @Test
+    public void appZygoteServiceProcessStatus() throws Exception {
+        checkManagedServiceStatus(ProcessKind.APP_ZYGOTE, ".ManagedAppZygoteProbeService");
+    }
+
+    @Test
+    public void nativeServiceProcessStatus() throws Exception {
+        checkNativeServiceStatus(ProcessKind.NATIVE_ISOLATED, ".NativeSignalProbeService");
+    }
+
+    @Test
+    public void nativeAppZygoteServiceProcessStatus() throws Exception {
+        checkNativeServiceStatus(ProcessKind.NATIVE_APP_ZYGOTE,
+                ".NativeAppZygoteSignalProbeService");
+    }
+
+    @Test
+    public void webViewRendererProcessStatus() throws Exception {
+        withWebViewRenderer((activity, provider, rendererPid) ->
+                checkProcessStatus(ProcessKind.WEBVIEW, rendererPid, provider.applicationInfo.uid));
+    }
+
+    private void checkManagedServiceStatus(ProcessKind kind, String service) throws Exception {
+        withBoundService(service, binder -> checkProcessStatus(kind,
+                IManagedProcessProbe.Stub.asInterface(binder).getPid(), Process.myUid()));
+    }
+
+    private void checkNativeServiceStatus(ProcessKind kind, String service) throws Exception {
+        withBoundService(service, binder -> checkProcessStatus(kind,
+                INativeSignalProbe.Stub.asInterface(binder).getPid(), Process.myUid()));
+    }
+
+    private void checkProcessStatus(ProcessKind kind, int pid, int definingUid) throws IOException {
+        String mode = InstrumentationRegistry.getArguments().getString("execSpawning");
+        assertWithMessage("host must specify execSpawning").that(mode).isIn(Set.of("true", "false"));
+        boolean execSpawning = Boolean.parseBoolean(mode);
+        String path = "/proc/" + pid + "/status";
+        String contents = shell("cat " + path);
+        // Publish the same snapshot before policy assertions, parent inspection or syscall probes.
+        // A normalization failure must not prevent the explicit field checks below.
+        statusErrors.checkSucceeds(() -> {
+            Bundle results = new Bundle();
+            results.putString(StatusComparison.RESULT_KEY,
+                    StatusComparison.snapshot(contents, kind != ProcessKind.APP));
+            InstrumentationRegistry.getInstrumentation().addResults(results);
+            return null;
+        });
+        ProcessStatus status = new ProcessStatus(path, contents, statusErrors);
+        if (kind == ProcessKind.APP) {
+            status.expectIntegers("Uid", false, definingUid, definingUid, definingUid,
+                    definingUid);
+            status.expectIntegers("Gid", false, definingUid, definingUid, definingUid,
+                    definingUid);
+        }
+        if (kind == ProcessKind.NATIVE_ISOLATED || kind == ProcessKind.NATIVE_APP_ZYGOTE) {
+            // Check the main thread's inherited mask directly instead of killing the service.
+            // Other threads may subsequently change their own signal masks.
+            long spawnSignals = signalBit(OsConstants.SIGCHLD) | signalBit(OsConstants.SIGINT)
+                    | signalBit(OsConstants.SIGTERM);
+            status.expectBits("SigBlk", "SIGCHLD, SIGINT and SIGTERM bits", spawnSignals, 0);
+            status.expectBits("SigIgn", "SIGTERM bit", signalBit(OsConstants.SIGTERM), 0);
+            status.expectBits("SigCgt", "SIGTERM bit", signalBit(OsConstants.SIGTERM), 0);
+        }
+        checkParent(kind, status, execSpawning);
+    }
+
+    private static long signalBit(int signal) {
+        return 1L << (signal - 1);
+    }
+
+    private ProcessStatus readProcessStatus(int pid) throws IOException {
+        String path = "/proc/" + pid + "/status";
+        return new ProcessStatus(path, shell("cat " + path), statusErrors);
+    }
+
+    private ProcessStatus checkParent(ProcessKind kind, ProcessStatus status,
+            boolean execSpawning) {
+        Set<String> expectedNames;
+        if (execSpawning || kind == ProcessKind.APP || kind == ProcessKind.ISOLATED) {
+            expectedNames = PRIMARY_ZYGOTE_NAMES;
+        } else {
+            expectedNames = switch (kind) {
+                case APP_ZYGOTE -> Set.of(PACKAGE_NAME + "_zygote");
+                case NATIVE_APP_ZYGOTE -> Set.of(PACKAGE_NAME + "_zygote_native");
+                case NATIVE_ISOLATED -> NATIVE_ZYGOTE_NAMES;
+                case WEBVIEW -> Set.of("webview_zygote");
+                default -> throw new AssertionError(kind);
+            };
+        }
+        // A malformed PPid prevents parent inspection, but must not suppress other child checks.
+        Integer parentPid = statusErrors.checkSucceeds(() ->
+                Integer.parseInt(status.value("PPid")));
+        if (parentPid == null) {
+            return null;
+        }
+        statusErrors.checkSucceeds(() -> {
+            String actual = processName(parentPid);
+            if (!expectedNames.contains(actual)) {
+                statusErrors.expectEquals(kind + " parent (PID " + parentPid + ")",
+                        "name: one of " + new java.util.TreeSet<>(expectedNames), "name: " + actual);
+            }
+            return null;
+        });
+        return statusErrors.checkSucceeds(() -> readProcessStatus(parentPid));
+    }
+
+    private static void withWebViewRenderer(WebViewRendererAction action) throws Exception {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        PackageInfo webViewPackage = WebView.getCurrentWebViewPackage();
+        assertWithMessage("expected a current WebView provider")
+                .that(webViewPackage).isNotNull();
+
+        String providerPackageName = webViewPackage.packageName;
+        Map<Integer, String> existingRenderers = webViewRendererProcesses(providerPackageName);
+        Intent intent = new Intent(instrumentation.getTargetContext(),
+                WebViewRendererActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        WebViewRendererActivity activity =
+                (WebViewRendererActivity) instrumentation.startActivitySync(intent);
+        try {
+            CountDownLatch pageLoaded = new CountDownLatch(1);
+            instrumentation.runOnMainSync(() -> {
+                WebView webView = activity.getWebView();
+                webView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        pageLoaded.countDown();
+                    }
+                });
+                webView.loadData("<html><body>ready</body></html>", "text/html", "UTF-8");
+            });
+            assertWithMessage("expected WebView page to finish loading")
+                    .that(pageLoaded.await(WEBVIEW_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+
+            Map<Integer, String> renderers = webViewRendererProcesses(providerPackageName);
+            Set<Integer> rendererPids = new HashSet<>();
+            for (Map.Entry<Integer, String> renderer : renderers.entrySet()) {
+                int parentPid = Integer.parseInt(renderer.getValue().split("\\s+")[1]);
+                // A process forked by a renderer keeps the renderer's name until it execs.
+                if (!existingRenderers.containsKey(renderer.getKey())
+                        && !renderers.containsKey(parentPid)) {
+                    rendererPids.add(renderer.getKey());
+                }
+            }
+            assertWithMessage("expected exactly one new renderer for " + providerPackageName
+                    + "; renderers before: " + existingRenderers.values()
+                    + "; renderers after: " + renderers.values())
+                    .that(rendererPids).hasSize(1);
+            int rendererPid = rendererPids.iterator().next();
+            action.run(activity, webViewPackage, rendererPid);
+        } finally {
+            instrumentation.runOnMainSync(activity::finish);
+            instrumentation.waitForIdleSync();
+        }
+    }
+
+    /** Returns the ps line of each WebView renderer, keyed by PID. */
+    private static Map<Integer, String> webViewRendererProcesses(String providerPackageName)
+            throws IOException {
+        Map<Integer, String> result = new HashMap<>();
+        String processNamePrefix = providerPackageName + ":sandboxed_process";
+        for (String line : shell("ps -A -o PID,PPID,UID,NAME:256").split("\\R")) {
+            String[] fields = line.trim().split("\\s+", 4);
+            if (fields.length == 4 && fields[3].startsWith(processNamePrefix)) {
+                result.put(Integer.parseInt(fields[0]), line.trim());
+            }
+        }
+        return result;
+    }
+
+    private static String processName(int pid) throws IOException {
+        String pidString = Integer.toString(pid);
+        for (String line : shell("ps -A -o PID,NAME:256").split("\\R")) {
+            String[] fields = line.trim().split("\\s+", 2);
+            if (fields.length == 2 && fields[0].equals(pidString)) {
+                return fields[1];
+            }
+        }
+        throw new AssertionError("missing process " + pid);
+    }
+
+    // UiAutomation runs commands as shell, which can read cross-UID proc paths on user builds.
+    private static String shell(String command) throws IOException {
+        ParcelFileDescriptor output = InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation().executeShellCommand(command);
+        try (ParcelFileDescriptor.AutoCloseInputStream input =
+                new ParcelFileDescriptor.AutoCloseInputStream(output)) {
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private static void withBoundService(
+            String serviceClassName, BoundServiceAction action) throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         CompletableFuture<IBinder> connected = new CompletableFuture<>();
         ServiceConnection connection = new ServiceConnection() {
@@ -81,21 +321,15 @@ public final class SecureSpawnDeviceTest {
         };
         boolean bound = context.bindService(
                 new Intent().setComponent(
-                        ComponentName.createRelative(PACKAGE_NAME, ".NativeSignalProbeService")),
+                        ComponentName.createRelative(PACKAGE_NAME, serviceClassName)),
                 connection,
                 Context.BIND_AUTO_CREATE);
         try {
-            assertWithMessage("expected native signal probe service bind to succeed")
+            assertWithMessage("expected " + serviceClassName + " bind to succeed")
                     .that(bound).isTrue();
 
-            IBinder binder = connected.get(NATIVE_SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            CountDownLatch terminated = new CountDownLatch(1);
-            binder.linkToDeath(terminated::countDown, 0);
-            INativeSignalProbe.Stub.asInterface(binder).terminateWithSigterm();
-
-            assertWithMessage("expected SIGTERM to terminate native signal probe service")
-                    .that(terminated.await(NATIVE_SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS))
-                    .isTrue();
+            IBinder binder = connected.get(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            action.run(binder);
         } finally {
             if (bound) {
                 context.unbindService(connection);
