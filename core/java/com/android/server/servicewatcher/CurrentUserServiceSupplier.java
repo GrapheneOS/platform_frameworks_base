@@ -159,10 +159,22 @@ public final class CurrentUserServiceSupplier extends BroadcastReceiver implemen
      */
     public static CurrentUserServiceSupplier createFromConfig(Context context, String action,
             @BoolRes int enableOverlayResId, @StringRes int nonOverlayPackageResId) {
+        return createFromConfig(context, action, enableOverlayResId, nonOverlayPackageResId,
+                /* callerPermission= */ null, /* servicePermission= */ null);
+    }
+
+    /**
+     * Creates an instance using config resources and permission requirements.
+     *
+     * @see #create(Context, String, String, String, String)
+     */
+    public static CurrentUserServiceSupplier createFromConfig(Context context, String action,
+            @BoolRes int enableOverlayResId, @StringRes int nonOverlayPackageResId,
+            @Nullable String callerPermission, @Nullable String servicePermission) {
         String explicitPackage = retrieveExplicitPackage(context, enableOverlayResId,
                 nonOverlayPackageResId);
         return CurrentUserServiceSupplier.create(context, action, explicitPackage,
-                /*callerPermission=*/null, /*servicePermission=*/null);
+                callerPermission, servicePermission);
     }
 
     /**
@@ -326,7 +338,7 @@ public final class CurrentUserServiceSupplier extends BroadcastReceiver implemen
                 if (mContext.checkPermission(mServicePermission, Process.INVALID_PID,
                         serviceInfo.mUid) != PERMISSION_GRANTED) {
                     Log.d(TAG, serviceInfo.getComponentName().flattenToShortString()
-                            + " disqualified due to not holding " + mCallerPermission);
+                            + " disqualified due to not holding " + mServicePermission);
                     continue;
                 }
             }

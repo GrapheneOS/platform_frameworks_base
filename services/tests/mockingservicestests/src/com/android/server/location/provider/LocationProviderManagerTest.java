@@ -19,6 +19,7 @@ package com.android.server.location.provider;
 import static android.Manifest.permission.ACCESS_COARSE_LOCATION;
 import static android.Manifest.permission.ACCESS_FINE_LOCATION;
 import static android.Manifest.permission.LOCATION_BYPASS;
+import static android.app.AppOpsManager.OP_COARSE_LOCATION;
 import static android.app.AppOpsManager.OP_FINE_LOCATION;
 import static android.app.AppOpsManager.OP_MONITOR_HIGH_POWER_LOCATION;
 import static android.app.AppOpsManager.OP_MONITOR_LOCATION;
@@ -48,7 +49,9 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -72,7 +75,6 @@ import android.location.LocationManagerInternal.ProviderEnabledListener;
 import android.location.LocationRequest;
 import android.location.LocationResult;
 import android.location.provider.IProviderRequestListener;
-import android.location.provider.IS2LevelCallback;
 import android.location.provider.ProviderProperties;
 import android.location.provider.ProviderRequest;
 import android.location.util.identity.CallerIdentity;
@@ -96,12 +98,13 @@ import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.internal.R;
+import com.android.internal.location.geometry.S2CellIdUtils;
 import com.android.server.FgThread;
 import com.android.server.LocalServices;
-import com.android.server.location.fudger.LocationFudgerCache;
 import com.android.server.location.injector.FakeUserInfoHelper;
 import com.android.server.location.injector.TestInjector;
 import com.android.server.location.provider.proxy.ProxyPopulationDensityProvider;
+import com.android.server.location.provider.proxy.ProxyPopulationDensityProvider.PopulationDensityUnavailableException;
 
 import org.junit.After;
 import org.junit.Before;
@@ -133,6 +136,9 @@ public class LocationProviderManagerTest {
 
     private static final int CURRENT_USER = FakeUserInfoHelper.DEFAULT_USERID;
     private static final int OTHER_USER = CURRENT_USER + 10;
+
+    // S2 level with approximately 2.25 km cells.
+    private static final int TEST_COARSENING_LEVEL = 12;
 
     private static final String NAME = "test";
     private static final ProviderProperties PROPERTIES = new ProviderProperties.Builder()
@@ -221,6 +227,14 @@ public class LocationProviderManagerTest {
                         mContext, mInjector, name, mPassive, requiredPermissions);
         mManager.startManager(mStateChangedListener);
         mManager.setRealProvider(mProvider);
+    }
+
+    private void setFixedLevelCoarseningProvider() throws PopulationDensityUnavailableException {
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        long s2CellId = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
+        doReturn(s2CellId).when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mManager.setPopulationDensityProvider(provider);
     }
 
     @After
@@ -348,7 +362,8 @@ public class LocationProviderManagerTest {
     }
 
     @Test
-    public void testGetLastLocation_Coarse() {
+    public void testGetLastLocation_Coarse() throws Exception {
+        setFixedLevelCoarseningProvider();
         assertThat(mManager.getLastLocation(new LastLocationRequest.Builder().build(), IDENTITY,
                 PERMISSION_FINE)).isNull();
 
@@ -744,6 +759,7 @@ public class LocationProviderManagerTest {
 
     @Test
     public void testRegisterListener_Coarse() throws Exception {
+        setFixedLevelCoarseningProvider();
         ILocationListener listener = createMockLocationListener();
         mManager.registerLocationRequest(
                 new LocationRequest.Builder(0).setWorkSource(WORK_SOURCE).build(),
@@ -759,6 +775,7 @@ public class LocationProviderManagerTest {
 
     @Test
     public void testRegisterListener_Coarse_Passive() throws Exception {
+        setFixedLevelCoarseningProvider();
         ILocationListener listener = createMockLocationListener();
         mManager.registerLocationRequest(
                 new LocationRequest.Builder(PASSIVE_INTERVAL)
@@ -772,6 +789,35 @@ public class LocationProviderManagerTest {
         mProvider.setProviderLocation(createLocation(NAME, mRandom));
         verify(listener, times(1))
                 .onLocationChanged(any(List.class), nullable(IRemoteCallback.class));
+    }
+
+    @Test
+    public void testRegisterListener_Coarse_suppressedFixIsRetried() throws Exception {
+        Random random = new Random(0);
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        long s2CellId = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
+        doThrow(new PopulationDensityUnavailableException("provider not bound"))
+                .doReturn(s2CellId)
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mManager.setPopulationDensityProvider(provider);
+
+        ILocationListener listener = createMockLocationListener();
+        mManager.registerLocationRequest(
+                new LocationRequest.Builder(0).setWorkSource(WORK_SOURCE).build(),
+                IDENTITY,
+                PERMISSION_COARSE,
+                listener);
+
+        mProvider.setProviderLocation(createLocation(NAME, random));
+        verify(listener, never())
+                .onLocationChanged(nullable(List.class), nullable(IRemoteCallback.class));
+
+        mProvider.setProviderLocation(createLocation(NAME, random));
+        verify(listener, times(1))
+                .onLocationChanged(any(List.class), nullable(IRemoteCallback.class));
+        verify(listener, never())
+                .onLocationChanged(isNull(), nullable(IRemoteCallback.class));
     }
 
     @Test
@@ -870,6 +916,58 @@ public class LocationProviderManagerTest {
         mManager.getCurrentLocation(request, IDENTITY, PERMISSION_FINE, listener);
 
         verify(listener).onLocation(isNull());
+    }
+
+    @Test
+    public void testGetCurrentLocation_Coarse_suppressedFixIsRetried() throws Exception {
+        Random random = new Random(0);
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        long s2CellId = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(0.0, 0.0), TEST_COARSENING_LEVEL);
+        doThrow(new PopulationDensityUnavailableException("provider not bound"))
+                .doReturn(s2CellId)
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mManager.setPopulationDensityProvider(provider);
+
+        ILocationCallback listener = createMockGetCurrentLocationListener();
+        LocationRequest request = new LocationRequest.Builder(0).setWorkSource(WORK_SOURCE).build();
+        mManager.getCurrentLocation(request, IDENTITY, PERMISSION_COARSE, listener);
+
+        mProvider.setProviderLocation(createLocation(NAME, random));
+        verify(listener, never()).onLocation(nullable(Location.class));
+        assertThat(mInjector.getAppOpsHelper()
+                .getAppOpNoteCount(OP_COARSE_LOCATION, IDENTITY.getPackageName())).isEqualTo(0);
+
+        mProvider.setProviderLocation(createLocation(NAME, random));
+        verify(listener, times(1)).onLocation(any(Location.class));
+        verify(listener, never()).onLocation(isNull());
+        assertThat(mInjector.getAppOpsHelper()
+                .getAppOpNoteCount(OP_COARSE_LOCATION, IDENTITY.getPackageName())).isEqualTo(1);
+
+        mProvider.setProviderLocation(createLocation(NAME, random));
+        verify(listener, times(1)).onLocation(any(Location.class));
+    }
+
+    @Test
+    public void testGetCurrentLocation_Coarse_persistentFaultTimesOut() throws Exception {
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doThrow(new PopulationDensityUnavailableException("provider not bound"))
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mManager.setPopulationDensityProvider(provider);
+
+        ILocationCallback listener = createMockGetCurrentLocationListener();
+        LocationRequest request = new LocationRequest.Builder(0).setWorkSource(WORK_SOURCE).build();
+        mManager.getCurrentLocation(request, IDENTITY, PERMISSION_COARSE, listener);
+
+        mProvider.setProviderLocation(createLocation(NAME, new Random(0)));
+        verify(listener, never()).onLocation(nullable(Location.class));
+        assertThat(mInjector.getAppOpsHelper()
+                .getAppOpNoteCount(OP_COARSE_LOCATION, IDENTITY.getPackageName())).isEqualTo(0);
+
+        mInjector.getAlarmHelper().incrementAlarmTime(TimeUnit.MINUTES.toMillis(1));
+        verify(listener, times(1)).onLocation(isNull());
+        assertThat(mInjector.getAppOpsHelper()
+                .getAppOpNoteCount(OP_COARSE_LOCATION, IDENTITY.getPackageName())).isEqualTo(0);
     }
 
     @Test
@@ -1427,52 +1525,90 @@ public class LocationProviderManagerTest {
     }
 
     @Test
-    public void testLocationFudger_noDefaults_oldAlgoIsUsed()
-            throws RemoteException {
+    public void testLocationFudger_providerCellPositionIgnored() throws Exception {
         createManager("some-other-name");
         ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
-        LocationFudgerCache cache = new LocationFudgerCache(provider);
+        // Return a distant cell to verify that only its level is used.
+        long s2CellId = S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(40.758896, -73.985130), TEST_COARSENING_LEVEL);
+        double[] queriedCoordinates = new double[2];
+        doAnswer(invocation -> {
+            queriedCoordinates[0] = invocation.getArgument(0);
+            queriedCoordinates[1] = invocation.getArgument(1);
+            return s2CellId;
+        }).when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
 
-        mManager.setLocationFudgerCache(cache);
-
-        ArgumentCaptor<IS2LevelCallback> captor = ArgumentCaptor.forClass(IS2LevelCallback.class);
-        verify(provider).getDefaultCoarseningLevel(captor.capture());
-
-        IS2LevelCallback cb = captor.getValue();
-
-        // Act: the provider didn't provide a default
-        cb.onError();
-
-        Location test = new Location("any-provider");
-        mManager.getPermittedLocation(test, PERMISSION_COARSE);
-
-        verify(provider, never()).getCoarsenedS2Cells(anyDouble(), anyDouble(), anyInt(), any());
-    }
-
-    @Test
-    public void testLocationFudger_cacheIsSetAndNewAlgoIsUsed()
-            throws RemoteException {
-        createManager("some-other-name");
-        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
-        LocationFudgerCache cache = new LocationFudgerCache(provider);
-        int defaultLevel = 2;
-
-        mManager.setLocationFudgerCache(cache);
-
-        ArgumentCaptor<IS2LevelCallback> captor = ArgumentCaptor.forClass(IS2LevelCallback.class);
-        verify(provider).getDefaultCoarseningLevel(captor.capture());
-
-        IS2LevelCallback cb = captor.getValue();
-        cb.onResult(defaultLevel);
+        mManager.setPopulationDensityProvider(provider);
 
         Location test = new Location("any-provider");
         test.setLatitude(10.0);
         test.setLongitude(20.0);
-        mManager.getPermittedLocation(test, PERMISSION_COARSE);
+        Location coarse = mManager.getPermittedLocation(test, PERMISSION_COARSE);
 
-        // We can't test that 10.0, 20.0 was passed due to the offset. We only test that a call
-        // happened.
-        verify(provider).getCoarsenedS2Cells(anyDouble(), anyDouble(), anyInt(), any());
+        verify(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        double[] expectedCenter = new double[] {0.0, 0.0};
+        S2CellIdUtils.toLatLngDegrees(S2CellIdUtils.getParent(
+                S2CellIdUtils.fromLatLngDegrees(
+                        queriedCoordinates[0], queriedCoordinates[1]), TEST_COARSENING_LEVEL),
+                expectedCenter);
+        double[] providerCellCenter = new double[] {0.0, 0.0};
+        S2CellIdUtils.toLatLngDegrees(s2CellId, providerCellCenter);
+        assertThat(coarse).isNotNull();
+        assertThat(coarse.getLatitude()).isEqualTo(expectedCenter[0]);
+        assertThat(coarse.getLongitude()).isEqualTo(expectedCenter[1]);
+        assertThat(coarse.getLatitude()).isNotEqualTo(providerCellCenter[0]);
+        assertThat(coarse.getLongitude()).isNotEqualTo(providerCellCenter[1]);
+    }
+
+    @Test
+    public void testLocationFudger_providerFault_suppressesCoarseLocation() throws Exception {
+        createManager("some-other-name");
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doThrow(new PopulationDensityUnavailableException("test"))
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+
+        mManager.setPopulationDensityProvider(provider);
+
+        Location test = new Location("any-provider");
+        test.setLatitude(10.0);
+        test.setLongitude(20.0);
+
+        assertThat(mManager.getPermittedLocation(test, PERMISSION_COARSE)).isNull();
+    }
+
+    @Test
+    public void testLocationFudger_providerFault_suppressesCoarseDelivery() throws Exception {
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doThrow(new PopulationDensityUnavailableException("test"))
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mManager.setPopulationDensityProvider(provider);
+
+        ILocationListener listener = createMockLocationListener();
+        mManager.registerLocationRequest(
+                new LocationRequest.Builder(0).setWorkSource(WORK_SOURCE).build(),
+                IDENTITY,
+                PERMISSION_COARSE,
+                listener);
+
+        mProvider.setProviderLocation(createLocation(NAME, new Random(0)));
+
+        verify(listener, never())
+                .onLocationChanged(nullable(List.class), nullable(IRemoteCallback.class));
+    }
+
+    @Test
+    public void testLocationFudger_providerFault_suppressesCoarseLastLocation() throws Exception {
+        mProvider.setProviderLocation(createLocation(NAME, new Random(0)));
+        assertThat(mManager.getLastLocation(new LastLocationRequest.Builder().build(), IDENTITY,
+                PERMISSION_FINE)).isNotNull();
+
+        ProxyPopulationDensityProvider provider = mock(ProxyPopulationDensityProvider.class);
+        doThrow(new PopulationDensityUnavailableException("test"))
+                .when(provider).getCoarsenedS2CellId(anyDouble(), anyDouble());
+        mManager.setPopulationDensityProvider(provider);
+
+        assertThat(mManager.getLastLocation(new LastLocationRequest.Builder().build(), IDENTITY,
+                PERMISSION_COARSE)).isNull();
     }
 
     @MediumTest
