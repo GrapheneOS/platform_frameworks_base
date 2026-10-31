@@ -141,6 +141,7 @@ import android.window.DesktopExperienceFlags;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
+import com.android.internal.gmscompat.GsfPresenceCompat;
 import com.android.internal.gmscompat.sysservice.GmcPackageManager;
 import com.android.internal.os.ApplicationSharedMemory;
 import com.android.internal.os.SomeArgs;
@@ -265,14 +266,19 @@ public class ApplicationPackageManager extends PackageManager {
     public PackageInfo getPackageInfo(VersionedPackage versionedPackage, PackageInfoFlags flags)
             throws NameNotFoundException {
         final int userId = getUserId();
+        final long updatedFlags = updateFlagsForPackage(flags.getValue(), userId);
         try {
-            PackageInfo pi = mPM.getPackageInfoVersioned(versionedPackage,
-                    updateFlagsForPackage(flags.getValue(), userId), userId);
+            PackageInfo pi = mPM.getPackageInfoVersioned(versionedPackage, updatedFlags, userId);
             if (pi != null) {
                 return pi;
             }
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
+        }
+        PackageInfo synth = GsfPresenceCompat.maybeSynthesizePackageInfo(
+                versionedPackage.getPackageName(), updatedFlags, userId);
+        if (synth != null) {
+            return synth;
         }
         throw new NameNotFoundException(versionedPackage.toString());
     }
@@ -286,12 +292,14 @@ public class ApplicationPackageManager extends PackageManager {
     @Override
     public PackageInfo getPackageInfoAsUser(String packageName, PackageInfoFlags flags, int userId)
             throws NameNotFoundException {
-        PackageInfo pi =
-                getPackageInfoAsUserCached(
-                        packageName,
-                        updateFlagsForPackage(flags.getValue(), userId),
-                        userId);
+        final long updatedFlags = updateFlagsForPackage(flags.getValue(), userId);
+        PackageInfo pi = getPackageInfoAsUserCached(packageName, updatedFlags, userId);
         if (pi == null) {
+            PackageInfo synth = GsfPresenceCompat.maybeSynthesizePackageInfo(
+                    packageName, updatedFlags, userId);
+            if (synth != null) {
+                return synth;
+            }
             throw new NameNotFoundException(packageName);
         }
         GmcPackageManager.maybeAdjustPackageInfo(pi);
@@ -549,11 +557,14 @@ public class ApplicationPackageManager extends PackageManager {
     @Override
     public ApplicationInfo getApplicationInfoAsUser(String packageName, ApplicationInfoFlags flags,
             int userId) throws NameNotFoundException {
-        ApplicationInfo ai = getApplicationInfoAsUserCached(
-                        packageName,
-                        updateFlagsForApplication(flags.getValue(), userId),
-                        userId);
+        final long updatedFlags = updateFlagsForApplication(flags.getValue(), userId);
+        ApplicationInfo ai = getApplicationInfoAsUserCached(packageName, updatedFlags, userId);
         if (ai == null) {
+            ApplicationInfo synth = GsfPresenceCompat.maybeSynthesizeApplicationInfo(
+                    packageName, updatedFlags, userId);
+            if (synth != null) {
+                return synth;
+            }
             throw new NameNotFoundException(packageName);
         }
 
