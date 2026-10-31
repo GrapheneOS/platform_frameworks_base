@@ -309,6 +309,13 @@ public class TaskPersister implements PersisterQueue.Listener {
         return new RecentTaskFiles(recentFiles, taskFiles);
     }
 
+    /** Lists task files on disk without loading any of them. */
+    static RecentTaskFiles listTasksForUser(int userId) {
+        final File[] recentFiles = getUserTasksDir(userId).listFiles();
+        return new RecentTaskFiles(recentFiles != null ? recentFiles : new File[0],
+                new ArrayList<>());
+    }
+
     /** Restores tasks from raw bytes (no read storage operation). */
     ArrayList<Task> restoreTasksForUserLocked(int userId, RecentTaskFiles recentTaskFiles,
             IntArray existedTaskIds) {
