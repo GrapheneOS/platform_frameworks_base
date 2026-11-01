@@ -435,6 +435,17 @@ public final class HostingRecord {
         return mAppInfoForPreloading;
     }
 
+    // Whether exec spawning replaces an app zygote requested for this process.
+    private boolean mIsAppZygoteReplacement;
+
+    void setAppZygoteReplacement() {
+        mIsAppZygoteReplacement = true;
+    }
+
+    boolean isAppZygoteReplacement() {
+        return mIsAppZygoteReplacement;
+    }
+
     /**
      * @return if the process should be spawned from the Native App Zygote
      */
