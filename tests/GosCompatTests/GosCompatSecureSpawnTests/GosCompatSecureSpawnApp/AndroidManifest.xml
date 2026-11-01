@@ -18,6 +18,10 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".WebViewRendererActivity"
+            android:exported="false" />
+
         <service
             android:name=".NativeSignalProbeService"
             android:exported="false"

@@ -48,6 +48,8 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
             "profileableFromShellDumpableCheck";
     private static final String ACYCLIC_REFLECTIVE_DUMP_METHOD =
             "acyclicReflectiveDumpCheck";
+    private static final String WEBVIEW_METHOD_PREFIX = "webViewRenderer";
+    private static final String WEBVIEW_ACTIVITY_LIFECYCLE_TIMEOUT_MILLIS = "5000";
     // From libcore/libart/src/main/java/dalvik/system/VMRuntime.java:
     // private static final long ALLOW_TEST_API_ACCESS = 166236554;
     private static final long ALLOW_TEST_API_ACCESS_CHANGE_ID = 166236554L;
@@ -145,6 +147,11 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
             DeviceTestRunOptions options = new DeviceTestRunOptions(packageName);
             options.setTestClassName(TEST_CLASS);
             options.setTestMethodName(methodName);
+            if (methodName.startsWith(WEBVIEW_METHOD_PREFIX)) {
+                options.addInstrumentationArg(
+                        "activityLifecycleChangeTimeoutMillis",
+                        WEBVIEW_ACTIVITY_LIFECYCLE_TIMEOUT_MILLIS);
+            }
             if (isTestApiCompatMethod(methodName)) {
                 // Adds --no-test-api-access so ALLOW_TEST_API_ACCESS is the deciding signal.
                 options.setDisableTestApiCheck(false);

@@ -2,13 +2,18 @@ package app.grapheneos.goscompat.securespawn;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.Instrumentation;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.content.pm.PackageInfo;
 import android.os.IBinder;
+import android.os.ParcelFileDescriptor;
 import android.os.Process;
 import android.util.Log;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -26,6 +31,11 @@ import org.junit.runner.RunWith;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -35,6 +45,12 @@ public final class SecureSpawnDeviceTest {
     private static final String PACKAGE_NAME = "app.grapheneos.goscompat.securespawn";
     private static final String TAG = "GosCompatSecureSpawn";
     private static final long NATIVE_SERVICE_TIMEOUT_SECONDS = 10;
+    private static final long WEBVIEW_TIMEOUT_SECONDS = 5;
+
+    private interface WebViewRendererAction {
+        void run(WebViewRendererActivity activity, PackageInfo provider, int rendererPid)
+                throws Exception;
+    }
 
     private interface NativeSignalProbeAction {
         void run(INativeSignalProbe probe) throws Exception;
@@ -100,6 +116,79 @@ public final class SecureSpawnDeviceTest {
                 assertWithMessage(
                         "expected native app zygote child to have no supplementary groups")
                         .that(probe.getSupplementaryGroups()).isEmpty());
+    }
+
+    private static void withWebViewRenderer(WebViewRendererAction action) throws Exception {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        PackageInfo webViewPackage = WebView.getCurrentWebViewPackage();
+        assertWithMessage("expected a current WebView provider")
+                .that(webViewPackage).isNotNull();
+
+        String providerPackageName = webViewPackage.packageName;
+        Map<Integer, String> existingRenderers = webViewRendererProcesses(providerPackageName);
+        Intent intent = new Intent(instrumentation.getTargetContext(),
+                WebViewRendererActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        WebViewRendererActivity activity =
+                (WebViewRendererActivity) instrumentation.startActivitySync(intent);
+        try {
+            CountDownLatch pageLoaded = new CountDownLatch(1);
+            instrumentation.runOnMainSync(() -> {
+                WebView webView = activity.getWebView();
+                webView.setWebViewClient(new WebViewClient() {
+                    @Override
+                    public void onPageFinished(WebView view, String url) {
+                        pageLoaded.countDown();
+                    }
+                });
+                webView.loadData("<html><body>ready</body></html>", "text/html", "UTF-8");
+            });
+            assertWithMessage("expected WebView page to finish loading")
+                    .that(pageLoaded.await(WEBVIEW_TIMEOUT_SECONDS, TimeUnit.SECONDS)).isTrue();
+
+            Map<Integer, String> renderers = webViewRendererProcesses(providerPackageName);
+            Set<Integer> rendererPids = new HashSet<>();
+            for (Map.Entry<Integer, String> renderer : renderers.entrySet()) {
+                int parentPid = Integer.parseInt(renderer.getValue().split("\\s+")[1]);
+                // A process forked by a renderer keeps the renderer's name until it execs.
+                if (!existingRenderers.containsKey(renderer.getKey())
+                        && !renderers.containsKey(parentPid)) {
+                    rendererPids.add(renderer.getKey());
+                }
+            }
+            assertWithMessage("expected exactly one new renderer for " + providerPackageName
+                    + "; renderers before: " + existingRenderers.values()
+                    + "; renderers after: " + renderers.values())
+                    .that(rendererPids).hasSize(1);
+            int rendererPid = rendererPids.iterator().next();
+            action.run(activity, webViewPackage, rendererPid);
+        } finally {
+            instrumentation.runOnMainSync(activity::finish);
+            instrumentation.waitForIdleSync();
+        }
+    }
+
+    /** Returns the ps line of each WebView renderer, keyed by PID. */
+    private static Map<Integer, String> webViewRendererProcesses(String providerPackageName)
+            throws IOException {
+        Map<Integer, String> result = new HashMap<>();
+        String processNamePrefix = providerPackageName + ":sandboxed_process";
+        for (String line : shell("ps -A -o PID,PPID,UID,NAME:256").split("\\R")) {
+            String[] fields = line.trim().split("\\s+", 4);
+            if (fields.length == 4 && fields[3].startsWith(processNamePrefix)) {
+                result.put(Integer.parseInt(fields[0]), line.trim());
+            }
+        }
+        return result;
+    }
+
+    // UiAutomation runs commands as shell, which can read cross-UID proc paths on user builds.
+    private static String shell(String command) throws IOException {
+        ParcelFileDescriptor output = InstrumentationRegistry.getInstrumentation()
+                .getUiAutomation().executeShellCommand(command);
+        try (ParcelFileDescriptor.AutoCloseInputStream input =
+                new ParcelFileDescriptor.AutoCloseInputStream(output)) {
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     private static void withNativeSignalProbe(
