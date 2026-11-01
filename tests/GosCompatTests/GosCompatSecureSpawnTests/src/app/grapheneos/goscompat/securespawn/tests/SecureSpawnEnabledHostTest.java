@@ -34,4 +34,28 @@ public final class SecureSpawnEnabledHostTest extends SecureSpawnHostTestBase {
         resetPackageState();
         runDeviceTest("execSpawned");
     }
+
+    @Test
+    public void serviceUsingManagedAppZygoteHasPrimaryZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("serviceUsingManagedAppZygoteHasPrimaryZygoteParent");
+    }
+
+    @Test
+    public void nativeServiceUsingAppZygoteHasPrimaryZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("nativeServiceUsingAppZygoteHasPrimaryZygoteParent");
+    }
+
+    @Test
+    public void nativeServiceHasPrimaryZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("nativeServiceHasPrimaryZygoteParent");
+    }
+
+    @Test
+    public void webViewRendererHasPrimaryZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("webViewRendererHasPrimaryZygoteParent");
+    }
 }

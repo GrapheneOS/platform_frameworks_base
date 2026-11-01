@@ -41,6 +41,11 @@ public:
 
         return ndk::ScopedAStatus::ok();
     }
+
+    ndk::ScopedAStatus getPid(int32_t* _aidl_return) override {
+        *_aidl_return = static_cast<int32_t>(getpid());
+        return ndk::ScopedAStatus::ok();
+    }
 };
 
 std::shared_ptr<NativeSignalProbe> gService;

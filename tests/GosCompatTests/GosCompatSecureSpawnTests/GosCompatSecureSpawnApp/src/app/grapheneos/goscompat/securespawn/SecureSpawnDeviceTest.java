@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -54,6 +55,10 @@ public final class SecureSpawnDeviceTest {
     // Mirrors the primary zygote groups in system/core/rootdir/init.zygote64.rc.
     private static final int AID_RESERVED_DISK = 1065;
     private static final int AID_READPROC = 3009;
+    private static final Set<String> PRIMARY_ZYGOTE_NAMES = Set.of("zygote64", "zygote");
+    // init starts the standalone native zygote as /system/bin/zygote_next with --name zygote_next.
+    private static final Set<String> NATIVE_ZYGOTE_NAMES =
+            Set.of("zygote_next", "/system/bin/zygote_next");
     private static final long SERVICE_TIMEOUT_SECONDS = 10;
     private static final long WEBVIEW_TIMEOUT_SECONDS = 5;
 
@@ -188,6 +193,70 @@ public final class SecureSpawnDeviceTest {
         });
     }
 
+    @Test
+    public void serviceUsingManagedAppZygoteHasAppZygoteParent() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        int appId = context.getApplicationInfo().uid % USER_HANDLE_PER_USER_RANGE;
+        int expectedGroup = PROCESS_FIRST_SHARED_APPLICATION_GID
+                + appId - Process.FIRST_APPLICATION_UID;
+        // ProcessList names app zygotes after the application process name.
+        withBoundService(".ManagedAppZygoteProbeService", binder -> assertZygoteParent(
+                "service using managed app zygote",
+                IManagedProcessProbe.Stub.asInterface(binder).getPid(),
+                Set.of(PACKAGE_NAME + "_zygote"), expectedGroup));
+    }
+
+    @Test
+    public void nativeServiceUsingAppZygoteHasNativeAppZygoteParent() throws Exception {
+        // NativeZygoteProcess does not pass the shared app GID that AppZygote requests, so the
+        // native app zygote has no supplementary groups.
+        withNativeSignalProbe(".NativeAppZygoteSignalProbeService", probe -> assertZygoteParent(
+                "native service using app zygote", probe.getPid(),
+                Set.of(PACKAGE_NAME + "_zygote_native")));
+    }
+
+    @Test
+    public void nativeServiceHasNativeZygoteParent() throws Exception {
+        withNativeSignalProbe(".NativeSignalProbeService", probe -> assertZygoteParent(
+                "native service", probe.getPid(), NATIVE_ZYGOTE_NAMES));
+    }
+
+    @Test
+    public void webViewRendererHasWebViewZygoteParent() throws Exception {
+        withWebViewRenderer((activity, provider, rendererPid) -> {
+            int appId = provider.applicationInfo.uid % USER_HANDLE_PER_USER_RANGE;
+            int expectedGroup = PROCESS_FIRST_SHARED_APPLICATION_GID
+                    + appId - Process.FIRST_APPLICATION_UID;
+            assertZygoteParent("WebView renderer", rendererPid, Set.of("webview_zygote"),
+                    expectedGroup);
+        });
+    }
+
+    @Test
+    public void serviceUsingManagedAppZygoteHasPrimaryZygoteParent() throws Exception {
+        withBoundService(".ManagedAppZygoteProbeService", binder -> assertPrimaryZygoteParent(
+                "service using managed app zygote",
+                IManagedProcessProbe.Stub.asInterface(binder).getPid()));
+    }
+
+    @Test
+    public void nativeServiceUsingAppZygoteHasPrimaryZygoteParent() throws Exception {
+        withNativeSignalProbe(".NativeAppZygoteSignalProbeService", probe ->
+                assertPrimaryZygoteParent("native service using app zygote", probe.getPid()));
+    }
+
+    @Test
+    public void nativeServiceHasPrimaryZygoteParent() throws Exception {
+        withNativeSignalProbe(".NativeSignalProbeService", probe ->
+                assertPrimaryZygoteParent("native service", probe.getPid()));
+    }
+
+    @Test
+    public void webViewRendererHasPrimaryZygoteParent() throws Exception {
+        withWebViewRenderer((activity, provider, rendererPid) ->
+                assertPrimaryZygoteParent("WebView renderer", rendererPid));
+    }
+
     private static void withWebViewRenderer(WebViewRendererAction action) throws Exception {
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
         PackageInfo webViewPackage = WebView.getCurrentWebViewPackage();
@@ -275,6 +344,40 @@ public final class SecureSpawnDeviceTest {
         }
         throw new AssertionError("missing " + field + " in /proc/" + pid + "/status:\n"
                 + status);
+    }
+
+    // Exec spawning forks the process from the primary zygote that received the spawn request
+    // and then executes the app process or native zygote binary in it.
+    private static void assertPrimaryZygoteParent(String description, int pid)
+            throws IOException {
+        assertZygoteParent(description, pid, PRIMARY_ZYGOTE_NAMES, AID_RESERVED_DISK,
+                AID_READPROC);
+    }
+
+    private static void assertZygoteParent(String description, int pid,
+            Set<String> expectedParentNames, int... expectedParentGroups) throws IOException {
+        int parentPid = Integer.parseInt(processStatusField(pid, "PPid"));
+        String parentName = processName(parentPid);
+        assertWithMessage("expected " + description + " parent process name")
+                .that(parentName).isIn(expectedParentNames);
+
+        int[] parentGroups = processSupplementaryGroups(parentPid);
+        Arrays.sort(parentGroups);
+        int[] sortedExpectedGroups = expectedParentGroups.clone();
+        Arrays.sort(sortedExpectedGroups);
+        assertWithMessage("expected " + parentName + " supplementary groups")
+                .that(parentGroups).isEqualTo(sortedExpectedGroups);
+    }
+
+    private static String processName(int pid) throws IOException {
+        String pidString = Integer.toString(pid);
+        for (String line : shell("ps -A -o PID,NAME:256").split("\\R")) {
+            String[] fields = line.trim().split("\\s+", 2);
+            if (fields.length == 2 && fields[0].equals(pidString)) {
+                return fields[1];
+            }
+        }
+        throw new AssertionError("missing process " + pid);
     }
 
     // UiAutomation runs commands as shell, which can read cross-UID proc paths on user builds.
