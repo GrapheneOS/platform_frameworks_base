@@ -5,7 +5,8 @@
     <application
         android:debuggable="false"
         android:label="GOS Secure Spawn Checks"
-        android:theme="@android:style/Theme.DeviceDefault.DayNight">
+        android:theme="@android:style/Theme.DeviceDefault.DayNight"
+        android:zygotePreloadNativeLib="libgoscompat_native_signal_probe.so">
         <uses-library android:name="android.test.runner" />
 
         <activity
@@ -17,12 +18,41 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".WebViewRendererActivity"
+            android:exported="false" />
+
+        <service
+            android:name=".ManagedAppZygoteProbeService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:process=":managed_app_zygote_probe"
+            android:useAppZygote="true" />
+
+        <service
+            android:name=".ManagedIsolatedProbeService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:process=":managed_isolated_probe" />
+
         <service
             android:name=".NativeSignalProbeService"
             android:exported="false"
             android:isolatedProcess="true"
             android:nativeService="true"
             android:process=":native_signal_probe">
+            <property
+                android:name="android.app.PROPERTY_NATIVE_SERVICE_LIBRARY_NAME"
+                android:value="libgoscompat_native_signal_probe.so" />
+        </service>
+
+        <service
+            android:name=".NativeAppZygoteSignalProbeService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:nativeService="true"
+            android:process=":native_app_zygote_signal_probe"
+            android:useAppZygote="true">
             <property
                 android:name="android.app.PROPERTY_NATIVE_SERVICE_LIBRARY_NAME"
                 android:value="libgoscompat_native_signal_probe.so" />

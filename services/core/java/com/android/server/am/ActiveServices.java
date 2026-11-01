@@ -6348,6 +6348,7 @@ public final class ActiveServices {
 
                     if (AswUseExecSpawning.isEnabledFor(mAm.mContext, userId, definingAppInfo,
                             GosPackageState.get(definingPkgName, userId), isNativeService)) {
+                        hostingRecord.setAppZygoteReplacement();
                         boolean preload = (isNativeService ?
                                 definingAppInfo.zygotePreloadNativeLib :
                                 definingAppInfo.zygotePreloadName) != null;

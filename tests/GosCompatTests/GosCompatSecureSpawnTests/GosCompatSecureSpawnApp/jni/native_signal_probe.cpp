@@ -1,10 +1,12 @@
 #include <aidl/app/grapheneos/goscompat/securespawn/BnNativeSignalProbe.h>
 #include <android/binder_ibinder.h>
 #include <android/native_service.h>
+#include <errno.h>
 #include <signal.h>
 #include <unistd.h>
 
 #include <memory>
+#include <vector>
 
 namespace {
 
@@ -14,6 +16,34 @@ class NativeSignalProbe final : public BnNativeSignalProbe {
 public:
     ndk::ScopedAStatus terminateWithSigterm() override {
         kill(getpid(), SIGTERM);
+        return ndk::ScopedAStatus::ok();
+    }
+
+    ndk::ScopedAStatus getSupplementaryGroups(
+            std::vector<int32_t>* _aidl_return) override {
+        int groupCount = getgroups(0, nullptr);
+        if (groupCount < 0) {
+            return ndk::ScopedAStatus::fromServiceSpecificError(errno);
+        }
+
+        std::vector<gid_t> groups(static_cast<size_t>(groupCount));
+        if (groupCount > 0) {
+            groupCount = getgroups(groupCount, groups.data());
+            if (groupCount < 0) {
+                return ndk::ScopedAStatus::fromServiceSpecificError(errno);
+            }
+        }
+
+        _aidl_return->resize(static_cast<size_t>(groupCount));
+        for (int i = 0; i < groupCount; ++i) {
+            (*_aidl_return)[i] = static_cast<int32_t>(groups[i]);
+        }
+
+        return ndk::ScopedAStatus::ok();
+    }
+
+    ndk::ScopedAStatus getPid(int32_t* _aidl_return) override {
+        *_aidl_return = static_cast<int32_t>(getpid());
         return ndk::ScopedAStatus::ok();
     }
 };

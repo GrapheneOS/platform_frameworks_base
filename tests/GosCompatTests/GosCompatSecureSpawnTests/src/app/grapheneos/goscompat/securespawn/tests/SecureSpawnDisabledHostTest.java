@@ -62,4 +62,28 @@ public final class SecureSpawnDisabledHostTest extends SecureSpawnHostTestBase {
         runDeviceTest("notExecSpawnedCompatZygote");
         runDeviceTest(FD_STATE_METHOD);
     }
+
+    @Test
+    public void serviceUsingManagedAppZygoteHasAppZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("serviceUsingManagedAppZygoteHasAppZygoteParent");
+    }
+
+    @Test
+    public void nativeServiceUsingAppZygoteHasNativeAppZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("nativeServiceUsingAppZygoteHasNativeAppZygoteParent");
+    }
+
+    @Test
+    public void nativeServiceHasNativeZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("nativeServiceHasNativeZygoteParent");
+    }
+
+    @Test
+    public void webViewRendererHasWebViewZygoteParent() throws Exception {
+        resetPackageState();
+        runDeviceTest("webViewRendererHasWebViewZygoteParent");
+    }
 }
