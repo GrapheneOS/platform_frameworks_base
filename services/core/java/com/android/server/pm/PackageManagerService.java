@@ -2496,6 +2496,11 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                 }
             }
 
+            if (Flags.protectSystemRequiredPackages()) {
+                restoreBootRequiredPackageStates(packageSettings, getBootRequiredPackages(),
+                        userIds);
+            }
+
             // clear only after permissions and other defaults have been updated
             mPromoteSystemApps = false;
 
@@ -4090,6 +4095,50 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
                     mHandler.obtainMessage(SEND_PENDING_BROADCAST, callingUid, 0 /* arg2 */,
                             PackageMetrics.STRING_COMPONENT_LABEL_ICON_CHANGED), BROADCAST_DELAY);
         }
+    }
+
+    /**
+     * Undoes disabling or hiding of system packages that are required during boot.
+     *
+     * Disabling or hiding these packages is rejected once they are listed as required, but a state
+     * saved before that still applies on every boot. A disabled Bluetooth app makes system_server
+     * crash before safe mode can be entered, so restore the default state before it's needed.
+     *
+     * @return names of the packages whose state was changed
+     */
+    @VisibleForTesting
+    static List<String> restoreBootRequiredPackageStates(
+            WatchedArrayMap<String, PackageSetting> packageSettings,
+            Set<String> bootRequiredPackages, int[] userIds) {
+        final List<String> changedPackages = new ArrayList<>();
+        for (String packageName : bootRequiredPackages) {
+            final PackageSetting ps = packageSettings.get(packageName);
+            if (ps == null || !ps.isSystem()) {
+                continue;
+            }
+            boolean changed = false;
+            for (int userId : userIds) {
+                final int enabledState = ps.getEnabled(userId);
+                if (enabledState == COMPONENT_ENABLED_STATE_DISABLED
+                        || enabledState == COMPONENT_ENABLED_STATE_DISABLED_USER
+                        || enabledState == COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED) {
+                    Slog.w(TAG, "Re-enabling required package " + packageName + " for user "
+                            + userId);
+                    ps.setEnabled(COMPONENT_ENABLED_STATE_DEFAULT, userId, PLATFORM_PACKAGE_NAME);
+                    changed = true;
+                }
+                if (ps.getHidden(userId)) {
+                    Slog.w(TAG, "Unhiding required package " + packageName + " for user "
+                            + userId);
+                    ps.setHidden(false, userId);
+                    changed = true;
+                }
+            }
+            if (changed) {
+                changedPackages.add(packageName);
+            }
+        }
+        return changedPackages;
     }
 
     /**
