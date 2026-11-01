@@ -24,17 +24,23 @@ import static com.google.common.truth.Truth.assertThat;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.role.RoleManager;
 import android.companion.AssociationRequest;
+import android.content.pm.GosPackageState;
+import android.content.pm.GosPackageStateFlag;
 import android.content.pm.PackageManagerInternal;
 import android.media.projection.MediaProjectionInfo;
 import android.media.projection.MediaProjectionManager;
 import android.os.Binder;
 import android.os.Process;
+import android.os.UserHandle;
 import android.platform.test.annotations.RequiresFlagsEnabled;
 import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
@@ -42,9 +48,12 @@ import android.provider.Settings;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableContext;
 import android.util.ArraySet;
+import android.util.SparseArray;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.server.pm.pkg.PackageStateInternal;
+import com.android.server.pm.pkg.PackageUserStateInternal;
 import com.android.server.wm.SensitiveContentPackages.PackageInfo;
 import com.android.server.wm.WindowManagerInternal;
 
@@ -59,6 +68,7 @@ import org.mockito.MockitoAnnotations;
 
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 @SmallTest
 @RunWith(AndroidTestingRunner.class)
@@ -151,6 +161,56 @@ public class SensitiveContentProtectionManagerServiceContentTest {
         // when screen sharing ends, all blocked app windows should be cleared.
         mMediaPorjectionCallback.onStop(mMediaProjectionInfo);
         verify(mWindowManager).clearBlockedApps();
+    }
+
+    @Test
+    public void testScreenRecordingOverridesApplyToExemptedRecorder() {
+        int userId = Process.myUserHandle().getIdentifier();
+        PackageStateInternal blockedApp = mockPackageState("test.blocked", 10001, userId, false);
+        PackageStateInternal allowedApp = mockPackageState("test.allowed", 10002, userId, true);
+        PackageStateInternal defaultApp = mockPackageState("test.default", 10003, userId, null);
+        doAnswer(invocation -> {
+            Consumer<PackageStateInternal> action = invocation.getArgument(0);
+            action.accept(blockedApp);
+            action.accept(allowedApp);
+            action.accept(defaultApp);
+            return null;
+        }).when(mPackageManagerInternal).forEachPackageState(any());
+
+        MediaProjectionInfo exemptedRecorderPackage = new MediaProjectionInfo(
+                mExemptedScreenRecorderPackage, Process.myUserHandle(), null);
+        mMediaPorjectionCallback.onStart(exemptedRecorderPackage);
+        verify(mWindowManager).setScreenRecordingOverrides(
+                new ArraySet<>(Set.of(new PackageInfo("test.blocked",
+                        UserHandle.getUid(userId, 10001)))),
+                new ArraySet<>(Set.of(new PackageInfo("test.allowed",
+                        UserHandle.getUid(userId, 10002)))));
+
+        mMediaPorjectionCallback.onStop(exemptedRecorderPackage);
+        verify(mWindowManager).setScreenRecordingOverrides(new ArraySet<>(), new ArraySet<>());
+    }
+
+    private static PackageStateInternal mockPackageState(String packageName, int appId,
+            int userId, Boolean allowScreenRecording) {
+        long flags = 0;
+        if (allowScreenRecording != null) {
+            flags |= 1L << GosPackageStateFlag.ALLOW_SCREEN_RECORDING_NON_DEFAULT;
+            if (allowScreenRecording) {
+                flags |= 1L << GosPackageStateFlag.ALLOW_SCREEN_RECORDING;
+            }
+        }
+        PackageUserStateInternal userState = mock(PackageUserStateInternal.class);
+        when(userState.isInstalled()).thenReturn(true);
+        when(userState.getGosPackageState()).thenReturn(
+                new GosPackageState(flags, 0L, null, null));
+        SparseArray<PackageUserStateInternal> userStates = new SparseArray<>();
+        userStates.put(userId, userState);
+
+        PackageStateInternal ps = mock(PackageStateInternal.class);
+        when(ps.getPackageName()).thenReturn(packageName);
+        when(ps.getAppId()).thenReturn(appId);
+        doReturn(userStates).when(ps).getUserStates();
+        return ps;
     }
 
     @Test

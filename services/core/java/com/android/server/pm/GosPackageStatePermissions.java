@@ -24,10 +24,16 @@ import java.util.Objects;
 import static android.content.pm.GosPackageStateFlag.ALLOW_ACCESS_TO_OBB_DIRECTORY;
 import static android.content.pm.GosPackageStateFlag.ALLOW_CLIPBOARD_READ;
 import static android.content.pm.GosPackageStateFlag.ALLOW_CLIPBOARD_READ_NON_DEFAULT;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREENSHOTS;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREENSHOTS_NON_DEFAULT;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREEN_RECORDING;
+import static android.content.pm.GosPackageStateFlag.ALLOW_SCREEN_RECORDING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_NON_DEFAULT;
 import static android.content.pm.GosPackageStateFlag.BLOCK_NATIVE_DEBUGGING_SUPPRESS_NOTIF;
 import static android.content.pm.GosPackageStateFlag.BLOCK_PLAY_INTEGRITY_API;
+import static android.content.pm.GosPackageStateFlag.BLOCK_SCREENSHOT_DETECTION;
+import static android.content.pm.GosPackageStateFlag.BLOCK_SCREEN_RECORDING_DETECTION;
 import static android.content.pm.GosPackageStateFlag.CONTACT_SCOPES_ENABLED;
 import static android.content.pm.GosPackageStateFlag.ENABLE_EXPLOIT_PROTECTION_COMPAT_MODE;
 import static android.content.pm.GosPackageStateFlag.FORCE_MEMTAG;
@@ -151,6 +157,12 @@ class GosPackageStatePermissions {
                 ALLOW_CLIPBOARD_READ_NON_DEFAULT,
                 ALLOW_CLIPBOARD_READ,
                 SUPPRESS_CLIPBOARD_ACCESS_DENIAL_NOTIF,
+                BLOCK_SCREENSHOT_DETECTION,
+                BLOCK_SCREEN_RECORDING_DETECTION,
+                ALLOW_SCREENSHOTS_NON_DEFAULT,
+                ALLOW_SCREENSHOTS,
+                ALLOW_SCREEN_RECORDING_NON_DEFAULT,
+                ALLOW_SCREEN_RECORDING,
         };
         builder()
                 .readWriteFlags(settingsReadWriteFlags)

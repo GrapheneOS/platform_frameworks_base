@@ -5723,7 +5723,9 @@ final class ActivityRecord extends WindowToken {
      */
     boolean shouldUseAppThemeSnapshot() {
         return !mEnableRecentsScreenshot || forAllWindows(WindowState::isSecureLocked,
-                true /* topToBottom */);
+                true /* topToBottom */)
+                // also covers screenshots that are taken from task snapshots
+                || ScreenCaptureAppPolicy.areScreenshotsBlocked(this);
     }
 
     /**

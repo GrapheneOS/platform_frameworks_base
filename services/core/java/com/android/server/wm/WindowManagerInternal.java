@@ -1216,6 +1216,16 @@ public abstract class WindowManagerInternal {
     public abstract void clearBlockedApps();
 
     /**
+     * Sets per-app screen recording overrides for the active media projection session, see
+     * {@link android.ext.settings.app.AswAllowScreenRecording}. Empty sets clear the overrides.
+     *
+     * @param blocked apps whose windows are redacted from screen capture
+     * @param allowed apps whose FLAG_SECURE windows aren't redacted from screen capture
+     */
+    public abstract void setScreenRecordingOverrides(@NonNull ArraySet<PackageInfo> blocked,
+            @NonNull ArraySet<PackageInfo> allowed);
+
+    /**
      * Register a listener to receive a callback on window removal.
      *
      * @param listener the listener to be registered.

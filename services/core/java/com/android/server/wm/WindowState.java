@@ -1197,7 +1197,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     void setInitialSurfaceControlProperties(SurfaceControl.Builder b) {
         super.setInitialSurfaceControlProperties(b);
         getPendingTransaction().setTrustedOverlay(mSurfaceControl, isWindowTrustedOverlay());
-        getPendingTransaction().setSecure(mSurfaceControl, isSecureLocked());
+        getPendingTransaction().setSecure(mSurfaceControl, isSurfaceSecureLocked());
         // All apps should be considered as occluding when computing TrustedPresentation Thresholds.
         getPendingTransaction().setCanOccludePresentation(mSurfaceControl,
                 canOccludePresentation());
@@ -1969,13 +1969,45 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
             return true;
         }
 
+        return isSecureIgnoringFlagSecureLocked();
+    }
+
+    /**
+     * Whether the window is secure for reasons other than the app's own FLAG_SECURE request, which
+     * is the only reason that per-app screen capture overrides can override.
+     */
+    boolean isSecureIgnoringFlagSecureLocked() {
+        if (mWmService.getDisableSecureWindows()) {
+            return false;
+        }
+
         // block screen capture to protect sensitive notifications or content on the screen.
         if (mWmService.mSensitiveContentPackages.shouldBlockScreenCaptureForApp(
                 getOwningPackage(), getOwningUid(), getWindowToken())) {
             return true;
         }
 
+        if (mWmService.mSensitiveContentPackages.isScreenRecordingBlockedForApp(
+                getOwningPackage(), getOwningUid())) {
+            return true;
+        }
+
         return !DevicePolicyCache.getInstance().isScreenCaptureAllowed(mShowUserId);
+    }
+
+    /**
+     * Whether the surface should be marked as secure. Differs from {@link #isSecureLocked()} only
+     * during media projection for apps that are allowed to be recorded despite FLAG_SECURE, see
+     * {@link android.ext.settings.app.AswAllowScreenRecording}. isSecureLocked() stays true for
+     * them, which keeps their recents thumbnail and scroll capture blocked.
+     */
+    boolean isSurfaceSecureLocked() {
+        if (!isSecureLocked()) {
+            return false;
+        }
+        return isSecureIgnoringFlagSecureLocked()
+                || !mWmService.mSensitiveContentPackages.isScreenRecordingAllowedForApp(
+                        getOwningPackage(), getOwningUid());
     }
 
     /**

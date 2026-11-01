@@ -37,6 +37,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManagerInternal;
+import android.ext.settings.app.AswAllowScreenRecording;
 import android.media.projection.MediaProjectionInfo;
 import android.media.projection.MediaProjectionManager;
 import android.os.Binder;
@@ -55,6 +56,7 @@ import android.view.ISensitiveContentProtectionManager;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.FrameworkStatsLog;
+import com.android.server.pm.pkg.PackageUserStateInternal;
 import com.android.server.wm.SensitiveContentPackages.PackageInfo;
 import com.android.server.wm.WindowManagerInternal;
 
@@ -317,6 +319,9 @@ public final class SensitiveContentProtectionManagerService extends SystemServic
     }
 
     private void onProjectionStart(MediaProjectionInfo projectionInfo) {
+        // the user's per-app choices apply regardless of the exemptions below
+        updateScreenRecordingOverrides();
+
         boolean isPackageExempted = (mExemptedPackages != null && mExemptedPackages.contains(
                 projectionInfo.getPackageName()))
                 || canRecordSensitiveContent(projectionInfo.getPackageName())
@@ -377,7 +382,33 @@ public final class SensitiveContentProtectionManagerService extends SystemServic
             // notify windowmanager to clear any sensitive notifications observed during projection
             // session
             mWindowManager.clearBlockedApps();
+            mWindowManager.setScreenRecordingOverrides(new ArraySet<>(), new ArraySet<>());
         }
+    }
+
+    // shortcut: overrides are computed once per projection session, changes made during the
+    // session apply to the next one
+    private void updateScreenRecordingOverrides() {
+        final ArraySet<PackageInfo> blocked = new ArraySet<>();
+        final ArraySet<PackageInfo> allowed = new ArraySet<>();
+        mPackageManagerInternal.forEachPackageState(ps -> {
+            final var userStates = ps.getUserStates();
+            for (int i = 0, n = userStates.size(); i < n; ++i) {
+                final PackageUserStateInternal userState = userStates.valueAt(i);
+                if (!userState.isInstalled()) {
+                    continue;
+                }
+                final Boolean allow = AswAllowScreenRecording.I.getNonDefaultValueOrNull(
+                        userState.getGosPackageState());
+                if (allow == null) {
+                    continue;
+                }
+                final var info = new PackageInfo(ps.getPackageName(),
+                        UserHandle.getUid(userStates.keyAt(i), ps.getAppId()));
+                (allow ? allowed : blocked).add(info);
+            }
+        });
+        mWindowManager.setScreenRecordingOverrides(blocked, allowed);
     }
 
     @GuardedBy("mSensitiveContentProtectionLock")
