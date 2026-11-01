@@ -126,6 +126,16 @@ abstract class SecureSpawnHostTestBase extends BaseHostJUnit4Test {
         runCheckCase("nativeServiceUsingAppZygoteHasNoSupplementaryGroups");
     }
 
+    @Test
+    public void serviceUsingManagedAppZygoteHasExpectedSupplementaryGroups() throws Exception {
+        runCheckCase("serviceUsingManagedAppZygoteHasExpectedSupplementaryGroups");
+    }
+
+    @Test
+    public void webViewRendererHasExpectedSupplementaryGroups() throws Exception {
+        runCheckCase("webViewRendererHasExpectedSupplementaryGroups");
+    }
+
     protected void runDeviceTest(String methodName) throws Exception {
         runDeviceTest(PACKAGE_NAME, methodName);
     }

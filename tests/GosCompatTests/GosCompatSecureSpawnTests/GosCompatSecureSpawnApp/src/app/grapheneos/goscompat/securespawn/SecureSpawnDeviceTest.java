@@ -44,7 +44,10 @@ import java.util.concurrent.TimeUnit;
 public final class SecureSpawnDeviceTest {
     private static final String PACKAGE_NAME = "app.grapheneos.goscompat.securespawn";
     private static final String TAG = "GosCompatSecureSpawn";
-    private static final long NATIVE_SERVICE_TIMEOUT_SECONDS = 10;
+    // Mirrors hidden framework constants used by UserHandle.getSharedAppGid().
+    private static final int USER_HANDLE_PER_USER_RANGE = 100000;
+    private static final int PROCESS_FIRST_SHARED_APPLICATION_GID = 50000;
+    private static final long SERVICE_TIMEOUT_SECONDS = 10;
     private static final long WEBVIEW_TIMEOUT_SECONDS = 5;
 
     private interface WebViewRendererAction {
@@ -54,6 +57,10 @@ public final class SecureSpawnDeviceTest {
 
     private interface NativeSignalProbeAction {
         void run(INativeSignalProbe probe) throws Exception;
+    }
+
+    private interface BoundServiceAction {
+        void run(IBinder binder) throws Exception;
     }
 
     @Test
@@ -94,7 +101,7 @@ public final class SecureSpawnDeviceTest {
             probe.terminateWithSigterm();
 
             assertWithMessage("expected SIGTERM to terminate native signal probe service")
-                    .that(terminated.await(NATIVE_SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    .that(terminated.await(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS))
                     .isTrue();
         });
     }
@@ -116,6 +123,32 @@ public final class SecureSpawnDeviceTest {
                 assertWithMessage(
                         "expected native app zygote child to have no supplementary groups")
                         .that(probe.getSupplementaryGroups()).isEmpty());
+    }
+
+    @Test
+    public void serviceUsingManagedAppZygoteHasExpectedSupplementaryGroups() throws Exception {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        int appId = context.getApplicationInfo().uid % USER_HANDLE_PER_USER_RANGE;
+        int expectedGroup = PROCESS_FIRST_SHARED_APPLICATION_GID
+                + appId - Process.FIRST_APPLICATION_UID;
+        withBoundService(".ManagedAppZygoteProbeService", binder -> {
+            int pid = IManagedProcessProbe.Stub.asInterface(binder).getPid();
+            assertWithMessage("expected only the defining package shared-app GID")
+                    .that(processSupplementaryGroups(pid)).asList()
+                    .containsExactly(expectedGroup);
+        });
+    }
+
+    @Test
+    public void webViewRendererHasExpectedSupplementaryGroups() throws Exception {
+        withWebViewRenderer((activity, provider, rendererPid) -> {
+            int appId = provider.applicationInfo.uid % USER_HANDLE_PER_USER_RANGE;
+            int expectedGroup = PROCESS_FIRST_SHARED_APPLICATION_GID
+                    + appId - Process.FIRST_APPLICATION_UID;
+            assertWithMessage("expected only the WebView provider shared-app GID")
+                    .that(processSupplementaryGroups(rendererPid)).asList()
+                    .containsExactly(expectedGroup);
+        });
     }
 
     private static void withWebViewRenderer(WebViewRendererAction action) throws Exception {
@@ -181,6 +214,32 @@ public final class SecureSpawnDeviceTest {
         return result;
     }
 
+    private static int[] processSupplementaryGroups(int pid) throws IOException {
+        String value = processStatusField(pid, "Groups");
+        if (value.isEmpty()) {
+            return new int[0];
+        }
+
+        String[] fields = value.split("\\s+");
+        int[] groups = new int[fields.length];
+        for (int i = 0; i < fields.length; ++i) {
+            groups[i] = Integer.parseInt(fields[i]);
+        }
+        return groups;
+    }
+
+    private static String processStatusField(int pid, String field) throws IOException {
+        String status = shell("cat /proc/" + pid + "/status");
+        String prefix = field + ":";
+        for (String line : status.split("\\R")) {
+            if (line.startsWith(prefix)) {
+                return line.substring(prefix.length()).trim();
+            }
+        }
+        throw new AssertionError("missing " + field + " in /proc/" + pid + "/status:\n"
+                + status);
+    }
+
     // UiAutomation runs commands as shell, which can read cross-UID proc paths on user builds.
     private static String shell(String command) throws IOException {
         ParcelFileDescriptor output = InstrumentationRegistry.getInstrumentation()
@@ -193,6 +252,12 @@ public final class SecureSpawnDeviceTest {
 
     private static void withNativeSignalProbe(
             String serviceClassName, NativeSignalProbeAction action) throws Exception {
+        withBoundService(serviceClassName,
+                binder -> action.run(INativeSignalProbe.Stub.asInterface(binder)));
+    }
+
+    private static void withBoundService(
+            String serviceClassName, BoundServiceAction action) throws Exception {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         CompletableFuture<IBinder> connected = new CompletableFuture<>();
         ServiceConnection connection = new ServiceConnection() {
@@ -210,11 +275,11 @@ public final class SecureSpawnDeviceTest {
                 connection,
                 Context.BIND_AUTO_CREATE);
         try {
-            assertWithMessage("expected native signal probe service bind to succeed")
+            assertWithMessage("expected " + serviceClassName + " bind to succeed")
                     .that(bound).isTrue();
 
-            IBinder binder = connected.get(NATIVE_SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            action.run(INativeSignalProbe.Stub.asInterface(binder));
+            IBinder binder = connected.get(SERVICE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            action.run(binder);
         } finally {
             if (bound) {
                 context.unbindService(connection);
