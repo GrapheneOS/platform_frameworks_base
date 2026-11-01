@@ -30,6 +30,12 @@
             android:useAppZygote="true" />
 
         <service
+            android:name=".ManagedIsolatedProbeService"
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:process=":managed_isolated_probe" />
+
+        <service
             android:name=".NativeSignalProbeService"
             android:exported="false"
             android:isolatedProcess="true"

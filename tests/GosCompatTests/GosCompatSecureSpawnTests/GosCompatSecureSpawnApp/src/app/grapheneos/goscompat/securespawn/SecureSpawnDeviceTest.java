@@ -47,6 +47,13 @@ public final class SecureSpawnDeviceTest {
     // Mirrors hidden framework constants used by UserHandle.getSharedAppGid().
     private static final int USER_HANDLE_PER_USER_RANGE = 100000;
     private static final int PROCESS_FIRST_SHARED_APPLICATION_GID = 50000;
+    // Mirrors hidden framework constants used by UserHandle.getCacheAppGid() and
+    // UserHandle.getUserGid().
+    private static final int PROCESS_FIRST_APPLICATION_CACHE_GID = 20000;
+    private static final int PROCESS_SHARED_USER_GID = 9997;
+    // Mirrors the primary zygote groups in system/core/rootdir/init.zygote64.rc.
+    private static final int AID_RESERVED_DISK = 1065;
+    private static final int AID_READPROC = 3009;
     private static final long SERVICE_TIMEOUT_SECONDS = 10;
     private static final long WEBVIEW_TIMEOUT_SECONDS = 5;
 
@@ -148,6 +155,36 @@ public final class SecureSpawnDeviceTest {
             assertWithMessage("expected only the WebView provider shared-app GID")
                     .that(processSupplementaryGroups(rendererPid)).asList()
                     .containsExactly(expectedGroup);
+        });
+    }
+
+    @Test
+    public void appProcessHasExpectedSupplementaryGroups() throws Exception {
+        // Mirrors ProcessList.computeGidsForProcess() for a package without permission GIDs or
+        // external storage access.
+        int uid = Process.myUid();
+        int userId = uid / USER_HANDLE_PER_USER_RANGE;
+        int appId = uid % USER_HANDLE_PER_USER_RANGE;
+        int sharedAppGid = PROCESS_FIRST_SHARED_APPLICATION_GID
+                + appId - Process.FIRST_APPLICATION_UID;
+        int cacheAppGid = userId * USER_HANDLE_PER_USER_RANGE
+                + PROCESS_FIRST_APPLICATION_CACHE_GID + appId - Process.FIRST_APPLICATION_UID;
+        int userGid = userId * USER_HANDLE_PER_USER_RANGE + PROCESS_SHARED_USER_GID;
+        assertWithMessage("expected only the shared app, cache app and user GIDs")
+                .that(processSupplementaryGroups(Process.myPid())).asList()
+                .containsExactly(sharedAppGid, cacheAppGid, userGid);
+    }
+
+    @Test
+    public void isolatedServiceWithoutAppZygoteHasPrimaryZygoteSupplementaryGroups()
+            throws Exception {
+        // ProcessList passes no group list for isolated processes, so an isolated service
+        // without an app zygote keeps the primary zygote groups.
+        withBoundService(".ManagedIsolatedProbeService", binder -> {
+            int pid = IManagedProcessProbe.Stub.asInterface(binder).getPid();
+            assertWithMessage("expected only the primary zygote readproc and reserved_disk GIDs")
+                    .that(processSupplementaryGroups(pid)).asList()
+                    .containsExactly(AID_RESERVED_DISK, AID_READPROC);
         });
     }
 
