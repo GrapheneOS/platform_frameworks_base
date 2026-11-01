@@ -4092,8 +4092,22 @@ public class PackageManagerService implements PackageSender, TestUtilityService 
         }
     }
 
+    /**
+     * Returns the system packages that are required during boot. The Bluetooth app is one of them:
+     * system_server fails to start if it can't resolve the Bluetooth service.
+     */
+    private ArraySet<String> getBootRequiredPackages() {
+        final ArraySet<String> packages =
+                new ArraySet<>(mInjector.getSystemConfig().getPreventUserDisablePackages());
+        final String bluetoothPackage = mContext.getString(R.string.config_systemBluetoothStack);
+        if (!TextUtils.isEmpty(bluetoothPackage)) {
+            packages.add(bluetoothPackage);
+        }
+        return packages;
+    }
+
     private void buildRequiredSystemPackages() {
-        mRequiredSystemPackages.addAll(mInjector.getSystemConfig().getPreventUserDisablePackages());
+        mRequiredSystemPackages.addAll(getBootRequiredPackages());
         mRequiredSystemPackages.add(mRequiredInstallerPackage);
         mRequiredSystemPackages.add(mRequiredUninstallerPackage);
         mRequiredSystemPackages.add(mRequiredPermissionControllerPackage);
