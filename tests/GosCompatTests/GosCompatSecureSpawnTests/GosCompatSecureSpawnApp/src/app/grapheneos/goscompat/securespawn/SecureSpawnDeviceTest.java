@@ -187,6 +187,13 @@ public final class SecureSpawnDeviceTest {
             status.expectBits("SigIgn", "SIGTERM bit", signalBit(OsConstants.SIGTERM), 0);
             status.expectBits("SigCgt", "SIGTERM bit", signalBit(OsConstants.SIGTERM), 0);
         }
+        String expectedNoNewPrivs = switch (kind) {
+            case APP_ZYGOTE, NATIVE_APP_ZYGOTE, WEBVIEW -> "1";
+            default -> "0";
+        };
+        // Chromium also sets this bit in its renderer sandbox, so the WebView assertion checks
+        // the final policy rather than identifying which layer set it.
+        status.expect("NoNewPrivs", expectedNoNewPrivs);
         int appId = definingUid % PER_USER_RANGE;
         int sharedAppGid = FIRST_SHARED_APP_GID + appId - Process.FIRST_APPLICATION_UID;
         switch (kind) {
