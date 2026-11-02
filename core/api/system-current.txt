@@ -6002,6 +6002,14 @@ package android.ext.settings {
 
 }
 
+package android.ext.settings.app {
+
+  public final class VpnDisguiseGetter {
+    method public static boolean getVpnDisguiseSettingForPackage(@NonNull android.content.Context, int, @NonNull String);
+  }
+
+}
+
 package android.graphics.fonts {
 
   @FlaggedApi("com.android.text.flags.insert_font_family") public final class FallbackFontUpdateRequest {
