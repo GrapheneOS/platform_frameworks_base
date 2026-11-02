@@ -43,6 +43,9 @@ public class ZygoteExtraArgs implements Parcelable {
         int USE_ZYGOTE_SPAWNING = 1 << 3;
         int PREFER_COMPAT_ZYGOTE = 1 << 4;
         int MANUALLY_RUN_ZYGOTE_PRELOAD = 1 << 5;
+        // set for exec-spawned replacements of app zygote and WebView zygote children, which don't
+        // inherit NO_NEW_PRIVS from a child zygote
+        int SET_NO_NEW_PRIVS = 1 << 6;
 
         @IntDef(flag = true, value = {
                 DISABLE_HARDENED_MALLOC,
@@ -50,6 +53,7 @@ public class ZygoteExtraArgs implements Parcelable {
                 FORCIBLY_ENABLE_MEMORY_TAGGING,
                 PREFER_COMPAT_ZYGOTE,
                 MANUALLY_RUN_ZYGOTE_PRELOAD,
+                SET_NO_NEW_PRIVS,
         })
         @Retention(RetentionPolicy.SOURCE)
         @interface Enum {}

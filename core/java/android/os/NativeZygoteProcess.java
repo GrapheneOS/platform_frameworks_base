@@ -87,7 +87,7 @@ public class NativeZygoteProcess implements IZygoteProcess {
     }
 
     private static native int nativeStartNativeProcess(byte[][] outCapturedCommand, long selinuxFlags,
-            byte[] preloadCommand,
+            boolean noNewPrivs, byte[] preloadCommand,
             FileDescriptor fd, int uid, int gid, long startSeq, String packageName, String niceName,
             int targetSdkVersion, boolean startChildZygote, int runtimeFlags, String seInfo,
             boolean isTopApp)
@@ -164,7 +164,8 @@ public class NativeZygoteProcess implements IZygoteProcess {
                 outCapturedCommand = null;
                 preloadCommand = null;
             }
-            int res = nativeStartNativeProcess(outCapturedCommand, zygoteExtArgs.getSelinuxFlags(), preloadCommand, fd, uid, gid, startSeq,
+            int res = nativeStartNativeProcess(outCapturedCommand, zygoteExtArgs.getSelinuxFlags(),
+                    zygoteExtArgs.hasFlag(ZygoteExtraArgs.Flag.SET_NO_NEW_PRIVS), preloadCommand, fd, uid, gid, startSeq,
                     packageName, niceName, targetSdkVersion, /*startChildZygote=*/false,
                     runtimeFlags, seInfo, isTopApp);
             if (!useExecSpawning) {
