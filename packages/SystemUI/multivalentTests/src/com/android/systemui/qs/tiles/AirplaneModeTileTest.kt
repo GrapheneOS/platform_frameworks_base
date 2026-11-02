@@ -17,7 +17,9 @@
 package com.android.systemui.qs.tiles
 
 import android.net.ConnectivityManager
+import android.os.CancellationSignal
 import android.os.Handler
+import android.provider.Settings.Global
 import android.testing.TestableLooper
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
@@ -28,6 +30,7 @@ import com.android.systemui.classifier.FalsingManagerFake
 import com.android.systemui.plugins.ActivityStarter
 import com.android.systemui.plugins.qs.QSTile
 import com.android.systemui.plugins.statusbar.StatusBarStateController
+import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.AirplaneModeAuthenticationInteractor
 import com.android.systemui.qs.QSHost
 import com.android.systemui.qs.QsEventLogger
 import com.android.systemui.qs.logging.QSLogger
@@ -63,6 +66,7 @@ class AirplaneModeTileTest : SysuiTestCase() {
     @Mock private lateinit var mLazyConnectivityManager: Lazy<ConnectivityManager>
     @Mock private lateinit var mConnectivityManager: ConnectivityManager
     @Mock private lateinit var mGlobalSettings: GlobalSettings
+    @Mock private lateinit var mAuthenticationInteractor: AirplaneModeAuthenticationInteractor
     @Mock private lateinit var mUserTracker: UserTracker
     @Mock private lateinit var mUiEventLogger: QsEventLogger
     private lateinit var mTestableLooper: TestableLooper
@@ -92,6 +96,7 @@ class AirplaneModeTileTest : SysuiTestCase() {
                 mLazyConnectivityManager,
                 mGlobalSettings,
                 mUserTracker,
+                mAuthenticationInteractor,
             )
     }
 
@@ -127,6 +132,67 @@ class AirplaneModeTileTest : SysuiTestCase() {
         mTile.handleClick(null)
 
         verify(mConnectivityManager, times(0)).setAirplaneMode(any())
+    }
+
+    @Test
+    fun handleClick_toDisable_runsAfterAuthentication() {
+        mTile.state.value = true
+        Mockito.`when`(mGlobalSettings.getInt(Global.AIRPLANE_MODE_ON, 0)).thenReturn(1)
+        Mockito.doAnswer { invocation ->
+                invocation.getArgument<Runnable>(0).run()
+                null
+            }
+            .`when`(mAuthenticationInteractor)
+            .runAfterAuthentication(any())
+
+        mTile.handleClick(null)
+        mTestableLooper.processAllMessages()
+
+        verify(mAuthenticationInteractor).runAfterAuthentication(any())
+        verify(mConnectivityManager).setAirplaneMode(false)
+    }
+
+    @Test
+    fun handleClick_authenticatedAfterAirplaneModeAlreadyDisabled_doesNotWriteAgain() {
+        mTile.state.value = true
+        Mockito.`when`(mGlobalSettings.getInt(Global.AIRPLANE_MODE_ON, 0)).thenReturn(0)
+        Mockito.doAnswer { invocation ->
+                invocation.getArgument<Runnable>(0).run()
+                null
+            }
+            .`when`(mAuthenticationInteractor)
+            .runAfterAuthentication(any())
+
+        mTile.handleClick(null)
+        mTestableLooper.processAllMessages()
+
+        verify(mConnectivityManager, times(0)).setAirplaneMode(false)
+    }
+
+    @Test
+    fun handleClick_toEnable_doesNotAuthenticate() {
+        mTile.state.value = false
+
+        mTile.handleClick(null)
+        mTestableLooper.processAllMessages()
+
+        verify(mAuthenticationInteractor, times(0)).runAfterAuthentication(any())
+        verify(mConnectivityManager).setAirplaneMode(true)
+    }
+
+    @Test
+    fun destroy_withAuthenticationPending_cancelsPrompt() {
+        val signal = Mockito.mock(CancellationSignal::class.java)
+        mTile.state.value = true
+        Mockito.`when`(mGlobalSettings.getInt(Global.AIRPLANE_MODE_ON, 0)).thenReturn(1)
+        Mockito.`when`(mAuthenticationInteractor.runAfterAuthentication(any())).thenReturn(signal)
+
+        mTile.handleClick(null)
+        mTestableLooper.processAllMessages()
+        mTile.destroy()
+        mTestableLooper.processAllMessages()
+
+        verify(mAuthenticationInteractor).cancelAuthentication(signal)
     }
 
     private fun createExpectedIcon(resId: Int): QSTile.Icon {
