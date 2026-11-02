@@ -59,7 +59,7 @@ static std::optional<ScopedUtfChars> extract_jstring(JNIEnv* env, jstring manage
     return ScopedUtfChars(env, managed_string);
 }
 
-static void CreateSpawnParcel(flatbuffers::FlatBufferBuilder& builder, JNIEnv* env, jlong selinux_flags, jint uid,
+static void CreateSpawnParcel(flatbuffers::FlatBufferBuilder& builder, JNIEnv* env, jlong selinux_flags, bool no_new_privs, jint uid,
                               jint gid, const char* niceNameStr, bool is_child_zygote,
                               const char* seInfoStr, const char* socketPathStr,
                               SpawnPayload payload_type, flatbuffers::Offset<void> payload) {
@@ -77,7 +77,7 @@ static void CreateSpawnParcel(flatbuffers::FlatBufferBuilder& builder, JNIEnv* e
     std::vector<uint32_t> secondary_groups;
     std::vector<RLimitData> rlimits;
     auto spawnCommon =
-            CreateSpawnCommonDirect(builder, selinux_flags, uid, gid, niceNameStr, priority_initial,
+            CreateSpawnCommonDirect(builder, selinux_flags, no_new_privs, uid, gid, niceNameStr, priority_initial,
                                     priority_final, cap_effective, cap_permitted, cap_inheritable,
                                     cap_bound, seInfoStr, &secondary_groups, &rlimits);
     flatbuffers::Offset<void> spawnUnion;
@@ -153,7 +153,7 @@ static jint captureCommand(JNIEnv* env, uint8_t* buf, ssize_t size, jobjectArray
 
 static jint android_os_NativeZygoteProcess_startNativeProcess(
         JNIEnv* env, jclass /* classObj */,
-        jobjectArray outCapturedCommand, jlong selinuxFlags, jbyteArray preloadCommand,
+        jobjectArray outCapturedCommand, jlong selinuxFlags, jboolean noNewPrivs, jbyteArray preloadCommand,
         jobject sockFd, jint uid, jint gid, jlong startSeq,
         jstring packageName, jstring niceName, jint targetSdkVersion, jboolean startChildZygote,
         jint runtimeFlags, jstring seInfo, jboolean isTopApp) {
@@ -175,7 +175,7 @@ static jint android_os_NativeZygoteProcess_startNativeProcess(
             CreateSpawnAndroidNativeDirect(builder, &preloadCommandVec, packageNamePtr, startSeq, targetSdkVersion,
                                            static_cast<unsigned>(runtimeFlags), is_top_app);
     bool is_child_zygote = startChildZygote == JNI_TRUE;
-    CreateSpawnParcel(builder, env, selinuxFlags, uid, gid, niceNamePtr, is_child_zygote, seInfoPtr,
+    CreateSpawnParcel(builder, env, selinuxFlags, noNewPrivs == JNI_TRUE, uid, gid, niceNamePtr, is_child_zygote, seInfoPtr,
                       /**subspecies_data=*/nullptr, SpawnPayload_SpawnAndroidNative,
                       spawnAndroidNativeCmd.Union());
     uint8_t* buf = builder.GetBufferPointer();
@@ -241,7 +241,7 @@ static jint android_os_NativeZygoteProcess_startNativeChildZygote(
         return captureCommand(env, builder.GetBufferPointer(), builder.GetSize(), outCapturedCommand);
     }
 
-    CreateSpawnParcel(builder, env, selinuxFlags, uid, gid, niceNameStr, /**is_child_zygote=*/true, seInfoStr,
+    CreateSpawnParcel(builder, env, selinuxFlags, /**no_new_privs=*/false, uid, gid, niceNameStr, /**is_child_zygote=*/true, seInfoStr,
                       serverPathStr, SpawnPayload_SpawnSubspeciesAndroidNative,
                       spawnAndroidChildZygoteCmd.Union());
 
@@ -293,7 +293,7 @@ static void android_os_NativeZygoteProcess_prewarmNativeZygote(JNIEnv* env, jcla
 static const JNINativeMethod method_table[] = {
         /* name, signature, funcPtr */
         {"nativeStartNativeProcess",
-         "([[BJ[BLjava/io/FileDescriptor;IIJLjava/lang/String;Ljava/lang/String;IZILjava/lang/String;Z)I",
+         "([[BJZ[BLjava/io/FileDescriptor;IIJLjava/lang/String;Ljava/lang/String;IZILjava/lang/String;Z)I",
          (void*)android_os_NativeZygoteProcess_startNativeProcess},
         {"nativeStartNativeChildZygote",
          "([[BJLjava/io/FileDescriptor;IILjava/lang/String;Ljava/lang/String;II"

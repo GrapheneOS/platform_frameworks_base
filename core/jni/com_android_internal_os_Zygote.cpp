@@ -366,6 +366,7 @@ enum RuntimeFlags : uint32_t {
 
 namespace ExtraArgsFlag {
     static const int FORCIBLY_ENABLE_MEMORY_TAGGING = 1 << 2;
+    static const int SET_NO_NEW_PRIVS = 1 << 6;
 }
 
 struct ExtraArgs {
@@ -2111,6 +2112,12 @@ static void SpecializeCommon(JNIEnv* env, ExtraArgs& extra_args, uid_t uid, gid_
     if (selinux_android_setcontext2(uid, is_system_server, se_info_ptr, nice_name_ptr, extra_args.selinux_flags) == -1) {
         fail_fn(CREATE_ERROR("selinux_android_setcontext(%d, %d, \"%s\", \"%s\", grapheneos_flags: \"%" PRIx64 "\") failed", uid,
                              is_system_server, se_info_ptr, nice_name_ptr, extra_args.selinux_flags));
+    }
+
+    // set after the SELinux context transition, which NO_NEW_PRIVS would otherwise restrict
+    if (extra_args.hasFlag(ExtraArgsFlag::SET_NO_NEW_PRIVS) &&
+            prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) == -1) {
+        fail_fn(CREATE_ERROR("prctl(PR_SET_NO_NEW_PRIVS) failed: %s", strerror(errno)));
     }
 
     if ((runtime_flags & RuntimeFlags::AUDIT_OUTGOING_TRANSACTIONS) != 0) {
