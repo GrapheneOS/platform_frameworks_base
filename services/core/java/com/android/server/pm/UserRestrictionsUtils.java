@@ -162,7 +162,8 @@ public class UserRestrictionsUtils {
             UserManager.DISALLOW_ASSIST_CONTENT,
             UserManager.DISALLOW_THREAD_NETWORK,
             UserManager.DISALLOW_CHANGE_NEAR_FIELD_COMMUNICATION_RADIO,
-            UserManager.DISALLOW_NON_TOOL_ACCESSIBILITY_SERVICE
+            UserManager.DISALLOW_NON_TOOL_ACCESSIBILITY_SERVICE,
+            UserManager.DISALLOW_NETWORK_ACCESS
     });
 
     public static final Set<String> DEPRECATED_USER_RESTRICTIONS = Sets.newArraySet(
