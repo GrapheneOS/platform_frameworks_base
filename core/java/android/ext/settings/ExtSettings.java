@@ -100,6 +100,11 @@ public class ExtSettings {
     public static final BoolSetting DISALLOW_DELAYED_LOCKING_ON_USER_STOP = new BoolSetting(
             Setting.Scope.PER_USER, Settings.Secure.DISALLOW_DELAYED_LOCKING_ON_USER_STOP, false);
 
+    // Whether recent tasks and their snapshots are discarded instead of being restored from
+    // credential encrypted storage when the user is unlocked after a reboot
+    public static final BoolSetting CLEAR_RECENTS_ON_REBOOT = new BoolSetting(
+            Setting.Scope.PER_USER, Settings.Secure.CLEAR_RECENTS_ON_REBOOT, false);
+
     public static final BoolSetting ALLOW_CLIPBOARD_READ_BY_DEFAULT = new BoolSetting(
             Setting.Scope.GLOBAL, Settings.Global.ALLOW_CLIPBOARD_READ_BY_DEFAULT,
             defaultBool(R.bool.setting_default_allow_clipboard_read));
