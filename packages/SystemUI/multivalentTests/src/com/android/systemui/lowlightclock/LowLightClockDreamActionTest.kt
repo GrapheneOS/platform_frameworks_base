@@ -17,6 +17,7 @@
 package com.android.systemui.lowlightclock
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.packageManager
 import android.content.pm.PackageManager
 import android.testing.TestableLooper.RunWithLooper
@@ -29,6 +30,7 @@ import com.android.systemui.kosmos.collectLastValue
 import com.android.systemui.kosmos.runTest
 import com.android.systemui.kosmos.testScope
 import com.android.systemui.kosmos.useUnconfinedTestDispatcher
+import com.android.systemui.settings.UserTracker
 import com.android.systemui.testKosmos
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -42,6 +44,7 @@ import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
+import org.mockito.kotlin.whenever
 
 @SmallTest
 @RunWith(AndroidJUnit4::class)
@@ -66,13 +69,40 @@ class LowLightClockDreamActionTest : SysuiTestCase() {
     private var Kosmos.dreamComponent: ComponentName? by
         Kosmos.Fixture { ComponentName("test", "test.LowLightDream") }
 
+    private val userContext: Context = mock()
+    private val userTracker: UserTracker = mock()
+
     private val Kosmos.underTest: LowLightClockDreamAction by
         Kosmos.Fixture {
+            whenever(userTracker.createCurrentUserContext(context)).thenReturn(userContext)
+            whenever(userContext.packageManager).thenReturn(packageManager)
             LowLightClockDreamAction(
-                packageManager = packageManager,
+                context = context,
+                userTracker = userTracker,
                 lowLightDreamService = dreamComponent,
                 lowLightDreamManager = { lowLightDreamManager },
             )
+        }
+
+    @Test
+    fun enable_usesCurrentUserPackageManager() =
+        kosmos.runTest {
+            val action = underTest
+            val currentUserPackageManager: PackageManager = mock()
+            whenever(userContext.packageManager).thenReturn(currentUserPackageManager)
+            whenever(currentUserPackageManager.getComponentEnabledSetting(dreamComponent!!))
+                .thenReturn(PackageManager.COMPONENT_ENABLED_STATE_DEFAULT)
+
+            action.setEnabled(true)
+
+            verify(userTracker).createCurrentUserContext(context)
+            verify(currentUserPackageManager)
+                .setComponentEnabledSetting(
+                    dreamComponent!!,
+                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                    PackageManager.DONT_KILL_APP,
+                )
+            verify(packageManager, never()).setComponentEnabledSetting(any(), any(), any())
         }
 
     @Test
@@ -100,6 +130,8 @@ class LowLightClockDreamActionTest : SysuiTestCase() {
                     eq(PackageManager.DONT_KILL_APP),
                 )
             clearInvocations(packageManager)
+            whenever(packageManager.getComponentEnabledSetting(dreamComponent!!))
+                .thenReturn(PackageManager.COMPONENT_ENABLED_STATE_ENABLED)
 
             job.cancel()
 

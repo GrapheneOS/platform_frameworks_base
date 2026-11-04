@@ -17,10 +17,12 @@
 package com.android.systemui.lowlightclock
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.pm.PackageManager
 import com.android.dream.lowlight.LowLightDreamManager
 import com.android.systemui.dreams.dagger.DreamModule
 import com.android.systemui.lifecycle.ExclusiveActivatable
+import com.android.systemui.settings.UserTracker
 import dagger.Lazy
 import javax.inject.Inject
 import javax.inject.Named
@@ -28,8 +30,9 @@ import javax.inject.Named
 class LowLightClockDreamAction
 @Inject
 constructor(
-    private val packageManager: PackageManager,
     private val lowLightDreamManager: Lazy<LowLightDreamManager>,
+    private val context: Context,
+    private val userTracker: UserTracker,
     @param:Named(DreamModule.LOW_LIGHT_DREAM_SERVICE)
     private val lowLightDreamService: ComponentName?,
 ) : ExclusiveActivatable() {
@@ -38,15 +41,18 @@ constructor(
             return
         }
 
-        if (!componentEnabled) {
+        if (enabled) {
             lowLightDreamService.let { service ->
-                packageManager.setComponentEnabledSetting(
-                    service,
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-                    PackageManager.DONT_KILL_APP,
-                )
+                val packageManager = userTracker.createCurrentUserContext(context).packageManager
+                if (packageManager.getComponentEnabledSetting(service) !=
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED) {
+                    packageManager.setComponentEnabledSetting(
+                        service,
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP,
+                    )
+                }
             }
-            componentEnabled = true
         }
 
         lowLightDreamManager
@@ -63,9 +69,5 @@ constructor(
 
     override suspend fun onDeactivated() {
         setEnabled(false)
-    }
-
-    companion object {
-        private var componentEnabled: Boolean = false
     }
 }
