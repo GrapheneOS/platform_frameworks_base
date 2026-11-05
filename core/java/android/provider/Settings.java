@@ -7503,6 +7503,10 @@ public final class Settings {
         public static final String SCREENSHOT_TIMESTAMP_EXIF = "screenshot_timestamp_exif";
 
         /** @hide */
+        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        public static final String LEGACY_VPN_WARNING = "legacy_vpn_warning";
+
+        /** @hide */
         @Protected(read = KnownSystemPackage.SYSTEM_UI, readWrite = KnownSystemPackage.SETTINGS)
         public static final String SCRAMBLE_PIN_LAYOUT_PRIMARY =
                 "lockscreen_scramble_pin_layout";
