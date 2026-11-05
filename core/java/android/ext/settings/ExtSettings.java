@@ -104,6 +104,10 @@ public class ExtSettings {
             Setting.Scope.GLOBAL, Settings.Global.ALLOW_CLIPBOARD_READ_BY_DEFAULT,
             defaultBool(R.bool.setting_default_allow_clipboard_read));
 
+    public static final BoolSetting VPN_DISGUISE_BY_DEFAULT = new BoolSetting(
+            Setting.Scope.PER_USER, Settings.Secure.VPN_DISGUISE_BY_DEFAULT,
+            false);
+
     private ExtSettings() {}
 
     public static Function<Context, Boolean> defaultBool(@BoolRes int res) {
