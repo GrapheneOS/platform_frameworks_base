@@ -148,6 +148,7 @@ import com.android.server.Watchdog;
 import com.android.server.am.BatteryStatsService;
 import com.android.server.display.DisplayGroup;
 import com.android.server.display.feature.DeviceConfigParameterProvider;
+import com.android.server.ext.ActionOnLock;
 import com.android.server.lights.LightsManager;
 import com.android.server.lights.LogicalLight;
 import com.android.server.policy.WindowManagerPolicy;
@@ -7851,6 +7852,11 @@ public final class PowerManagerService extends SystemService
                                 /* allowSleepToDozeTransition */ false);
                     }
                 }
+            }
+
+            if (reason == PowerManager.GO_TO_SLEEP_REASON_POWER_BUTTON
+                    && (flags & PowerManager.GO_TO_SLEEP_FLAG_SOFT_SLEEP) == 0) {
+                ActionOnLock.onPowerButtonSleep(mContext);
             }
         } finally {
             Binder.restoreCallingIdentity(ident);
