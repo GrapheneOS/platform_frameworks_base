@@ -33,6 +33,7 @@ import com.android.systemui.testKosmos
 import com.android.systemui.util.mockito.mock
 import com.android.systemui.util.mockito.whenever
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -214,6 +215,7 @@ class RenderNotificationsListInteractorTest : SysuiTestCase() {
             whenever(this.ranking).thenReturn(RankingBuilder().setRank(rank).build())
             whenever(this.sbn).thenReturn(mockSbn)
             whenever(this.promotedNotificationContentModels).thenReturn(promotedContent)
+            whenever(this.isSensitive).thenReturn(MutableStateFlow(false))
         }
     }
 }
