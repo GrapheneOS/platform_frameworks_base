@@ -5525,6 +5525,24 @@ public final class ProcessList extends ProcessListInternal
                     try {
                         final ApplicationInfo ai = applicationInfoByPackage.get(packageName);
                         if (ai != null) {
+                            final HostingRecord hostingRecord = app.getHostingRecord();
+                            final String definingPackageName = hostingRecord != null
+                                    ? hostingRecord.getDefiningPackageName() : null;
+                            if (app.isolated && definingPackageName != null
+                                    && packageName.equals(app.info.packageName)
+                                    && !packageName.equals(definingPackageName)) {
+                                // External services (android:externalService) run the defining
+                                // package's code (for a WebView renderer, the WebView provider)
+                                // under the binding app's package name and uid, so matching that
+                                // package name does not mean this process runs its code. Applying
+                                // the binding app's ApplicationInfo would load its APK into the
+                                // service's class loader and resources. Keep the current
+                                // ApplicationInfo here and in the service records below; overlay
+                                // changes apply after a restart. Still send the asset sequence
+                                // update that other processes of this package receive.
+                                targetProcesses.add(app.getWindowProcessController());
+                                return;
+                            }
                             if (ai.packageName.equals(app.info.packageName)) {
                                 app.info = ai;
                                 app.getWindowProcessController().updateApplicationInfo(ai);
