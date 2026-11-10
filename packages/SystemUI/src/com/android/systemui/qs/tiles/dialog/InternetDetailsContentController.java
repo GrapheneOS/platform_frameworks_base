@@ -43,6 +43,7 @@ import android.net.NetworkCapabilities;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.UserHandle;
 import android.os.UserManager;
@@ -96,6 +97,7 @@ import com.android.systemui.shade.ShadeDisplayAware;
 import com.android.systemui.shade.domain.interactor.ShadeDialogContextInteractor;
 import com.android.systemui.statusbar.connectivity.AccessPointController;
 import com.android.systemui.statusbar.core.NewStatusBarIcons;
+import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.AirplaneModeAuthenticationInteractor;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.LocationController;
 import com.android.systemui.toast.SystemUIToast;
@@ -192,6 +194,8 @@ public class InternetDetailsContentController implements AccessPointController.A
     private SubscriptionManager mSubscriptionManager;
     private TelephonyManager mTelephonyManager;
     private ConnectivityManager mConnectivityManager;
+    private final AirplaneModeAuthenticationInteractor mAirplaneModeAuthenticationInteractor;
+    @Nullable private CancellationSignal mAirplaneModeAuthenticationSignal;
     private CarrierConfigTracker mCarrierConfigTracker;
     private Handler mHandler;
     private Handler mWorkerHandler;
@@ -307,7 +311,8 @@ public class InternetDetailsContentController implements AccessPointController.A
             DialogTransitionAnimator dialogTransitionAnimator, WifiStateWorker wifiStateWorker,
             FeatureFlags featureFlags,
             ShadeDialogContextInteractor shadeDialogContextInteractor,
-            UserRepository userRepository
+            UserRepository userRepository,
+            AirplaneModeAuthenticationInteractor airplaneModeAuthenticationInteractor
         ) {
         if (DEBUG) {
             Log.d(TAG, "Init InternetDetailsContentController");
@@ -345,6 +350,7 @@ public class InternetDetailsContentController implements AccessPointController.A
         mFeatureFlags = featureFlags;
         mShadeDialogContextInteractor = shadeDialogContextInteractor;
         mUserRepository = userRepository;
+        mAirplaneModeAuthenticationInteractor = airplaneModeAuthenticationInteractor;
     }
 
     void onStart(@NonNull InternetDialogCallback callback,
@@ -415,6 +421,9 @@ public class InternetDetailsContentController implements AccessPointController.A
         mKeyguardUpdateMonitor.removeCallback(mKeyguardUpdateCallback);
         mConnectivityManager.unregisterNetworkCallback(mConnectivityManagerNetworkCallback);
         mConnectedWifiInternetMonitor.unregisterCallback();
+        mAirplaneModeAuthenticationInteractor.cancelAuthentication(
+                mAirplaneModeAuthenticationSignal);
+        mAirplaneModeAuthenticationSignal = null;
         mCallback = null;
 
         if (mSatelliteManager != null) {
@@ -447,7 +456,16 @@ public class InternetDetailsContentController implements AccessPointController.A
     }
 
     void setAirplaneModeDisabled() {
-        mConnectivityManager.setAirplaneMode(false);
+        CancellationSignal authenticationSignal =
+                mAirplaneModeAuthenticationInteractor.runAfterAuthentication(
+                        () -> {
+                            if (isAirplaneModeEnabled()) {
+                                mConnectivityManager.setAirplaneMode(false);
+                            }
+                        });
+        if (authenticationSignal != null) {
+            mAirplaneModeAuthenticationSignal = authenticationSignal;
+        }
     }
 
     protected int getDefaultDataSubscriptionId() {

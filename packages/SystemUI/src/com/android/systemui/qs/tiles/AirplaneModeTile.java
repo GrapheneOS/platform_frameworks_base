@@ -23,6 +23,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.net.ConnectivityManager;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.UserManager;
@@ -53,6 +54,7 @@ import com.android.systemui.qs.logging.QSLogger;
 import com.android.systemui.qs.tileimpl.QSTileImpl;
 import com.android.systemui.res.R;
 import com.android.systemui.settings.UserTracker;
+import com.android.systemui.statusbar.pipeline.airplane.domain.interactor.AirplaneModeAuthenticationInteractor;
 import com.android.systemui.util.settings.GlobalSettings;
 import com.android.systemui.util.settings.SettingObserver;
 
@@ -70,6 +72,8 @@ public class AirplaneModeTile extends QSTileImpl<BooleanState> {
     private final SettingObserver mSetting;
     private final BroadcastDispatcher mBroadcastDispatcher;
     private final Lazy<ConnectivityManager> mLazyConnectivityManager;
+    private final AirplaneModeAuthenticationInteractor mAuthenticationInteractor;
+    @Nullable private volatile CancellationSignal mAuthenticationSignal;
 
     private boolean mListening;
     @Nullable
@@ -90,12 +94,14 @@ public class AirplaneModeTile extends QSTileImpl<BooleanState> {
             BroadcastDispatcher broadcastDispatcher,
             Lazy<ConnectivityManager> lazyConnectivityManager,
             GlobalSettings globalSettings,
-            UserTracker userTracker
+            UserTracker userTracker,
+            AirplaneModeAuthenticationInteractor authenticationInteractor
     ) {
         super(host, uiEventLogger, backgroundLooper, mainHandler, falsingManager, metricsLogger,
                 statusBarStateController, activityStarter, qsLogger);
         mBroadcastDispatcher = broadcastDispatcher;
         mLazyConnectivityManager = lazyConnectivityManager;
+        mAuthenticationInteractor = authenticationInteractor;
 
         mSetting = new SettingObserver(globalSettings, mHandler, Global.AIRPLANE_MODE_ON) {
             @Override
@@ -127,7 +133,21 @@ public class AirplaneModeTile extends QSTileImpl<BooleanState> {
         mClickJob = SatelliteDialogUtils.mayStartSatelliteWarningDialog(
                 mContext, this, TYPE_IS_AIRPLANE_MODE, isAllowClick -> {
                     if (isAllowClick) {
-                        setEnabled(!airplaneModeEnabled);
+                        if (airplaneModeEnabled) {
+                            CancellationSignal authenticationSignal =
+                                    mAuthenticationInteractor.runAfterAuthentication(
+                                            () -> {
+                                                mAuthenticationSignal = null;
+                                                if (mSetting.getValue() != 0) {
+                                                    setEnabled(false);
+                                                }
+                                            });
+                            if (authenticationSignal != null) {
+                                mAuthenticationSignal = authenticationSignal;
+                            }
+                        } else {
+                            setEnabled(true);
+                        }
                     }
                     return null;
                 });
@@ -135,6 +155,13 @@ public class AirplaneModeTile extends QSTileImpl<BooleanState> {
 
     private void setEnabled(boolean enabled) {
         mLazyConnectivityManager.get().setAirplaneMode(enabled);
+    }
+
+    @Override
+    protected void handleDestroy() {
+        super.handleDestroy();
+        mAuthenticationInteractor.cancelAuthentication(mAuthenticationSignal);
+        mAuthenticationSignal = null;
     }
 
     @Override
