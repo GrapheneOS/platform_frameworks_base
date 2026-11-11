@@ -19,7 +19,9 @@ package com.android.server.twilight;
 import android.app.AlarmManager;
 import android.content.Context;
 import android.location.Location;
+import android.location.LocationRequest;
 import android.test.AndroidTestCase;
+import android.text.format.DateUtils;
 
 public class TwilightServiceTest extends AndroidTestCase {
 
@@ -57,6 +59,21 @@ public class TwilightServiceTest extends AndroidTestCase {
         mTwilightService.onLocationChanged(invalidLocation);
         assertEquals(mTwilightService.mLastLocation, mInitialLocation);
         assertEquals(priorState, mTwilightService.mLastTwilightState);
+    }
+
+    public void testLocationRequest_networkProviderEnabled_doesNotAllowGnss() {
+        // The fused provider only uses GNSS for quality better than low power when a network
+        // provider is present.
+        final LocationRequest request = TwilightService.createLocationRequest(true);
+        assertTrue(request.getQuality() >= LocationRequest.QUALITY_LOW_POWER);
+        assertEquals(DateUtils.HOUR_IN_MILLIS, request.getIntervalMillis());
+    }
+
+    public void testLocationRequest_networkProviderDisabled_allowsGnss() {
+        // With the network provider disabled, GNSS is the only source of location updates.
+        final LocationRequest request = TwilightService.createLocationRequest(false);
+        assertTrue(request.getQuality() < LocationRequest.QUALITY_LOW_POWER);
+        assertEquals(DateUtils.HOUR_IN_MILLIS, request.getIntervalMillis());
     }
 
     private Location createMockLocation(double latitude, double longitude) {
