@@ -42,7 +42,7 @@
         <public name="setting_default_allow_clipboard_read"/>
     </staging-public-group>
 
-    <staging-public-group type="drawable" first-id="0x0194f000">
+    <staging-public-group type="drawable" first-id="0x018df000">
         <!-- @hide -->
         <public name="ic_update"/>
         <!-- @hide -->
@@ -51,7 +51,7 @@
         <public name="ic_error"/>
     </staging-public-group>
 
-    <staging-public-group type="integer" first-id="0x018ef000">
+    <staging-public-group type="integer" first-id="0x0187f000">
         <!-- @hide -->
         <public name="setting_default_display_color_mode"/>
     </staging-public-group>

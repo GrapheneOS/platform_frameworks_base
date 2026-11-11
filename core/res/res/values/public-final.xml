@@ -4294,4 +4294,153 @@
   <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_10_2024)-->
   <public type="color" name="system_surface_tint_dark" id="0x010600dd" />
 
+  <!-- Resources finalized in Android 17 QPR2. -->
+  <staging-public-group-final type="attr" first-id="0x019b0007">
+    <!-- @FlaggedApi(com.android.window.flags.Flags.FLAG_SUPPORT_CUSTOM_DIM_COLOR) -->
+    <public name="backgroundDimColor"/>
+  </staging-public-group-final>
+
+  <!-- @FlaggedApi(com.android.window.flags.Flags.FLAG_SUPPORT_CUSTOM_DIM_COLOR) -->
+  <public type="attr" name="backgroundDimColor" id="0x010106bc" />
+
+  <staging-public-group-final type="color" first-id="0x01960000">
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_error_dim_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_palette_key_color_error_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_primary_dim_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_secondary_dim_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_tertiary_dim_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_error_dim_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_palette_key_color_error_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_primary_dim_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_secondary_dim_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_tertiary_dim_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_primary_fixed_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_primary_fixed_variant_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_secondary_fixed_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_secondary_fixed_variant_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_tertiary_fixed_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_tertiary_fixed_variant_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_primary_fixed_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_primary_fixed_dim_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_secondary_fixed_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_secondary_fixed_dim_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_tertiary_fixed_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_tertiary_fixed_dim_light"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_primary_fixed_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_primary_fixed_variant_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_secondary_fixed_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_secondary_fixed_variant_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_tertiary_fixed_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_on_tertiary_fixed_variant_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_primary_fixed_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_primary_fixed_dim_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_secondary_fixed_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_secondary_fixed_dim_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_tertiary_fixed_dark"/>
+    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+    <public name="system_tertiary_fixed_dim_dark"/>
+  </staging-public-group-final>
+
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_error_dim_light" id="0x010600de" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_palette_key_color_error_light" id="0x010600df" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_primary_dim_light" id="0x010600e0" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_secondary_dim_light" id="0x010600e1" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_tertiary_dim_light" id="0x010600e2" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_error_dim_dark" id="0x010600e3" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_palette_key_color_error_dark" id="0x010600e4" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_primary_dim_dark" id="0x010600e5" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_secondary_dim_dark" id="0x010600e6" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_tertiary_dim_dark" id="0x010600e7" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_primary_fixed_light" id="0x010600e8" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_primary_fixed_variant_light" id="0x010600e9" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_secondary_fixed_light" id="0x010600ea" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_secondary_fixed_variant_light" id="0x010600eb" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_tertiary_fixed_light" id="0x010600ec" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_tertiary_fixed_variant_light" id="0x010600ed" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_primary_fixed_light" id="0x010600ee" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_primary_fixed_dim_light" id="0x010600ef" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_secondary_fixed_light" id="0x010600f0" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_secondary_fixed_dim_light" id="0x010600f1" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_tertiary_fixed_light" id="0x010600f2" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_tertiary_fixed_dim_light" id="0x010600f3" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_primary_fixed_dark" id="0x010600f4" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_primary_fixed_variant_dark" id="0x010600f5" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_secondary_fixed_dark" id="0x010600f6" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_secondary_fixed_variant_dark" id="0x010600f7" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_tertiary_fixed_dark" id="0x010600f8" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_on_tertiary_fixed_variant_dark" id="0x010600f9" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_primary_fixed_dark" id="0x010600fa" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_primary_fixed_dim_dark" id="0x010600fb" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_secondary_fixed_dark" id="0x010600fc" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_secondary_fixed_dim_dark" id="0x010600fd" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_tertiary_fixed_dark" id="0x010600fe" />
+  <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
+  <public type="color" name="system_tertiary_fixed_dim_dark" id="0x010600ff" />
+
 </resources>
