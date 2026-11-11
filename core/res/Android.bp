@@ -93,6 +93,8 @@ genrule {
     srcs: [
         ":remote-color-resources-arsc",
         "remote_color_resources_res/symbols.xml",
+        // Track ID changes through the resource ZIP without packaging this file.
+        "framework-res-stable-ids.txt",
     ],
     out: ["remote_views_color_resources.zip"],
     cmd: "INPUTS=($(in)) && " +
