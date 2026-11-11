@@ -7266,7 +7266,8 @@ class DisplayContent extends RootDisplayArea implements WindowManagerPolicy.Disp
                         return false; /* continue */
                     }
                 }
-                if (nextWindow.isSecureLocked()) {
+                if (nextWindow.isSecureLocked()
+                        || ScreenCaptureAppPolicy.areScreenshotsBlocked(nextWindow)) {
                     return false; /* continue */
                 }
                 return true; /* stop, match found */
