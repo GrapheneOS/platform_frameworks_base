@@ -92,6 +92,27 @@ public class PackageManagerServiceTest {
     }
 
     @Test
+    public void testBluetoothAppCannotBeDisabledByShell() throws Exception {
+        final String bluetoothPackage = InstrumentationRegistry.getInstrumentation().getContext()
+                .getString(android.R.string.config_systemBluetoothStack);
+        Assume.assumeTrue(mIPackageManager.isPackageAvailable(bluetoothPackage,
+                UserHandle.USER_SYSTEM));
+        final int oldState = mIPackageManager.getApplicationEnabledSetting(bluetoothPackage,
+                UserHandle.USER_SYSTEM);
+
+        final String output = runShellCommand(
+                "pm disable-user --user " + UserHandle.USER_SYSTEM + " " + bluetoothPackage);
+        final int newState = mIPackageManager.getApplicationEnabledSetting(bluetoothPackage,
+                UserHandle.USER_SYSTEM);
+        if (newState != oldState) {
+            // system_server can't start with the Bluetooth app disabled, so never leave it so.
+            runShellCommand("pm default-state --user " + UserHandle.USER_SYSTEM + " "
+                    + bluetoothPackage);
+        }
+        assertWithMessage(output).that(newState).isEqualTo(oldState);
+    }
+
+    @Test
     public void testPackageRemoval() {
         class PackageSenderImpl implements PackageSender {
             @Override
