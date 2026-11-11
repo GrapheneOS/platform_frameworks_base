@@ -800,7 +800,7 @@ public class ZygoteProcess implements IZygoteProcess {
                 long start = SystemClock.elapsedRealtime();
                 try {
                     if (!preloadDefault(zygoteState)) {
-                        throw new ZygoteStartFailedEx("compat zygote preloading failed");
+                        Log.w(LOG_TAG, "preloadDefault returned false");
                     }
                 } catch (IOException e) {
                     throw new ZygoteStartFailedEx("compat zygote preloading failed", e);
