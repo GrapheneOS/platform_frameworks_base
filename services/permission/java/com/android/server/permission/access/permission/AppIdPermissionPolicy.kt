@@ -1406,6 +1406,9 @@ class AppIdPermissionPolicy : SchemePolicy() {
                 newFlags = newFlags or PermissionFlags.RUNTIME_GRANTED
             }
 
+            // Keep UserManager.DISALLOW_NETWORK_ACCESS state
+            newFlags = newFlags or (oldFlags and PermissionFlags.NETWORK_ACCESS_DISALLOWED)
+
             setPermissionFlags(appId, userId, permissionName, newFlags)
         } else {
             Slog.e(
@@ -1787,6 +1790,44 @@ class AppIdPermissionPolicy : SchemePolicy() {
             val packageState = state.externalState.packageStates[packageName]!!
             packageState.androidPackage != null && predicate(packageState)
         }
+    }
+
+    /**
+     * Apply or clear [android.os.UserManager.DISALLOW_NETWORK_ACCESS] for all apps in [userId].
+     *
+     * [PermissionFlags.NETWORK_ACCESS_DISALLOWED] revokes the INTERNET permission and keeps its
+     * other flags.
+     */
+    fun MutateStateScope.setNetworkAccessDisallowed(userId: Int, isDisallowed: Boolean) {
+        newState.externalState.appIdPackageNames.forEachIndexed { _, appId, _ ->
+            setNetworkAccessDisallowed(appId, userId, isDisallowed)
+        }
+    }
+
+    fun MutateStateScope.setNetworkAccessDisallowed(
+        appId: Int,
+        userId: Int,
+        isDisallowed: Boolean,
+    ) {
+        val permissionName = Manifest.permission.INTERNET
+        val packageNames = newState.externalState.appIdPackageNames[appId] ?: return
+        val isRequested =
+            packageNames.anyIndexed { _, packageName ->
+                newState.externalState.packageStates[packageName]
+                    ?.androidPackage
+                    ?.requestedPermissions
+                    ?.contains(permissionName) == true
+            }
+        if (!isRequested) {
+            return
+        }
+        updatePermissionFlags(
+            appId,
+            userId,
+            permissionName,
+            PermissionFlags.NETWORK_ACCESS_DISALLOWED,
+            if (isDisallowed) PermissionFlags.NETWORK_ACCESS_DISALLOWED else 0,
+        )
     }
 
     private inline fun MutateStateScope.anyPackageInAppId(
