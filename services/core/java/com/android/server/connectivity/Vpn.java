@@ -54,6 +54,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
+import android.ext.settings.ExtSettings;
 import android.net.ConnectivityDiagnosticsManager;
 import android.net.ConnectivityManager;
 import android.net.INetd;
@@ -145,12 +146,14 @@ import com.android.internal.messages.nano.SystemMessageProto.SystemMessage;
 import com.android.internal.net.LegacyVpnInfo;
 import com.android.internal.net.VpnConfig;
 import com.android.internal.net.VpnProfile;
+import com.android.internal.notification.SystemNotificationChannels;
 import com.android.net.module.util.BinderUtils;
 import com.android.net.module.util.LinkPropertiesUtils;
 import com.android.net.module.util.NetdUtils;
 import com.android.net.module.util.NetworkStackConstants;
 import com.android.server.DeviceIdleInternal;
 import com.android.server.LocalServices;
+import com.android.server.ext.IntentReceiver;
 import com.android.server.net.BaseNetworkObserver;
 import com.android.server.utils.LazyJniRegistrar;
 
@@ -616,6 +619,10 @@ public class Vpn {
         public VpnConnectivityMetrics makeVpnConnectivityMetrics(int userId,
                 ConnectivityManager cm) {
             return new VpnConnectivityMetrics(userId, cm);
+        }
+
+        public void maybeShowLegacyVpnWarning(Vpn vpn, String packageName) {
+            vpn.maybeShowLegacyVpnWarning(packageName);
         }
     }
 
@@ -4447,6 +4454,8 @@ public class Vpn {
 
     private synchronized void startVpnProfilePrivileged(
             @NonNull VpnProfile profile, @NonNull String packageName) {
+        mDeps.maybeShowLegacyVpnWarning(this, packageName);
+
         // Make sure VPN is prepared. This method can be called by user apps via startVpnProfile(),
         // by the Setting app via startLegacyVpn(), or by ConnectivityService via
         // startAlwaysOnVpn(), so this is the common place to prepare the VPN. This also has the
@@ -4507,6 +4516,99 @@ public class Vpn {
 
             updateState(DetailedState.FAILED, "VPN startup failed");
             throw new IllegalArgumentException("VPN startup failed", e);
+        }
+    }
+
+    private void maybeShowLegacyVpnWarning(String packageName) {
+        UserHandle user = UserHandle.of(mUserId);
+        UserHandle parentUser = getParentUser(user);
+        Context userContext = mContext.createContextAsUser(parentUser, 0);
+
+        if (ExtSettings.LEGACY_VPN_WARNING.get(userContext)) {
+            String appLabel = getAppLabel(packageName);
+            if (appLabel == null) {
+                return;
+            }
+            showLegacyVpnWarning(appLabel, user, parentUser);
+        }
+    }
+
+    private String getAppLabel(String packageName) {
+        if (packageName.equals(VpnConfig.LEGACY_VPN)) {
+            return "Settings";
+        }
+
+        PackageManager pm = mContext.getPackageManager();
+        ApplicationInfo appInfo;
+        try {
+            appInfo = pm.getApplicationInfoAsUser(packageName, 0, mUserId);
+        } catch (NameNotFoundException ignored) {
+            return null;
+        }
+
+        return pm.getApplicationLabel(appInfo).toString();
+    }
+
+    private UserHandle getParentUser(UserHandle user) {
+        UserHandle parent = mUserManager.getProfileParent(user);
+        return parent != null ? parent : user;
+    }
+
+    private static final String EXTRA_PARENT_USER = "extra_parent_user";
+    private static final String LEGACY_VPN_WARNING_TAG = "legacy_vpn_warning";
+
+    // Show a warning notification that a legacy VPN has been started. In this case a legacy VPN
+    // refers to anything that isn't a modern VpnService (TYPE_VPN_SERVICE) VPN. There is some
+    // confusion because this warning is triggered from the start of a TYPE_VPN_PLATFORM while
+    // there is a separate TYPE_VPN_LEGACY. We consider both of those types to be legacy. In fact
+    // TYPE_VPN_LEGACY is a stale type with there no longer being any code to actually instantiate
+    // it.
+    private void showLegacyVpnWarning(String appLabel, UserHandle user, UserHandle parentUser) {
+        Bundle args = new Bundle();
+        args.putParcelable(Intent.EXTRA_USER, user);
+        args.putParcelable(EXTRA_PARENT_USER, parentUser);
+        PendingIntent suppressWarningIntent = IntentReceiver.getPendingIntent(
+                SuppressLegacyVpnWarning.class, SuppressLegacyVpnWarning::new, args, mContext);
+
+        Intent vpnSettingsIntent = new Intent(Settings.ACTION_VPN_SETTINGS)
+                .setPackage("com.android.settings");
+        PendingIntent moreInfo = PendingIntent.getActivityAsUser(mContext, 0, vpnSettingsIntent,
+                PendingIntent.FLAG_IMMUTABLE, null, parentUser);
+
+        final Notification notification =
+                new Notification.Builder(mUserIdContext,
+                        SystemNotificationChannels.LEGACY_VPN_WARNING)
+                        .setSmallIcon(R.drawable.ic_error)
+                        .setContentTitle(mUserIdContext.getText(
+                                R.string.legacy_vpn_warning_notif_title))
+                        .setContentText(mUserIdContext.getString(
+                                R.string.legacy_vpn_warning_notif_text, appLabel))
+                        .setContentIntent(moreInfo)
+                        .setAutoCancel(true)
+                        .addAction(new Notification.Action.Builder(
+                                null, mUserIdContext.getText(R.string.notif_action_more_info),
+                                moreInfo)
+                                .build())
+                        .addAction(new Notification.Action.Builder(
+                                null, mUserIdContext.getText(
+                                        R.string.notification_action_dont_show_again),
+                                suppressWarningIntent)
+                                .build())
+                        .build();
+        mUserIdContext.getSystemService(NotificationManager.class)
+                .notifyAsUser(LEGACY_VPN_WARNING_TAG, 0, notification, user);
+    }
+
+    private static class SuppressLegacyVpnWarning extends IntentReceiver {
+        @Override
+        public void onReceive(Context context, Bundle args) {
+            UserHandle parentUser = args.getParcelable(EXTRA_PARENT_USER, UserHandle.class);
+            Context parentUserContext = context.createContextAsUser(parentUser, 0);
+            ExtSettings.LEGACY_VPN_WARNING.put(parentUserContext, false);
+
+            UserHandle user = args.getParcelable(Intent.EXTRA_USER, UserHandle.class);
+            context.getSystemService(NotificationManager.class).cancelAsUser(
+                    LEGACY_VPN_WARNING_TAG, 0, user);
         }
     }
 

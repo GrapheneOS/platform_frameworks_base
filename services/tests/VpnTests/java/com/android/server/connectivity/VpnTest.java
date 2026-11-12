@@ -3647,6 +3647,11 @@ public class VpnTest extends VpnTestBase {
                 ConnectivityManager cm) {
             return mVpnConnectivityMetrics;
         }
+
+        @Override
+        public void maybeShowLegacyVpnWarning(Vpn vpn, String packageName) {
+            // Do nothing.
+        }
     }
 
     /**
