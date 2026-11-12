@@ -214,24 +214,46 @@ class UserRepositoryImplTest(flags: FlagsParameterization) : SysuiTestCase() {
         }
 
     @Test
-    fun refreshUsers_sortsByCreationTime_guestUserLast() =
+    fun refreshUsers_sortsMainUserFirstThenByName_guestUserLast() =
         testScope.runTest {
             underTest = create(testScope.backgroundScope)
-            val unsortedUsers = setUpUsers(count = 3, selectedIndex = 0, isLastGuestUser = true)
-            unsortedUsers[0].creationTime = 999
-            unsortedUsers[1].creationTime = 900
-            unsortedUsers[2].creationTime = 950
-            val expectedUsers =
-                listOf(
-                    unsortedUsers[1],
-                    unsortedUsers[0],
-                    unsortedUsers[2], // last because this is the guest
-                )
+            val secondary = UserManager.USER_TYPE_FULL_SECONDARY
+            val guest = UserInfo(4, "Guest", "", 0, UserManager.USER_TYPE_FULL_GUEST)
+            val charlie = UserInfo(1, "Charlie", "", 0, secondary)
+            val main = UserInfo(0, "Zed", "", UserInfo.FLAG_MAIN, UserManager.USER_TYPE_FULL_SYSTEM)
+            val alice = UserInfo(2, "alice", "", 0, secondary)
+            val bob = UserInfo(3, "Bob", "", 0, secondary)
+            whenever(manager.aliveUsers).thenReturn(listOf(guest, charlie, main, alice, bob))
             var userInfos: List<UserInfo>? = null
             val job = underTest.userInfos.onEach { userInfos = it }.launchIn(this)
 
             underTest.refreshUsers()
-            assertThat(userInfos).isEqualTo(expectedUsers)
+            assertThat(userInfos).containsExactly(main, alice, bob, charlie, guest).inOrder()
+            job.cancel()
+        }
+
+    @Test
+    fun refreshUsers_customOrder_unlistedUsersByNameAfterListedUsers() =
+        testScope.runTest {
+            underTest = create(testScope.backgroundScope)
+            val secondary = UserManager.USER_TYPE_FULL_SECONDARY
+            val guest = UserInfo(4, "Guest", "", 0, UserManager.USER_TYPE_FULL_GUEST)
+            val main = UserInfo(0, "Zed", "", UserInfo.FLAG_MAIN, UserManager.USER_TYPE_FULL_SYSTEM)
+            val alice = UserInfo(1, "alice", "", 0, secondary)
+            val bob = UserInfo(2, "Bob", "", 0, secondary)
+            val charlie = UserInfo(3, "Charlie", "", 0, secondary)
+            val dave = UserInfo(5, "Dave", "", 0, secondary)
+            listOf(main, alice, bob, charlie, guest, dave).forEach {
+                it.serialNumber = it.id + 100
+            }
+            whenever(manager.aliveUsers).thenReturn(listOf(guest, dave, charlie, main, alice, bob))
+            // Charlie, then Alice. Invalid and unknown entries are ignored.
+            globalSettings.putString(Settings.Global.USER_SWITCHER_ORDER, "103,x,999,101,103")
+            var userInfos: List<UserInfo>? = null
+            val job = underTest.userInfos.onEach { userInfos = it }.launchIn(this)
+
+            underTest.refreshUsers()
+            assertThat(userInfos).containsExactly(main, charlie, alice, bob, dave, guest).inOrder()
             job.cancel()
         }
 
