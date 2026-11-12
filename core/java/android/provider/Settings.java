@@ -14527,6 +14527,10 @@ public final class Settings {
         @Protected(readWrite = KnownSystemPackage.SETTINGS)
         public static final String ALLOW_CLIPBOARD_READ_BY_DEFAULT = "allow_clipboard_read";
 
+        /** @hide */
+        @Protected(read = KnownSystemPackage.SYSTEM_UI, readWrite = KnownSystemPackage.SETTINGS)
+        public static final String USER_SWITCHER_ORDER = "user_switcher_order";
+
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to

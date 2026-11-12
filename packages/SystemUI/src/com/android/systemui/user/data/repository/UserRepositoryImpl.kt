@@ -49,6 +49,7 @@ import com.android.systemui.util.settings.GlobalSettings
 import com.android.systemui.util.settings.SettingsProxyExt.observerFlow
 import com.android.systemui.utils.coroutines.flow.conflatedCallbackFlow
 import com.android.systemui.utils.coroutines.flow.flatMapLatestConflated
+import java.text.Collator
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -63,6 +64,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
@@ -113,6 +115,14 @@ constructor(
 
     private val _userInfos = MutableStateFlow<List<UserInfo>?>(null)
     override val userInfos: Flow<List<UserInfo>> = _userInfos.filterNotNull()
+
+    init {
+        // Sort the users again when Settings changes the custom order.
+        globalSettings
+            .observerFlow(Settings.Global.USER_SWITCHER_ORDER)
+            .onEach { refreshUsers() }
+            .launchIn(applicationScope)
+    }
 
     override var mainUserId: Int = UserHandle.USER_NULL
         private set
@@ -264,11 +274,16 @@ constructor(
     override fun refreshUsers() {
         applicationScope.launch {
             _userInfos.value =
-                withContext(backgroundDispatcher) { manager.aliveUsers }
-                    // Users should be sorted by ascending creation time.
-                    .sortedBy { it.creationTime }
-                    // The guest user is always last, regardless of creation time.
-                    .sortedBy { it.isGuest }
+                withContext(backgroundDispatcher) {
+                    val order = getUserOrder()
+                    manager.aliveUsers
+                        // Users are sorted by the custom order from Settings, then by name.
+                        .sortedWith(compareBy(Collator.getInstance()) { it.name.orEmpty() })
+                        .sortedBy { order[it.serialNumber] ?: Int.MAX_VALUE }
+                        // The main user is always first and the guest user is always last.
+                        .sortedBy { !it.isMain }
+                        .sortedBy { it.isGuest }
+                }
 
             if (mainUserId == UserHandle.USER_NULL) {
                 val mainUser = withContext(backgroundDispatcher) { manager.mainUser }
@@ -276,6 +291,16 @@ constructor(
             }
         }
     }
+
+    private fun getUserOrder(): Map<Int, Int> =
+        globalSettings
+            .getString(Settings.Global.USER_SWITCHER_ORDER)
+            .orEmpty()
+            .split(',')
+            .mapNotNull { it.toIntOrNull() }
+            .distinct()
+            .withIndex()
+            .associate { (index, serialNumber) -> serialNumber to index }
 
     override fun getSelectedUserInfo(): UserInfo {
         return selectedUser.value.userInfo
