@@ -1,0 +1,12 @@
+package {
+    default_applicable_licenses: ["frameworks_base_license"],
+}
+
+// Font family configuration for the Google Sans fonts. Installed by google-sans-fonts
+// (external/google-fonts/google-sans), which provides the named families.
+runtime_resource_overlay {
+    name: "GoogleSansConfigOverlay",
+    certificate: "platform",
+    product_specific: true,
+    sdk_version: "current",
+}
