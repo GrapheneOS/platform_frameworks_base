@@ -43,6 +43,37 @@ license {
     ],
 }
 
+soong_config_string_variable {
+    name: "framework_res_id_map",
+    values: ["cp3a", "cp4a"],
+}
+
+soong_config_module_type {
+    name: "framework_res_id_map_defaults",
+    module_type: "java_defaults",
+    config_namespace: "grapheneos",
+    variables: ["framework_res_id_map"],
+    properties: ["aaptflags"],
+}
+
+framework_res_id_map_defaults {
+    name: "framework-res-id-map-defaults",
+    soong_config_variables: {
+        framework_res_id_map: {
+            cp3a: {
+                aaptflags: [
+                    "--stable-ids", "frameworks/base/core/res/framework-res-stable-ids-cp3a.txt",
+                ],
+            },
+            conditions_default: {
+                aaptflags: [
+                    "--stable-ids", "frameworks/base/core/res/framework-res-stable-ids.txt",
+                ],
+            },
+        },
+    },
+}
+
 genrule {
     name: "remote-color-resources-compile-public",
     tools: ["aapt2"],
@@ -93,9 +124,11 @@ genrule {
     srcs: [
         ":remote-color-resources-arsc",
         "remote_color_resources_res/symbols.xml",
-        // Track ID changes through the resource ZIP without packaging this file.
-        "framework-res-stable-ids.txt",
-    ],
+    ] + select(soong_config_variable("grapheneos", "framework_res_id_map"), {
+        // Track ID changes through the resource ZIP without packaging the map.
+        "cp3a": ["framework-res-stable-ids-cp3a.txt"],
+        default: ["framework-res-stable-ids.txt"],
+    }),
     out: ["remote_views_color_resources.zip"],
     cmd: "INPUTS=($(in)) && " +
         "RES_DIR=$$(dirname $$(dirname $${INPUTS[0]})) && " +
@@ -106,6 +139,7 @@ genrule {
 
 android_app {
     name: "framework-res",
+    defaults: ["framework-res-id-map-defaults"],
     use_resource_processor: false,
     sdk_version: "core_platform",
     certificate: "platform",
@@ -127,7 +161,6 @@ android_app {
     // Generate private symbols into the com.android.internal.R class
     // so they are not accessible to 3rd party apps.
     aaptflags: [
-        "--stable-ids", "frameworks/base/core/res/framework-res-stable-ids.txt",
         "--private-symbols",
         "com.android.internal",
 
