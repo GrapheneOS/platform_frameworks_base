@@ -155,6 +155,11 @@ public abstract class AppSwitch {
         return gosPsFlagInverted ? !value : value;
     }
 
+    // returns null if default value is used, for switches whose default isn't a fixed value
+    public final Boolean getNonDefaultValueOrNull(GosPackageState ps) {
+        return isUsingDefaultValue(ps) ? null : getNonDefaultValue(ps);
+    }
+
     public final void setUseDefaultValue(GosPackageState.Editor ed) {
         ed.clearFlag(gosPsFlagNonDefault);
         ed.clearFlag(gosPsFlag);

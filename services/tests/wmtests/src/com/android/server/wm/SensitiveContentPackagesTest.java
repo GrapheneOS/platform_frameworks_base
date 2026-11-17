@@ -182,4 +182,27 @@ public class SensitiveContentPackagesTest {
         assertFalse(modified);
         assertTrue(mSensitiveContentPackages.size() == 0);
     }
+
+    @Test
+    public void setScreenRecordingOverrides() {
+        ArraySet<PackageInfo> blocked = new ArraySet(
+                Set.of(new PackageInfo(APP_PKG_1, APP_UID_1)));
+        ArraySet<PackageInfo> allowed = new ArraySet(
+                Set.of(new PackageInfo(APP_PKG_2, APP_UID_2)));
+
+        assertTrue(mSensitiveContentPackages.setScreenRecordingOverrides(blocked, allowed));
+        assertFalse(mSensitiveContentPackages.setScreenRecordingOverrides(blocked, allowed));
+
+        assertTrue(mSensitiveContentPackages.isScreenRecordingBlockedForApp(APP_PKG_1, APP_UID_1));
+        assertFalse(mSensitiveContentPackages.isScreenRecordingBlockedForApp(APP_PKG_1, APP_UID_2));
+        assertFalse(mSensitiveContentPackages.isScreenRecordingAllowedForApp(APP_PKG_1, APP_UID_1));
+        assertTrue(mSensitiveContentPackages.isScreenRecordingAllowedForApp(APP_PKG_2, APP_UID_2));
+        // independent of sensitive content protection
+        assertTrue(mSensitiveContentPackages.size() == 0);
+
+        assertTrue(mSensitiveContentPackages.setScreenRecordingOverrides(
+                new ArraySet<>(), new ArraySet<>()));
+        assertFalse(mSensitiveContentPackages.isScreenRecordingBlockedForApp(APP_PKG_1, APP_UID_1));
+        assertFalse(mSensitiveContentPackages.isScreenRecordingAllowedForApp(APP_PKG_2, APP_UID_2));
+    }
 }

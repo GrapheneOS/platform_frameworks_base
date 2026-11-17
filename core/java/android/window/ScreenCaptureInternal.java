@@ -380,6 +380,12 @@ public class ScreenCaptureInternal {
             mExclusionMask = in.readInt();
         }
 
+        /** Layers set using {@link Builder#setExcludeLayers(SurfaceControl[])}, if any. */
+        @Nullable
+        public SurfaceControl[] getExcludeLayers() {
+            return mExcludeLayers;
+        }
+
         /** Release any layers if set using {@link Builder#setExcludeLayers(SurfaceControl[])}. */
         public void release() {
             if (mExcludeLayers == null || mExcludeLayers.length == 0) {
