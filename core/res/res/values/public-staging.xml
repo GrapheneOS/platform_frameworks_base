@@ -111,7 +111,7 @@
     =============================================================== -->
   <eat-comment/>
 
-  <staging-public-group type="attr" first-id="0x019b0000">
+  <staging-public-group type="attr" first-id="0x01940000">
       <!-- @FlaggedApi("android.content.pm.sdk_lib_independence") -->
     <public name="optional"/>
     <!-- @FlaggedApi(android.content.pm.Flags.FLAG_CHANGE_LAUNCHER_BADGING) -->
@@ -123,8 +123,7 @@
     <public name="removed_iconColor"/>
     <public name="removed_suggestionBackgroundColor"/>
     <public name="removed_suggestionCornerRadius"/>
-    <!-- @FlaggedApi(com.android.window.flags.Flags.FLAG_SUPPORT_CUSTOM_DIM_COLOR) -->
-    <public name="backgroundDimColor"/>
+    <public name="removed_backgroundDimColor"/>
     <public name="removed_embeddedViewTheme"/>
     <public name="removed_inlineSuggestion"/>
   </staging-public-group>
@@ -135,7 +134,7 @@
   <staging-public-group type="style" first-id="0x01990000">
   </staging-public-group>
 
-  <staging-public-group type="string" first-id="0x01980000">
+  <staging-public-group type="string" first-id="0x01910000">
     <!-- @FlaggedApi(android.app.ondeviceintelligence.flags.Flags.FLAG_ENABLE_ON_DEVICE_INTELLIGENCE_MODULE)
      @hide @SystemApi -->
     <public name="config_defaultOnDeviceIntelligenceService" />
@@ -151,83 +150,49 @@
   </staging-public-group>
 
   <staging-public-group type="color" first-id="0x01960000">
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_error_dim_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_palette_key_color_error_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_primary_dim_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_secondary_dim_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_tertiary_dim_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_error_dim_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_palette_key_color_error_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_primary_dim_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_secondary_dim_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_tertiary_dim_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_primary_fixed_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_primary_fixed_variant_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_secondary_fixed_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_secondary_fixed_variant_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_tertiary_fixed_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_tertiary_fixed_variant_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_primary_fixed_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_primary_fixed_dim_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_secondary_fixed_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_secondary_fixed_dim_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_tertiary_fixed_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_tertiary_fixed_dim_light"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_primary_fixed_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_primary_fixed_variant_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_secondary_fixed_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_secondary_fixed_variant_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_tertiary_fixed_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_on_tertiary_fixed_variant_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_primary_fixed_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_primary_fixed_dim_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_secondary_fixed_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_secondary_fixed_dim_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_tertiary_fixed_dark"/>
-    <!-- @FlaggedApi(android.os.Flags.FLAG_MATERIAL_COLORS_2026_03)-->
-    <public name="system_tertiary_fixed_dim_dark"/>
+    <public name="removed_system_error_dim_light"/>
+    <public name="removed_system_palette_key_color_error_light"/>
+    <public name="removed_system_primary_dim_light"/>
+    <public name="removed_system_secondary_dim_light"/>
+    <public name="removed_system_tertiary_dim_light"/>
+    <public name="removed_system_error_dim_dark"/>
+    <public name="removed_system_palette_key_color_error_dark"/>
+    <public name="removed_system_primary_dim_dark"/>
+    <public name="removed_system_secondary_dim_dark"/>
+    <public name="removed_system_tertiary_dim_dark"/>
+    <public name="removed_system_on_primary_fixed_light"/>
+    <public name="removed_system_on_primary_fixed_variant_light"/>
+    <public name="removed_system_on_secondary_fixed_light"/>
+    <public name="removed_system_on_secondary_fixed_variant_light"/>
+    <public name="removed_system_on_tertiary_fixed_light"/>
+    <public name="removed_system_on_tertiary_fixed_variant_light"/>
+    <public name="removed_system_primary_fixed_light"/>
+    <public name="removed_system_primary_fixed_dim_light"/>
+    <public name="removed_system_secondary_fixed_light"/>
+    <public name="removed_system_secondary_fixed_dim_light"/>
+    <public name="removed_system_tertiary_fixed_light"/>
+    <public name="removed_system_tertiary_fixed_dim_light"/>
+    <public name="removed_system_on_primary_fixed_dark"/>
+    <public name="removed_system_on_primary_fixed_variant_dark"/>
+    <public name="removed_system_on_secondary_fixed_dark"/>
+    <public name="removed_system_on_secondary_fixed_variant_dark"/>
+    <public name="removed_system_on_tertiary_fixed_dark"/>
+    <public name="removed_system_on_tertiary_fixed_variant_dark"/>
+    <public name="removed_system_primary_fixed_dark"/>
+    <public name="removed_system_primary_fixed_dim_dark"/>
+    <public name="removed_system_secondary_fixed_dark"/>
+    <public name="removed_system_secondary_fixed_dim_dark"/>
+    <public name="removed_system_tertiary_fixed_dark"/>
+    <public name="removed_system_tertiary_fixed_dim_dark"/>
   </staging-public-group>
 
-  <staging-public-group type="array" first-id="0x01950000">
+  <staging-public-group type="array" first-id="0x018e0000">
     <!-- @FlaggedApi(android.permission.flags.Flags.FLAG_ACTIVE_WATCH_FACE_ROLE_ENABLED)
     @hide @SystemApi -->
     <public name="config_watchFacePermissions" />
   </staging-public-group>
 
-  <staging-public-group type="drawable" first-id="0x01940000">
+  <staging-public-group type="drawable" first-id="0x018d0000">
   </staging-public-group>
 
   <staging-public-group type="layout" first-id="0x01930000">
@@ -236,7 +201,7 @@
   <staging-public-group type="anim" first-id="0x01920000">
   </staging-public-group>
 
-  <staging-public-group type="animator" first-id="0x01910000">
+  <staging-public-group type="animator" first-id="0x018a0000">
   </staging-public-group>
 
   <staging-public-group type="interpolator" first-id="0x01900000">
@@ -245,10 +210,10 @@
   <staging-public-group type="mipmap" first-id="0x018f0000">
   </staging-public-group>
 
-  <staging-public-group type="integer" first-id="0x018e0000">
+  <staging-public-group type="integer" first-id="0x01870000">
   </staging-public-group>
 
-  <staging-public-group type="transition" first-id="0x018d0000">
+  <staging-public-group type="transition" first-id="0x01860000">
   </staging-public-group>
 
   <staging-public-group type="raw" first-id="0x018c0000">
@@ -257,7 +222,7 @@
   <staging-public-group type="bool" first-id="0x018b0000">
   </staging-public-group>
 
-  <staging-public-group type="fraction" first-id="0x018a0000">
+  <staging-public-group type="fraction" first-id="0x01830000">
   </staging-public-group>
 
 </resources>

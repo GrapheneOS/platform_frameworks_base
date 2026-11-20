@@ -571,7 +571,7 @@ package android {
     field public static final int backdropColor = 16844402; // 0x1010672
     field public static final int background = 16842964; // 0x10100d4
     field public static final int backgroundDimAmount = 16842802; // 0x1010032
-    field @FlaggedApi("com.android.window.flags.support_custom_dim_color") public static final int backgroundDimColor;
+    field @FlaggedApi("com.android.window.flags.support_custom_dim_color") public static final int backgroundDimColor = 16844476; // 0x10106bc
     field public static final int backgroundDimEnabled = 16843295; // 0x101021f
     field public static final int backgroundSplit = 16843659; // 0x101038b
     field public static final int backgroundStacked = 16843658; // 0x101038a
@@ -2099,8 +2099,8 @@ package android {
     field public static final int system_error_container_dark = 17170597; // 0x10600a5
     field public static final int system_error_container_light = 17170554; // 0x106007a
     field public static final int system_error_dark = 17170595; // 0x10600a3
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_error_dim_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_error_dim_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_error_dim_dark = 17170659; // 0x10600e3
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_error_dim_light = 17170654; // 0x10600de
     field public static final int system_error_light = 17170552; // 0x1060078
     field @FlaggedApi("android.os.material_colors_10_2024") public static final int system_inverse_on_surface_dark = 17170648; // 0x10600d8
     field @FlaggedApi("android.os.material_colors_10_2024") public static final int system_inverse_on_surface_light = 17170642; // 0x10600d2
@@ -2144,21 +2144,21 @@ package android {
     field public static final int system_on_primary_container_light = 17170527; // 0x106005f
     field public static final int system_on_primary_dark = 17170572; // 0x106008c
     field public static final int system_on_primary_fixed = 17170614; // 0x10600b6
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_dark = 17170676; // 0x10600f4
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_light = 17170664; // 0x10600e8
     field public static final int system_on_primary_fixed_variant = 17170615; // 0x10600b7
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_variant_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_variant_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_variant_dark = 17170677; // 0x10600f5
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_primary_fixed_variant_light = 17170665; // 0x10600e9
     field public static final int system_on_primary_light = 17170529; // 0x1060061
     field public static final int system_on_secondary_container_dark = 17170574; // 0x106008e
     field public static final int system_on_secondary_container_light = 17170531; // 0x1060063
     field public static final int system_on_secondary_dark = 17170576; // 0x1060090
     field public static final int system_on_secondary_fixed = 17170618; // 0x10600ba
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_dark = 17170678; // 0x10600f6
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_light = 17170666; // 0x10600ea
     field public static final int system_on_secondary_fixed_variant = 17170619; // 0x10600bb
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_variant_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_variant_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_variant_dark = 17170679; // 0x10600f7
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_secondary_fixed_variant_light = 17170667; // 0x10600eb
     field public static final int system_on_secondary_light = 17170533; // 0x1060065
     field public static final int system_on_surface_dark = 17170584; // 0x1060098
     field public static final int system_on_surface_disabled = 17170627; // 0x10600c3
@@ -2169,19 +2169,19 @@ package android {
     field public static final int system_on_tertiary_container_light = 17170535; // 0x1060067
     field public static final int system_on_tertiary_dark = 17170580; // 0x1060094
     field public static final int system_on_tertiary_fixed = 17170622; // 0x10600be
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_dark = 17170680; // 0x10600f8
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_light = 17170668; // 0x10600ec
     field public static final int system_on_tertiary_fixed_variant = 17170623; // 0x10600bf
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_variant_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_variant_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_variant_dark = 17170681; // 0x10600f9
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_on_tertiary_fixed_variant_light = 17170669; // 0x10600ed
     field public static final int system_on_tertiary_light = 17170537; // 0x1060069
     field public static final int system_outline_dark = 17170594; // 0x10600a2
     field public static final int system_outline_disabled = 17170628; // 0x10600c4
     field public static final int system_outline_light = 17170551; // 0x1060077
     field public static final int system_outline_variant_dark = 17170625; // 0x10600c1
     field public static final int system_outline_variant_light = 17170624; // 0x10600c0
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_palette_key_color_error_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_palette_key_color_error_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_palette_key_color_error_dark = 17170660; // 0x10600e4
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_palette_key_color_error_light = 17170655; // 0x10600df
     field public static final int system_palette_key_color_neutral_dark = 17170610; // 0x10600b2
     field public static final int system_palette_key_color_neutral_light = 17170567; // 0x1060087
     field public static final int system_palette_key_color_neutral_variant_dark = 17170611; // 0x10600b3
@@ -2195,28 +2195,28 @@ package android {
     field public static final int system_primary_container_dark = 17170569; // 0x1060089
     field public static final int system_primary_container_light = 17170526; // 0x106005e
     field public static final int system_primary_dark = 17170571; // 0x106008b
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_dim_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_dim_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_dim_dark = 17170661; // 0x10600e5
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_dim_light = 17170656; // 0x10600e0
     field public static final int system_primary_fixed = 17170612; // 0x10600b4
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_dark;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_dark = 17170682; // 0x10600fa
     field public static final int system_primary_fixed_dim = 17170613; // 0x10600b5
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_dim_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_dim_light;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_dim_dark = 17170683; // 0x10600fb
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_dim_light = 17170671; // 0x10600ef
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_primary_fixed_light = 17170670; // 0x10600ee
     field public static final int system_primary_light = 17170528; // 0x1060060
     field @FlaggedApi("android.os.material_colors_10_2024") public static final int system_scrim_dark = 17170651; // 0x10600db
     field @FlaggedApi("android.os.material_colors_10_2024") public static final int system_scrim_light = 17170645; // 0x10600d5
     field public static final int system_secondary_container_dark = 17170573; // 0x106008d
     field public static final int system_secondary_container_light = 17170530; // 0x1060062
     field public static final int system_secondary_dark = 17170575; // 0x106008f
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_dim_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_dim_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_dim_dark = 17170662; // 0x10600e6
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_dim_light = 17170657; // 0x10600e1
     field public static final int system_secondary_fixed = 17170616; // 0x10600b8
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_dark;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_dark = 17170684; // 0x10600fc
     field public static final int system_secondary_fixed_dim = 17170617; // 0x10600b9
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_dim_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_dim_light;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_dim_dark = 17170685; // 0x10600fd
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_dim_light = 17170673; // 0x10600f1
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_secondary_fixed_light = 17170672; // 0x10600f0
     field public static final int system_secondary_light = 17170532; // 0x1060064
     field @FlaggedApi("android.os.material_colors_10_2024") public static final int system_shadow_dark = 17170652; // 0x10600dc
     field @FlaggedApi("android.os.material_colors_10_2024") public static final int system_shadow_light = 17170646; // 0x10600d6
@@ -2244,14 +2244,14 @@ package android {
     field public static final int system_tertiary_container_dark = 17170577; // 0x1060091
     field public static final int system_tertiary_container_light = 17170534; // 0x1060066
     field public static final int system_tertiary_dark = 17170579; // 0x1060093
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_dim_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_dim_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_dim_dark = 17170663; // 0x10600e7
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_dim_light = 17170658; // 0x10600e2
     field public static final int system_tertiary_fixed = 17170620; // 0x10600bc
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_dark;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_dark = 17170686; // 0x10600fe
     field public static final int system_tertiary_fixed_dim = 17170621; // 0x10600bd
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_dim_dark;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_dim_light;
-    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_light;
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_dim_dark = 17170687; // 0x10600ff
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_dim_light = 17170675; // 0x10600f3
+    field @FlaggedApi("android.os.material_colors_2026_03") public static final int system_tertiary_fixed_light = 17170674; // 0x10600f2
     field public static final int system_tertiary_light = 17170536; // 0x1060068
     field public static final int system_text_hint_inverse_dark = 17170606; // 0x10600ae
     field public static final int system_text_hint_inverse_light = 17170563; // 0x1060083
