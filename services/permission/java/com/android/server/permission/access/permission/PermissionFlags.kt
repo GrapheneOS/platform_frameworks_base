@@ -312,6 +312,12 @@ object PermissionFlags {
      */
     const val TRUSTED_UI_CONSENTED = 1 shl 26
 
+    /**
+     * GrapheneOS: permission flag for the INTERNET permission of an app in a user that has the
+     * [android.os.UserManager.DISALLOW_NETWORK_ACCESS] restriction. When set, the INTERNET permission is revoked.
+     */
+    const val NETWORK_ACCESS_DISALLOWED = 1 shl 30
+
     /** Mask for all permission flags. */
     const val MASK_ALL = 0.inv()
 
@@ -349,6 +355,9 @@ object PermissionFlags {
 
     fun isPermissionGranted(flags: Int): Boolean {
         if (flags.hasBits(PURPOSE_REVOKED)) {
+            return false
+        }
+        if (flags.hasBits(NETWORK_ACCESS_DISALLOWED)) {
             return false
         }
         if (flags.hasBits(INSTALL_GRANTED)) {
@@ -533,6 +542,7 @@ object PermissionFlags {
             flags = flags or TRUSTED_UI_CONSENTED
         }
         flags = flags or (oldFlags and PURPOSE_REVOKED)
+        flags = flags or (oldFlags and NETWORK_ACCESS_DISALLOWED)
         return flags
     }
 
@@ -565,6 +575,7 @@ object PermissionFlags {
             PURPOSE_REVOKED -> "PURPOSE_REVOKED"
             TRUSTED_UI_SHOWN -> "TRUSTED_UI_SHOWN"
             TRUSTED_UI_CONSENTED -> "TRUSTED_UI_CONSENTED"
+            NETWORK_ACCESS_DISALLOWED -> "NETWORK_ACCESS_DISALLOWED"
             else -> "0x${flag.toUInt().toString(16).uppercase()}"
         }
 

@@ -1576,6 +1576,17 @@ public class UserManager {
     public static final String DISALLOW_RUN_IN_BACKGROUND = "no_run_in_background";
 
     /**
+     * Specifies if apps in a user are not allowed to access the network. 
+     * Default value is <code>false</code>.
+     *
+     * <p>The restriction revokes the {@link android.Manifest.permission#INTERNET} permission of
+     * all apps in the user.
+     *
+     * @hide
+     */
+    public static final String DISALLOW_NETWORK_ACCESS = "no_network_access";
+
+    /**
      * Specifies if a user is not allowed to use the camera.
      *
      * <p>A device owner and a profile owner can set this restriction. When it is set by a
@@ -2201,6 +2212,7 @@ public class UserManager {
             DISALLOW_MODIFY_ACCOUNTS,
             DISALLOW_MOUNT_PHYSICAL_MEDIA,
             DISALLOW_NEAR_FIELD_COMMUNICATION_RADIO,
+            DISALLOW_NETWORK_ACCESS,
             DISALLOW_NETWORK_RESET,
             DISALLOW_NON_TOOL_ACCESSIBILITY_SERVICE,
             DISALLOW_OEM_UNLOCK,
