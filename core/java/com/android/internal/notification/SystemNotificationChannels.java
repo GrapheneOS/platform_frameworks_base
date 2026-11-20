@@ -295,6 +295,7 @@ public class SystemNotificationChannels {
     public static final String BACKGROUND_DEXOPT_COMPLETED = "BACKGROUND_DEXOPT_COMPLETED";
     public static final String EXPLOIT_PROTECTION = "EXPLOIT_PROTECTION";
     public static final String SYSTEM_JOURNAL = "SYSTEM_JOURNAL";
+    public static final String LEGACY_VPN_WARNING = "LEGACY_VPN_WARNING";
 
     private static void extraChannels(Context ctx, List<NotificationChannel> dest) {
         channel(ctx, MISSING_PERMISSION,
@@ -311,6 +312,9 @@ public class SystemNotificationChannels {
 
         channel(ctx, SYSTEM_JOURNAL, R.string.notif_ch_system_journal,
             NotificationManager.IMPORTANCE_HIGH, true, dest);
+
+        channel(ctx, LEGACY_VPN_WARNING, R.string.notif_ch_legacy_vpn_warning,
+                NotificationManager.IMPORTANCE_HIGH, true, dest);
     }
 
     private static NotificationChannel channel(Context ctx, String id, int nameRes, int importance, boolean silent, List<NotificationChannel> dest) {
