@@ -1,0 +1,12 @@
+package {
+    default_applicable_licenses: ["frameworks_base_license"],
+}
+
+// AvatarPicker font configuration for the Google Sans fonts. Installed by google-sans-fonts
+// (external/google-fonts/google-sans), which provides the named families.
+runtime_resource_overlay {
+    name: "GoogleSansAvatarPickerOverlay",
+    certificate: "platform",
+    product_specific: true,
+    sdk_version: "current",
+}
