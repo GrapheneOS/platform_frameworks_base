@@ -14473,8 +14473,13 @@ public final class Settings {
         @Protected(readWrite = KnownSystemPackage.SETTINGS)
         public static final String BLUETOOTH_AUTO_OFF = "bluetooth_off_timeout";
 
-        /** @hide */
-        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        /**
+         * Time in milliseconds before an enabled NFC adapter is turned off, or 0 for never.
+         * @hide
+         */
+        @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+        @SuppressLint("NoSettingsProvider") // Existing key observed by the NFC module.
+        @Protected(read = KnownSystemPackage.NFC, readWrite = KnownSystemPackage.SETTINGS)
         public static final String NFC_AUTO_OFF = "nfc_off_timeout";
 
         /** @hide */

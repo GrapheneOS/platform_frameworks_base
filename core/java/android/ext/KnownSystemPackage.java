@@ -13,6 +13,8 @@ public interface KnownSystemPackage {
     int SHELL = 1;
     int SYSTEM_UI = 2;
     int SETUP_WIZARD = 3;
+    /** @hide */
+    int NFC = 4;
 
     /** @hide */
     @IntDef(value = {
@@ -20,6 +22,7 @@ public interface KnownSystemPackage {
             SHELL,
             SYSTEM_UI,
             SETUP_WIZARD,
+            NFC,
     })
     @Retention(RetentionPolicy.SOURCE)
     @interface Enum {}

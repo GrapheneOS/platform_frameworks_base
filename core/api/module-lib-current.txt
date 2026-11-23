@@ -712,6 +712,7 @@ package android.provider {
     field public static final String BLUETOOTH_BTSNOOP_DEFAULT_MODE = "bluetooth_btsnoop_default_mode";
     field public static final String BLUETOOTH_CLASS_OF_DEVICE = "bluetooth_class_of_device";
     field public static final String BLUETOOTH_DISABLED_PROFILES = "bluetooth_disabled_profiles";
+    field public static final String NFC_AUTO_OFF = "nfc_off_timeout";
   }
 
   public static final class Settings.Secure extends android.provider.Settings.NameValueTable {
