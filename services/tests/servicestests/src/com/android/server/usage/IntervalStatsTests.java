@@ -43,6 +43,7 @@ import org.junit.runner.RunWith;
 
 import java.io.ByteArrayInputStream;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Locale;
 
@@ -279,6 +280,35 @@ public final class IntervalStatsTests {
         assertThat(intervalStats.events.size())
                 .isEqualTo(NUMBER_OF_EVENTS - NUMBER_OF_EVENTS_PER_PACKAGE - 1);
         assertThat(intervalStats.packageStats.size()).isEqualTo(NUMBER_OF_PACKAGES - 1);
+    }
+
+    @Test
+    public void testBadDataOnDeobfuscation_keepsOrderOfRemainingEvents() {
+        final IntervalStats intervalStats = new IntervalStats();
+        populateIntervalStats(intervalStats);
+
+        final PackagesTokenData packagesTokenData = new PackagesTokenData();
+        intervalStats.obfuscateData(packagesTokenData);
+
+        final int removedPackageToken = 2;
+        final ArrayList<UsageEvents.Event> expectedEvents = new ArrayList<>();
+        for (int i = 0; i < intervalStats.events.size(); i++) {
+            final UsageEvents.Event event = intervalStats.events.get(i);
+            if (event.mPackageToken != removedPackageToken) {
+                expectedEvents.add(event);
+            }
+        }
+        assertThat(expectedEvents.size()).isLessThan(NUMBER_OF_EVENTS);
+
+        packagesTokenData.tokensToPackagesMap.remove(removedPackageToken);
+
+        assertThat(intervalStats.deobfuscateData(packagesTokenData)).isTrue();
+        // the events of the removed package are interleaved with the events of the other packages;
+        // none of the other events should have been removed or reordered
+        assertThat(intervalStats.events.size()).isEqualTo(expectedEvents.size());
+        for (int i = 0; i < expectedEvents.size(); i++) {
+            assertThat(intervalStats.events.get(i)).isSameInstanceAs(expectedEvents.get(i));
+        }
     }
 
     @Test

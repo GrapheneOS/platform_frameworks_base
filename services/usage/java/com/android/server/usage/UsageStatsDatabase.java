@@ -683,14 +683,10 @@ public class UsageStatsDatabase {
         }
 
         // prune old events
-        for (int i = stats.events.size() - 1; i >= 0; i--) {
-            final UsageEvents.Event event = stats.events.get(i);
+        dataPruned |= stats.events.removeIf(event -> {
             final Long timeInstalled = installedPackages.get(event.mPackage);
-            if (timeInstalled == null || timeInstalled > event.mTimeStamp) {
-                stats.events.remove(i);
-                dataPruned = true;
-            }
-        }
+            return timeInstalled == null || timeInstalled > event.mTimeStamp;
+        });
 
         return dataPruned;
     }
@@ -791,13 +787,10 @@ public class UsageStatsDatabase {
             }
 
             // filter out events
-            for (int i = stats.events.size() - 1; i >= 0; i--) {
-                final UsageEvents.Event event = stats.events.get(i);
+            stats.events.removeIf(event -> {
                 final Long timeRemoved = removedPackagesMap.get(event.mPackage);
-                if (timeRemoved != null && timeRemoved > event.mTimeStamp) {
-                    stats.events.remove(i);
-                }
-            }
+                return timeRemoved != null && timeRemoved > event.mTimeStamp;
+            });
         }
     }
 
