@@ -1018,7 +1018,7 @@ public class ShortcutService extends IShortcutService.Stub {
         if (bundle == null) return;
 
         out.startTag(null, tag);
-        bundle.saveToXml(out);
+        ShortcutStringExtras.write(out, bundle);
         out.endTag(null, tag);
     }
 
