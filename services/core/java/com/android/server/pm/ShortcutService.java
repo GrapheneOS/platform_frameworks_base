@@ -2167,6 +2167,8 @@ public class ShortcutService extends IShortcutService.Stub {
         if (si == null) {
             return null;
         }
+        // Measure every field that can survive fixUpIncomingShortcutInfo().
+        si.clearFlags(ShortcutInfo.FLAG_KEY_FIELDS_ONLY);
         if (isWithinMaxSize(si, parcel)) {
             return si; // Already valid.
         }
