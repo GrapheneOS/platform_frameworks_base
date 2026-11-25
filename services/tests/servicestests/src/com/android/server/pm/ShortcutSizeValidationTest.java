@@ -26,6 +26,7 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.Person;
 import android.content.Intent;
+import android.content.pm.ParceledListSlice;
 import android.content.pm.ShortcutInfo;
 import android.os.PersistableBundle;
 import androidx.test.filters.SmallTest;
@@ -259,6 +260,22 @@ public class ShortcutSizeValidationTest extends BaseShortcutManagerTest {
     public void testPushDynamicShortcut_nullShortcut_ignoredWithoutCrash() {
         runWithCaller(CALLING_PACKAGE_1, USER_10, () -> {
             mService.pushDynamicShortcut(CALLING_PACKAGE_1, null, USER_10);
+        });
+    }
+
+    @Test
+    public void testSetDynamicShortcuts_keyFieldsOnlyFlag_stillTrimsExtras() {
+        runWithCaller(CALLING_PACKAGE_1, USER_10, () -> {
+            ShortcutInfo si = makeShortcutWithExtras("dynamic", new Intent(Intent.ACTION_VIEW),
+                    PersistableBundle.forPair("value", repeat('x', 40_000)));
+            si.addFlags(ShortcutInfo.FLAG_KEY_FIELDS_ONLY);
+            // ShortcutManager drops the extras when it parcels a shortcut that has this flag, so
+            // call the service directly.
+            assertTrue(mService.setDynamicShortcuts(CALLING_PACKAGE_1,
+                    new ParceledListSlice<>(list(si)), USER_10));
+
+            PersistableBundle publishedExtras = getCallerShortcut("dynamic").getExtras();
+            assertTrue(publishedExtras == null || publishedExtras.isEmpty());
         });
     }
 }
