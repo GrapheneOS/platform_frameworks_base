@@ -19,6 +19,7 @@ package android.app.usage;
 import android.app.usage.UsageEvents.Event;
 
 import java.util.ArrayList;
+import java.util.function.Predicate;
 
 /**
  * A container to keep {@link Event usage events} in non-descending order of their
@@ -131,6 +132,20 @@ public class EventList {
             // catch and handle the exception here instead of throwing it to the client
             return null;
         }
+    }
+
+    /**
+     * Removes all of the events matching the given filter in a single pass over the list.
+     * <p/>
+     * Removing a batch of events via {@link #remove(int)} shifts the rest of the list for each of
+     * them, which is quadratic and can take minutes for a list with hundreds of thousands of
+     * events. Use this instead of calling {@link #remove(int)} in a loop.
+     *
+     * @param filter returns {@code true} for the events to remove
+     * @return {@code true} if any events were removed
+     */
+    public boolean removeIf(Predicate<Event> filter) {
+        return mEvents.removeIf(filter);
     }
 
     /**

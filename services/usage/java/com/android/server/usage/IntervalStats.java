@@ -519,17 +519,15 @@ public class IntervalStats {
      * @return {@code true} if any events were omitted while deobfuscating, {@code false} otherwise.
      */
     private boolean deobfuscateEvents(PackagesTokenData packagesTokenData) {
-        boolean dataOmitted = false;
         final ArraySet<Integer> omittedTokens = new ArraySet<>();
-        for (int i = this.events.size() - 1; i >= 0; i--) {
-            final Event event = this.events.get(i);
+        // Omit the events which can't be parsed in a single pass. There can be a huge number of
+        // them, e.g. after uninstalling a package which reported a lot of events.
+        final boolean dataOmitted = this.events.removeIf(event -> {
             final int packageToken = event.mPackageToken;
             event.mPackage = packagesTokenData.getPackageString(packageToken);
             if (event.mPackage == null) {
                 omittedTokens.add(packageToken);
-                this.events.remove(i);
-                dataOmitted = true;
-                continue;
+                return true;
             }
 
             if (event.mClassToken != PackagesTokenData.UNASSIGNED_TOKEN) {
@@ -555,9 +553,7 @@ public class IntervalStats {
                     if (event.mShortcutId == null) {
                         Slog.v(TAG, "Unable to parse shortcut " + event.mShortcutIdToken
                                 + " for package " + packageToken);
-                        this.events.remove(i);
-                        dataOmitted = true;
-                        continue;
+                        return true;
                     }
                     break;
                 case NOTIFICATION_INTERRUPTION:
@@ -567,9 +563,7 @@ public class IntervalStats {
                         Slog.v(TAG, "Unable to parse notification channel "
                                 + event.mNotificationChannelIdToken + " for package "
                                 + packageToken);
-                        this.events.remove(i);
-                        dataOmitted = true;
-                        continue;
+                        return true;
                     }
                     break;
                 case LOCUS_ID_SET:
@@ -577,9 +571,7 @@ public class IntervalStats {
                     if (event.mLocusId == null) {
                         Slog.v(TAG, "Unable to parse locus " + event.mLocusIdToken
                                 + " for package " + packageToken);
-                        this.events.remove(i);
-                        dataOmitted = true;
-                        continue;
+                        return true;
                     }
                     break;
                 case USER_INTERACTION:
@@ -589,9 +581,7 @@ public class IntervalStats {
                         String action = packagesTokenData.getString(packageToken,
                                 event.mUserInteractionExtrasToken.mActionToken);
                         if (TextUtils.isEmpty(category) || TextUtils.isEmpty(action)) {
-                            this.events.remove(i);
-                            dataOmitted = true;
-                            continue;
+                            return true;
                         }
                         event.mExtras = new PersistableBundle();
                         event.mExtras.putString(UsageStatsManager.EXTRA_EVENT_CATEGORY, category);
@@ -601,7 +591,8 @@ public class IntervalStats {
                     }
                     break;
             }
-        }
+            return false;
+        });
         if (dataOmitted) {
             Slog.d(TAG, "Unable to parse event packages: "
                     + Arrays.toString(omittedTokens.toArray()));
@@ -693,18 +684,16 @@ public class IntervalStats {
      * task root package and class names, and shortcut and notification channel ids.
      */
     private void obfuscateEventsData(PackagesTokenData packagesTokenData) {
-        for (int i = events.size() - 1; i >= 0; i--) {
-            final Event event = events.get(i);
+        events.removeIf(event -> {
             if (event == null) {
-                continue;
+                return false;
             }
 
             final int packageToken = packagesTokenData.getPackageTokenOrAdd(
                     event.mPackage, event.mTimeStamp);
             // don't obfuscate events from packages that have been removed
             if (packageToken == PackagesTokenData.UNASSIGNED_TOKEN) {
-                events.remove(i);
-                continue;
+                return true;
             }
             event.mPackageToken = packageToken;
             if (!TextUtils.isEmpty(event.mClass)) {
@@ -758,7 +747,8 @@ public class IntervalStats {
                     }
                     break;
             }
-        }
+            return false;
+        });
     }
 
     private static void obfuscateEventsExtras(Event event, PackagesTokenData packagesTokenData,
