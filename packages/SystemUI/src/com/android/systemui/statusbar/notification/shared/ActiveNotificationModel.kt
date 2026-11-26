@@ -103,6 +103,10 @@ data class ActiveNotificationModel(
      * this notification cannot be rendered as a promoted notification.
      */
     val promotedContent: PromotedNotificationContentModels?,
+    /**
+     * True if this notification's content is sensitive right now and must be shown redacted.
+     */
+    val isSensitive: Boolean,
     /** True if this notification set the "requested promotion?" extra and false otherwise. */
     val requestedPromotion: Boolean,
     /** True if this notification set the "is screen share" extra and false otherwise. */
