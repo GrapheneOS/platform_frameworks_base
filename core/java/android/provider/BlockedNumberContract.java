@@ -146,8 +146,11 @@ import java.lang.annotation.RetentionPolicy;
  * Apps must use the method {@link #canCurrentUserBlockNumbers(Context)} before performing any
  * operation on the blocked number provider. If {@link #canCurrentUserBlockNumbers(Context)} returns
  * {@code false}, all operations on the provider will fail with a {@link SecurityException}. The
- * platform will block calls, and messages from numbers in the provider independent of the current
- * user.
+ * platform blocks calls for a full secondary user using that user's own list. Blocking in a
+ * secondary user does not block SMS or MMS, which use shared platform message storage. Lists in
+ * other users are not combined with the secondary user's list. Emergency callback suppression is
+ * device-wide and takes precedence over all users' call-blocking rules. The existing message
+ * blocking behavior for the system and main users is unchanged.
  * </p>
  */
 public class BlockedNumberContract {
@@ -385,7 +388,8 @@ public class BlockedNumberContract {
 
     /**
      * Checks if blocking numbers is supported for the current user.
-     * <p> Typically, blocking numbers is only supported for one user at a time.
+     * <p>Full secondary users can maintain independent call-blocking lists. Message blocking
+     * remains limited to the existing system/main-user behavior described above.
      *
      * @return {@code true} if the current user can block numbers.
      */
