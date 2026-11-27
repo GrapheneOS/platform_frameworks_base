@@ -43,6 +43,7 @@ import android.os.RemoteCallbackList
 import android.os.RemoteException
 import android.os.ServiceManager
 import android.os.UserHandle
+import android.os.UserManager
 import android.permission.IOnPermissionsChangeListener
 import android.permission.PermissionControllerManager
 import android.permission.PermissionManager
@@ -2477,6 +2478,34 @@ class PermissionService(private val service: AccessCheckingService) :
         virtualDeviceManagerInternal?.registerPersistentDeviceIdRemovedListener { deviceId ->
             service.mutateState { with(devicePolicy) { onDeviceIdRemoved(deviceId) } }
         }
+
+        initNetworkAccessRestriction()
+    }
+
+    private fun initNetworkAccessRestriction() {
+        userManagerInternal.addUserRestrictionsListener { userId, newRestrictions, prevRestrictions
+            ->
+            val key = UserManager.DISALLOW_NETWORK_ACCESS
+            val isDisallowed = newRestrictions.getBoolean(key)
+            if (isDisallowed != prevRestrictions.getBoolean(key)) {
+                applyNetworkAccessRestriction(userId, isDisallowed)
+            }
+        }
+        // Sync all users. This also covers packages that were added before the system was ready (i.e. apps added after an OTA) 
+        userManagerInternal.userIds.forEach { userId ->
+            applyNetworkAccessRestriction(userId, hasNetworkAccessRestriction(userId))
+        }
+    }
+
+    private fun hasNetworkAccessRestriction(userId: Int): Boolean =
+        userManagerInternal.getUserRestriction(userId, UserManager.DISALLOW_NETWORK_ACCESS)
+
+    private fun applyNetworkAccessRestriction(userId: Int, isDisallowed: Boolean) {
+        if (!userManagerInternal.exists(userId)) {
+            return
+        }
+        Slog.i(LOG_TAG, "applyNetworkAccessRestriction: userId $userId, isDisallowed $isDisallowed")
+        service.mutateState { with(policy) { setNetworkAccessDisallowed(userId, isDisallowed) } }
     }
 
     override fun onUserCreated(userId: Int) {
@@ -2565,6 +2594,22 @@ class PermissionService(private val service: AccessCheckingService) :
             } else {
                 intArrayOf(userId)
             }
+
+        // Apply UserManager.DISALLOW_NETWORK_ACCESS before INTERNET permission is granted below,
+        // to make sure that the package never has an effective INTERNET grant in such user
+        if (Manifest.permission.INTERNET in androidPackage.requestedPermissions) {
+            val appId =
+                packageManagerInternal.getPackageStateInternal(androidPackage.packageName)!!.appId
+            @Suppress("NAME_SHADOWING")
+            userIds.forEach { userId ->
+                if (hasNetworkAccessRestriction(userId)) {
+                    service.mutateState {
+                        with(policy) { setNetworkAccessDisallowed(appId, userId, true) }
+                    }
+                }
+            }
+        }
+
         @Suppress("NAME_SHADOWING")
         userIds.forEach { userId -> service.onPackageInstalled(androidPackage.packageName, userId) }
 
