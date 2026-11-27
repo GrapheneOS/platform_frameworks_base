@@ -4115,6 +4115,9 @@
     <!-- Provider Model: Description of the airplane mode button. [CHAR LIMIT=60] -->
     <string name="turn_off_airplane_mode">Turn off airplane mode</string>
 
+    <!-- Title for the system authentication prompt shown before airplane mode is disabled. [CHAR LIMIT=60] -->
+    <string name="airplane_mode_authentication_title">Confirm turning off airplane mode</string>
+
     <!-- Text for TileService request dialog. This is shown to the user that an app is requesting
          user approval to add the shown tile to Quick Settings [CHAR LIMIT=NONE] -->
     <string name="qs_tile_request_dialog_text"><xliff:g id="appName" example="Fake App">%1$s</xliff:g> wants to add the following tile to Quick Settings</string>
