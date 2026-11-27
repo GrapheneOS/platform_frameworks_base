@@ -27,14 +27,17 @@ import android.icu.util.Calendar;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.location.LocationRequest;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.text.format.DateUtils;
 import android.util.ArrayMap;
 import android.util.Slog;
 
 import com.android.internal.annotations.GuardedBy;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.SystemService;
 
 import com.ibm.icu.impl.CalendarAstronomer;
@@ -69,6 +72,7 @@ public final class TwilightService extends SystemService
     private boolean mHasListeners;
 
     private BroadcastReceiver mTimeChangedReceiver;
+    private BroadcastReceiver mProvidersChangedReceiver;
     protected Location mLastLocation;
 
     @GuardedBy("mListeners")
@@ -156,9 +160,24 @@ public final class TwilightService extends SystemService
     private void startListening() {
         Slog.d(TAG, "startListening");
 
-        // Start listening for location updates (default: low power, max 1h, min 10m).
-        mLocationManager.requestLocationUpdates(
-                null /* default */, this, Looper.getMainLooper());
+        // Start listening for location updates, and update the request whenever the network
+        // provider is enabled or disabled since the request quality depends on it.
+        requestLocationUpdates();
+        if (mProvidersChangedReceiver == null) {
+            mProvidersChangedReceiver = new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context context, Intent intent) {
+                    if (LocationManager.NETWORK_PROVIDER.equals(
+                            intent.getStringExtra(LocationManager.EXTRA_PROVIDER_NAME))) {
+                        Slog.d(TAG, "onReceive: " + intent);
+                        requestLocationUpdates();
+                    }
+                }
+            };
+
+            getContext().registerReceiver(mProvidersChangedReceiver,
+                    new IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION), null, mHandler);
+        }
 
         // Request the device's location immediately if a previous location isn't available.
         if (mLocationManager.getLastLocation() == null) {
@@ -192,8 +211,35 @@ public final class TwilightService extends SystemService
         updateTwilightState();
     }
 
+    private void requestLocationUpdates() {
+        mLocationManager.requestLocationUpdates(LocationManager.FUSED_PROVIDER,
+                createLocationRequest(
+                        mLocationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)),
+                getContext().getMainExecutor(), this);
+    }
+
+    /**
+     * Creates the request used for location updates. Twilight only needs a coarse location, so
+     * low power quality is used when the network provider is enabled, which avoids keeping a
+     * GNSS session started. Otherwise, balanced quality is used so that the fused provider can
+     * still fall back to GNSS, since there would be no other source of location updates.
+     */
+    @VisibleForTesting
+    static LocationRequest createLocationRequest(boolean networkProviderEnabled) {
+        return new LocationRequest.Builder(DateUtils.HOUR_IN_MILLIS)
+                .setQuality(networkProviderEnabled
+                        ? LocationRequest.QUALITY_LOW_POWER
+                        : LocationRequest.QUALITY_BALANCED_POWER_ACCURACY)
+                .build();
+    }
+
     private void stopListening() {
         Slog.d(TAG, "stopListening");
+
+        if (mProvidersChangedReceiver != null) {
+            getContext().unregisterReceiver(mProvidersChangedReceiver);
+            mProvidersChangedReceiver = null;
+        }
 
         if (mTimeChangedReceiver != null) {
             getContext().unregisterReceiver(mTimeChangedReceiver);
