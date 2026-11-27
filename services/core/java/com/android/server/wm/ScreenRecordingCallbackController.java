@@ -235,7 +235,8 @@ public class ScreenRecordingCallbackController {
         }
         boolean[] hasRecordedActivity = {false};
         mRecordedWC.forAllActivities(activityRecord -> {
-            if (activityRecord.getUid() == uid && activityRecord.isVisibleRequested()) {
+            if (activityRecord.getUid() == uid && activityRecord.isVisibleRequested()
+                    && !ScreenCaptureAppPolicy.isScreenRecordingDetectionBlocked(activityRecord)) {
                 hasRecordedActivity[0] = true;
                 return true;
             }
@@ -252,7 +253,8 @@ public class ScreenRecordingCallbackController {
         }
         mRecordedWC.forAllActivities(activityRecord -> {
             if (activityRecord.isVisibleRequested() && mLastInvokedStateByUid.containsKey(
-                    activityRecord.getUid())) {
+                    activityRecord.getUid())
+                    && !ScreenCaptureAppPolicy.isScreenRecordingDetectionBlocked(activityRecord)) {
                 result.add(activityRecord.getUid());
             }
         }, true /*traverseTopToBottom*/);

@@ -36,6 +36,11 @@ import java.util.Objects;
 public class SensitiveContentPackages {
     private final ArraySet<PackageInfo> mProtectedPackages = new ArraySet<>();
 
+    // Per-app screen recording overrides (android.ext.settings.app.AswAllowScreenRecording),
+    // populated only while a media projection session is active
+    private final ArraySet<PackageInfo> mScreenRecordingBlockedPackages = new ArraySet<>();
+    private final ArraySet<PackageInfo> mScreenRecordingAllowedPackages = new ArraySet<>();
+
     /**
      * Returns {@code true} if package/uid/window combination should be blocked
      * from screen capture.
@@ -100,6 +105,34 @@ public class SensitiveContentPackages {
         return true;
     }
 
+    public boolean isScreenRecordingBlockedForApp(String pkg, int uid) {
+        return !mScreenRecordingBlockedPackages.isEmpty()
+                && mScreenRecordingBlockedPackages.contains(new PackageInfo(pkg, uid));
+    }
+
+    public boolean isScreenRecordingAllowedForApp(String pkg, int uid) {
+        return !mScreenRecordingAllowedPackages.isEmpty()
+                && mScreenRecordingAllowedPackages.contains(new PackageInfo(pkg, uid));
+    }
+
+    /**
+     * Replaces per-app screen recording overrides.
+     *
+     * @return {@code true} if the overrides changed, {@code false} otherwise.
+     */
+    public boolean setScreenRecordingOverrides(@NonNull ArraySet<PackageInfo> blocked,
+            @NonNull ArraySet<PackageInfo> allowed) {
+        if (mScreenRecordingBlockedPackages.equals(blocked)
+                && mScreenRecordingAllowedPackages.equals(allowed)) {
+            return false;
+        }
+        mScreenRecordingBlockedPackages.clear();
+        mScreenRecordingBlockedPackages.addAll(blocked);
+        mScreenRecordingAllowedPackages.clear();
+        mScreenRecordingAllowedPackages.addAll(allowed);
+        return true;
+    }
+
     /**
      * @return the size of protected packages.
      */
@@ -117,6 +150,10 @@ public class SensitiveContentPackages {
             pw.println(innerPrefix + "  package=" + info.mPkg + "  uid=" + info.mUid
                     + " windowToken=" + info.mWindowToken);
         }
+        pw.println(innerPrefix + "Packages blocked from screen recording by user: "
+                + mScreenRecordingBlockedPackages);
+        pw.println(innerPrefix + "Packages allowed to be screen recorded by user: "
+                + mScreenRecordingAllowedPackages);
     }
 
     /**
