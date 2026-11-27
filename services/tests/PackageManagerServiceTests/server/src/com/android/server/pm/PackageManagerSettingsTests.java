@@ -1637,6 +1637,46 @@ public class PackageManagerSettingsTests {
     private static final long INITIAL_VERSION_CODE = 10023L;
     private static final long UPDATED_VERSION_CODE = 10025L;
 
+    private static PackageSetting createPackageSettingWithFlags(String packageName,
+            int pkgFlags) {
+        return new PackageSetting(packageName, null /*realPkgName*/, INITIAL_CODE_PATH, pkgFlags,
+                0 /*pkgPrivateFlags*/, UUID.randomUUID());
+    }
+
+    @Test
+    public void testRestoreBootRequiredPackageStates() {
+        final PackageSetting bluetooth = createPackageSettingWithFlags("com.android.bluetooth",
+                ApplicationInfo.FLAG_SYSTEM);
+        bluetooth.setEnabled(COMPONENT_ENABLED_STATE_DISABLED_USER, 0, "com.android.shell");
+        bluetooth.setHidden(true, 10);
+        final PackageSetting enabledRequired =
+                createPackageSettingWithFlags("android", ApplicationInfo.FLAG_SYSTEM);
+        enabledRequired.setEnabled(COMPONENT_ENABLED_STATE_ENABLED, 0, "com.android.shell");
+        final PackageSetting notRequired = createPackageSettingWithFlags("com.android.test.other",
+                ApplicationInfo.FLAG_SYSTEM);
+        notRequired.setEnabled(COMPONENT_ENABLED_STATE_DISABLED_USER, 0, "com.android.shell");
+        final PackageSetting notSystem = createPackageSettingWithFlags("com.android.test.app", 0);
+        notSystem.setEnabled(COMPONENT_ENABLED_STATE_DISABLED, 0, "com.android.shell");
+
+        final WatchedArrayMap<String, PackageSetting> packageSettings = new WatchedArrayMap<>();
+        for (PackageSetting ps : List.of(bluetooth, enabledRequired, notRequired, notSystem)) {
+            packageSettings.put(ps.getPackageName(), ps);
+        }
+        final ArraySet<String> required = new ArraySet<>(List.of(
+                "com.android.bluetooth", "android", "com.android.test.app",
+                "com.android.test.missing"));
+
+        final List<String> changed = PackageManagerService.restoreBootRequiredPackageStates(
+                packageSettings, required, new int[] {0, 10});
+
+        assertThat(changed, is(List.of("com.android.bluetooth")));
+        assertThat(bluetooth.getEnabled(0), is(COMPONENT_ENABLED_STATE_DEFAULT));
+        assertThat(bluetooth.getHidden(10), is(false));
+        assertThat(enabledRequired.getEnabled(0), is(COMPONENT_ENABLED_STATE_ENABLED));
+        assertThat(notRequired.getEnabled(0), is(COMPONENT_ENABLED_STATE_DISABLED_USER));
+        assertThat(notSystem.getEnabled(0), is(COMPONENT_ENABLED_STATE_DISABLED));
+    }
+
     @Test
     public void testPackageStateCopy01() {
         final PackageSetting origPkgSetting01 = new PackageSetting(
