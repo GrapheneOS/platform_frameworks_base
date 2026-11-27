@@ -62,6 +62,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ParceledListSlice;
 import android.content.pm.UserInfo;
 import android.content.res.Resources;
+import android.ext.settings.ExtSettings;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
 import android.os.Environment;
@@ -576,12 +577,30 @@ class RecentTasks {
             // Read task files from storage.
             final SparseBooleanArray persistedTaskIds =
                     mTaskPersister.readPersistedTaskIdsFromFileForUser(userId);
-            final TaskPersister.RecentTaskFiles taskFiles = TaskPersister.loadTasksForUser(userId);
+            // When clearing, the task files are listed without being loaded so that restoring
+            // treats all of them as obsolete and removes them.
+            final boolean clearRecentTasks = shouldClearRecentTasks(userId);
+            final TaskPersister.RecentTaskFiles taskFiles = clearRecentTasks
+                    ? TaskPersister.listTasksForUser(userId)
+                    : TaskPersister.loadTasksForUser(userId);
             synchronized (mService.mGlobalLock) {
                 restoreRecentTasksLocked(userId, persistedTaskIds, taskFiles);
             }
             userLoaded.set(true);
+            if (clearRecentTasks) {
+                // Run a TaskPersister cleanup pass to remove the snapshots and task images of the
+                // tasks that weren't restored. It only covers users with loaded recents, so this
+                // has to happen after userLoaded is set.
+                synchronized (mService.mGlobalLock) {
+                    notifyTaskPersisterLocked(null, false);
+                }
+            }
         }
+    }
+
+    @VisibleForTesting
+    boolean shouldClearRecentTasks(int userId) {
+        return ExtSettings.CLEAR_RECENTS_ON_REBOOT.get(mService.mContext, userId);
     }
 
     /** Restores recent tasks from raw data (the files are already read into memory). */
