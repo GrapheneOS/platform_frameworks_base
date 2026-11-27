@@ -14458,6 +14458,14 @@ public final class Settings {
         public static final String AUTO_REBOOT_TIMEOUT = "settings_reboot_after_timeout";
 
         /** @hide */
+        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        public static final String LOCK_ACTION_ENABLED = "lock_action_enabled";
+
+        /** @hide */
+        @Protected(readWrite = KnownSystemPackage.SETTINGS)
+        public static final String LOCK_ACTION_TYPE = "lock_action_type";
+
+        /** @hide */
         @Protected(restrictReads = false, readWrite = KnownSystemPackage.SETTINGS)
         public static final String GNSS_SUPL = "force_disable_supl"; // historical name
 
