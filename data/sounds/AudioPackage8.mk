@@ -15,7 +15,6 @@ PRODUCT_COPY_FILES += \
 	$(LOCAL_PATH)/alarms/ogg/Nobelium.ogg:$(TARGET_COPY_OUT_PRODUCT)/media/audio/alarms/Nobelium.ogg \
 	$(LOCAL_PATH)/alarms/ogg/Osmium.ogg:$(TARGET_COPY_OUT_PRODUCT)/media/audio/alarms/Osmium.ogg \
 	$(LOCAL_PATH)/alarms/ogg/Plutonium.ogg:$(TARGET_COPY_OUT_PRODUCT)/media/audio/alarms/Plutonium.ogg \
-	$(LOCAL_PATH)/alarms/ogg/Promethium.ogg:$(TARGET_COPY_OUT_PRODUCT)/media/audio/alarms/Promethium.ogg \
 	$(LOCAL_PATH)/effects/ogg/Effect_Tick.ogg:$(TARGET_COPY_OUT_PRODUCT)/media/audio/ui/Effect_Tick.ogg \
 	$(LOCAL_PATH)/effects/ogg/KeypressStandard.ogg:$(TARGET_COPY_OUT_PRODUCT)/media/audio/ui/KeypressStandard.ogg \
 	$(LOCAL_PATH)/effects/ogg/KeypressSpacebar.ogg:$(TARGET_COPY_OUT_PRODUCT)/media/audio/ui/KeypressSpacebar.ogg \
