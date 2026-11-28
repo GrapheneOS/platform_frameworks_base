@@ -32,7 +32,7 @@ class EolDeviceNotification {
         b.setSmallIcon(R.drawable.stat_sys_warning);
         b.setContentTitle("This device is no longer supported");
 
-        String text = "This device stopped receiving full security updates in " + eolDate
+        String text = "This device stopped receiving full security updates after " + eolDate
                 + " and isn't safe to use anymore regardless of OS choice. It's strongly " +
                 "recommended to replace it as soon as possible. Tap to see more info.";
         b.setStyle(new Notification.BigTextStyle().bigText(text));
